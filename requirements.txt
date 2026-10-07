@@ -1,0 +1,21 @@
+# Backend: Python + FastAPI (stack). CPU-only: no GPU, no GPU cluster.
+--extra-index-url https://download.pytorch.org/whl/cpu
+fastapi>=0.136
+uvicorn>=0.46
+pydantic>=2.13
+pydantic-settings>=2.14
+python-multipart>=0.0.28
+psycopg[binary,pool]>=3.3
+pgvector>=0.5
+boto3>=1.43                 # S3, SQS (and Bedrock later)
+PyJWT>=2.12                 # JWT auth (Cognito can replace token verification later)
+pypdf>=6.0
+python-docx>=1.2
+httpx>=0.28
+# Embeddings (BGE-M3) and reranker (multilingual BGE reranker), run on CPU
+torch>=2.14
+sentence-transformers>=6
+# Generation providers: Gemini / OpenAI / Claude initially (Bedrock later via boto3)
+google-genai>=2.2
+openai>=2.36
+anthropic>=1.11

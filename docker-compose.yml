@@ -1,0 +1,14 @@
+# Local development database only: PostgreSQL + pgvector (production: Amazon RDS PostgreSQL + pgvector).
+# One container. No Kubernetes, no extra services.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: qb-postgres
+    environment:
+      POSTGRES_USER: quixotic
+      POSTGRES_PASSWORD: quixotic
+      POSTGRES_DB: quixotic_brain
+    ports: ["5432:5432"]
+    volumes: ["qb-pgdata:/var/lib/postgresql/data"]
+volumes:
+  qb-pgdata:

@@ -1,0 +1,21 @@
+{
+  "_source": "PRODUCT.md §58 — the only evaluation questions the PRD provides. Add validated company questions here (V1 target, §59: correct information in the top 5 for at least 90% of validated queries).",
+  "questions": [
+    {
+      "question": "customer bol raha hai bohat expensive hai",
+      "expected_source": "Price Objection Playbook"
+    },
+    {
+      "question": "employee annual leave kitni hai?",
+      "expected_source": "HR Leave Policy"
+    },
+    {
+      "question": "can we give 20% discount?",
+      "expected_source": "Discount Authorization Policy"
+    }
+  ],
+  "_unanswerable_source": "PRODUCT.md §35 — the PRD's own example of a question the knowledge base cannot answer. Used to calibrate the Low-confidence threshold.",
+  "unanswerable": [
+    "new client ka onboarding SLA kya hai?"
+  ]
+}
