@@ -1,4 +1,5 @@
 -r requirements.txt
 pytest>=9
-moto[s3,sqs]>=5     # mocked AWS for the S3/SQS adapter tests and the local stack
+moto[s3,sqs,server]>=5   # mocked AWS for the S3/SQS adapter tests and the local stack (server = scripts/dev_up.py)
 pglast>=7           # optional: syntax-check SQL
+fpdf2>=2.7          # builds test PDFs (tests/test_language_ingestion_sales.py)

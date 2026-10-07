@@ -55,7 +55,7 @@ class LanguageService:
         self._vocab_at = time.monotonic()
 
     def _fresh_vocabulary(self) -> None:
-        if self._vocab_loader and time.monotonic() - self._vocab_at > self._vocab_ttl:
+        if self._vocab_loader and time.monotonic() - self._vocab_at >= self._vocab_ttl:   # >=: Windows' clock ticks ~15 ms
             try:
                 self.refresh_vocabulary()
             except Exception:                                            # database hiccup: keep the words we already have

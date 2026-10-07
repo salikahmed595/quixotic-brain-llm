@@ -53,17 +53,40 @@ docker compose up -d postgres          # database (once)
 python scripts/dev_up.py               # local S3/SQS stand-in + migrations + API + worker -> http://localhost:8000
 python -m backend.cli create-user --employee-id admin --email you@your-company.com --name "Your Name" --role administrator
 ```
-Open **http://localhost:8000** (never the `index.html` file directly: the page needs the API behind it). There is no self sign-up: an
-administrator adds people under *Users* (PRD §9.4, §41). Settings live in `.env` (git-ignored; template: `.env.example`).
+Open **http://localhost:8000** (never the `index.html` file directly: the page needs the API behind it). New people either use
+*Create an account* on the login page (an approver then grants access) or are added by an administrator under *Users*. Settings live
+in `.env` (git-ignored; template: `.env.example` — keep comments on their own lines).
+
+## Windows quick start (PowerShell)
+
+Needs Python 3.12+ and Docker Desktop. Docker needs hardware virtualization: if Docker Desktop says *Virtual Machine Platform
+not enabled*, turn on **SVM Mode** (AMD) or **Intel VT-x** in the BIOS, then run `wsl --install --no-distribution` in an
+administrator PowerShell and restart Windows.
+
+```powershell
+py -3 -m venv .venv                                        # or: python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+copy .env.example .env                                     # then set QB_SESSION_SECRET and, for answers, the model id + API key
+docker compose up -d postgres
+.\.venv\Scripts\python.exe scripts\dev_up.py               # moto S3/SQS + migrations + API + worker -> http://localhost:8000
+```
+In a second PowerShell, create the first administrator (prompts for the password):
+```powershell
+$env:QB_DATABASE_URL="postgresql://quixotic:quixotic@localhost:5432/quixotic_brain"
+.\.venv\Scripts\python.exe -m backend.cli create-user --employee-id admin --email you@your-company.com --name "Your Name" --role administrator --department "Company Wide"
+```
+Afterwards, start everything by opening Docker Desktop and double-clicking **`Start Quixotic AI.bat`**. The models (BGE-M3 and the
+reranker, ~4.6 GB) download on first start and are cached; `GET /v1/health` shows `"models": "ready"` once loaded (1–2 minutes).
+`scripts/download_models.sh` is optional (bash only); the default `.env.example` loads the models by their Hugging Face ids.
 
 ## Run it locally (step by step)
 
 ```bash
 pip install -r requirements-dev.txt                 # CPU PyTorch, sentence-transformers, SDKs, test tools
 docker compose up -d postgres                       # PostgreSQL + pgvector (or point QB_DATABASE_URL at RDS)
-scripts/download_models.sh                          # BGE-M3 + BGE reranker (~4.6 GB, resumable) into .models/
+scripts/download_models.sh                          # optional: BGE-M3 + BGE reranker (~4.6 GB) into .models/ (else downloaded on first use)
 cp .env.example .env                                # review every value (PRD_GAPS §1); add GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY
-pip install "moto[server]" && moto_server -p 5000   # local S3 + SQS stand-in (create the bucket and queue named in .env)
+moto_server -p 5000                                 # local S3 + SQS stand-in (create the bucket and queue named in .env)
 python -m backend.cli migrate
 QB_NEW_USER_PASSWORD=... python -m backend.cli create-user --employee-id emp_001 --email you@quixotic.ai     --name "Your Name" --role administrator --department "Company Wide"
 uvicorn backend.main:app                            # API  (docs at /docs)

@@ -1,0 +1,7 @@
+# Keep LF line endings in the repository and working copy (shell scripts, Docker and Python tooling expect them).
+* text=auto eol=lf
+# Windows batch files need CRLF.
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.pdf binary

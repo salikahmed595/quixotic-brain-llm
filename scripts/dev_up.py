@@ -6,15 +6,19 @@
   4. the background worker (processes uploads)
 PostgreSQL must already be running:  docker compose up -d postgres
 Press Ctrl+C to stop everything."""
-import os, subprocess, sys, time
+import os, re, subprocess, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
+if not (ROOT / ".env").is_file():
+    sys.exit("No .env file. Copy .env.example to .env and review the values first (see docs/backend.md).")
 env = {**os.environ}
 for line in (ROOT / ".env").read_text(encoding="utf-8").splitlines():     # .env -> environment (also for boto3's dummy credentials)
-    if line.strip() and not line.startswith("#") and "=" in line:
-        k, v = line.split("=", 1); env.setdefault(k.strip(), v.strip())
+    if line.strip() and not line.lstrip().startswith("#") and "=" in line:
+        k, v = line.split("=", 1)
+        v = re.sub(r"\s+#.*$", "", v).strip().strip("'\"")                # drop trailing "  # comment", like python-dotenv
+        env.setdefault(k.strip(), v)
 procs = []
 def start(*args): p = subprocess.Popen([sys.executable, *args], env=env, cwd=ROOT); procs.append(p); return p
 try:

@@ -113,6 +113,15 @@ the model needs a migration + re-index, §24.2) · `sentence-transformers` for B
 `boto3` (S3, SQS, Bedrock Converse API) · CPU-only PyTorch (stack: no GPU) · synchronous endpoints · Docker image `python:3.14-slim` (the version the tests ran on) ·
 `tenant_id` column on business tables (§66) · `jobs` table for background-job progress (§47).
 
+**Local development setup (2026-10-07; tooling only, no product behaviour)**
+- `scripts/dev_up.py` drops trailing `# comments` from `.env` values (like python-dotenv) and stops with a clear message when `.env`
+  is missing. Before, `QB_SESSION_TTL_SECONDS=28800  # PLACEHOLDER` reached the app verbatim and failed validation.
+- `.env.example` is now a working local template: comments on their own lines, dummy `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
+  for the moto stand-in (boto3 refuses to sign requests without credentials), `QB_RAW_STORAGE_DIR=.devstore`, `QB_FRONTEND_DIR=frontend`,
+  and the models by Hugging Face id (`BAAI/bge-m3`, `BAAI/bge-reranker-v2-m3`) instead of a `.models/` folder that only the bash script creates.
+- `requirements-dev.txt` installs `moto[server]` (needed by `dev_up.py`'s `moto.server`).
+- `Start Quixotic AI.bat` uses the project's `.venv` Python when present and stops with a message when Docker is not running.
+
 ## 5. Deliberately not built
 
 PRD §5 non-goals; §41 SSO/MFA ("potential later"); §13.1 Google Drive/website/Notion/Slack/email/CRM; §45 Qdrant migration; §61 Phase 5
