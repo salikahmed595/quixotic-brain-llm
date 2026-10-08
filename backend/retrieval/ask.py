@@ -13,7 +13,7 @@ from ..config import Settings
 from ..generation.base import GenerationProvider
 from ..models import AnswerContext, Candidate
 from .language import NormalizedQuery
-from .search import SearchService
+from .search import SearchService, confidence_label
 
 # PRD §29 (no evidence at all) and §32 (low confidence) — wording is the PRD's.
 NOT_FOUND_TEXT = (
@@ -22,6 +22,13 @@ NOT_FOUND_TEXT = (
 )
 LOW_CONFIDENCE_TEXT = "I could not find enough reliable Quixotic information to answer this confidently."
 LOW_CONFIDENCE_ACTIONS = ["ask_manager", "report_missing_knowledge", "search_documents"]   # §32
+# Owner request (2026-10-08): an answer written only from past sales chats always starts with this line (PRD §19: keep
+# historical correlation and official policy clearly distinguishable).
+# MEASURED on 800 of the owner's chats: "hello" (0.97) and "thanks" (0.88) match chat lines more closely than real sales
+# questions do (0.58-0.72), so similarity alone cannot decide; the answer model also confirms the chats are on topic.
+NO_RELEVANT_HISTORY = "NO_RELEVANT_HISTORY"
+HISTORY_ONLY_LABEL = ("Based on past sales chats, not an official Quixotic policy. "
+                      "No approved policy or SOP covers this yet.")
 SUCCESSFUL_OUTCOME = "closed"        # §16.2 example outcome value; PRD defines no other success rule
 
 
@@ -83,15 +90,22 @@ class AskService:
                                  extra_search_text=interpretation)
         base = dict(confidence=out.confidence, confidence_score=out.confidence_score, query=out.query,
                     retrieved=out.candidates)
-        if not out.candidates:                                                        # §29
-            return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=LOW_CONFIDENCE_ACTIONS, **base)
-        if out.confidence == "low":                                                   # §32: no LLM call
-            return AskResult(answer=LOW_CONFIDENCE_TEXT, found=False, actions=LOW_CONFIDENCE_ACTIONS, **base)
-
+        min_sim = self.settings.sales_history_min_similarity
         cases = []
-        if include_sales_history and sales_department_ids and out.embedding is not None:
+        if (include_sales_history or min_sim is not None) and sales_department_ids and out.embedding is not None:
             cases = self.search.store.sales_search(out.embedding, self.search.embedder.name,
                                                    sales_department_ids, self.settings.historical_top_k)
+            if min_sim is not None:
+                cases = [c for c in cases if c.similarity >= min_sim]
+        if not out.candidates or out.confidence == "low":
+            if cases and min_sim is not None:                                         # owner request: history-only answer
+                res = self._history_only(out, cases, history, asker, preferences)
+                if res is not None:
+                    return res
+            if not out.candidates:                                                    # §29
+                return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=LOW_CONFIDENCE_ACTIONS, **base)
+            return AskResult(answer=LOW_CONFIDENCE_TEXT, found=False, actions=LOW_CONFIDENCE_ACTIONS, **base)   # §32: no LLM call
+
         context = AnswerContext(knowledge=order_by_priority(out.candidates, self.settings.priority_tiers),
                                 sales_cases=cases, history=list(history),
                                 asker=asker or {}, preferences=preferences or {})
@@ -105,3 +119,20 @@ class AskService:
                 seen.add(key)
                 sources.append(source_of(c))
         return AskResult(answer=answer, found=True, sources=sources, historical_cases=hist, **base)
+
+    def _history_only(self, out, cases, history, asker, preferences) -> Optional[AskResult]:
+        """No approved knowledge matched: answer from similar past sales chats only, labelled as such. Still counted as a
+        knowledge gap (found=False) so administrators see that a policy/SOP is missing (§35). Confidence comes from how close
+        the past chats are, on the same vector thresholds as knowledge (§31). None when the answer model finds them off topic."""
+        context = AnswerContext(knowledge=[], sales_cases=cases, history=list(history),
+                                asker=asker or {}, preferences=preferences or {})
+        text = self.generator.generate_answer(context, out.query.original)
+        if NO_RELEVANT_HISTORY in text:                      # the past chats are not about this question -> PRD §29/§32 answer
+            return None
+        answer = f"{HISTORY_ONLY_LABEL}\n\n{text}"
+        top = max(c.similarity for c in cases)
+        s = self.settings
+        hist = {"similar": len(cases), "successful": sum(c.outcome == SUCCESSFUL_OUTCOME for c in cases)}
+        return AskResult(answer=answer, found=False, historical_cases=hist, confidence_score=top,
+                         confidence=confidence_label(top, s.confidence_vector_high, s.confidence_vector_medium),
+                         query=out.query, retrieved=out.candidates)

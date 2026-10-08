@@ -243,3 +243,31 @@ def test_pdf_text_is_cleaned_and_numbered_headings_become_sections():
     assert "We build software for small teams." in text               # wrapped line re-joined
     assert "- fast" in text and "\uf0b7" not in text                  # bullet glyphs normalised
     assert "10. Identify the objection." not in [b.section for b in pdf_blocks(["10. Identify the objection.\nx", "a", "b"])]
+
+
+# ---- owner request (2026-10-08): already-structured sales memory export (§16.2 fields) ----
+OWNER_EXPORT = [
+    {"conversation_id": 6, "customer_objection": "price too high", "customer_message": "too much, call me on +44 7700 900123",
+     "agent_response": "I understand, mail me at a@b.co", "scenario": "price objection", "product": "logo", "stage": "objection",
+     "outcome": "closed", "sale_value": 90, "discount_given": 0, "language": "english", "quality_score": 0.5, "unknown": 1},
+    {"conversation_id": "7", "customer_message": "", "agent_response": "hi", "scenario": None},     # nothing to embed -> skipped
+]
+
+
+def test_structured_export_is_detected_and_mapped():
+    from backend.sales_memory.importer import parse_structured
+    recs = parse_structured(json.dumps(OWNER_EXPORT).encode())
+    assert recs[0].sales_stage == "objection" and recs[0].conversation_id == "6" and recs[0].customer_objection == "price too high"
+    assert parse_structured(b"{}") is None and parse_structured(b"not json") is None
+    assert parse_structured(json.dumps([{"messages": []}]).encode()) is None          # a Discord-style export is not this format
+
+
+def test_structured_import_anonymizes_embeds_in_batches_and_reports_progress():
+    store, prog, batches = _Store(), [], []
+    class Emb(_Emb):
+        def embed_many(self, ts): batches.append(len(ts)); return [self.embed(t) for t in ts]
+    n = SalesMemoryImporter(store, Emb(), lang, None, None).run(json.dumps(OWNER_EXPORT).encode(), "dept",
+                                                                on_progress=lambda d, t: prog.append((d, t)))
+    rec = store.rows[0][0]
+    assert n == 1 and batches == [1] and prog == [(0, 1), (1, 1)]
+    assert "[PHONE]" in rec["customer_message"] and "[EMAIL]" in rec["agent_response"] and rec["sales_stage"] == "objection"

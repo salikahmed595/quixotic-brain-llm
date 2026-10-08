@@ -37,6 +37,8 @@ class SalesCase:
     agent_response: Optional[str]
     outcome: Optional[str]
     similarity: float
+    customer_objection: Optional[str] = None     # PRD §17.2 "Extract Objection"
+    sales_stage: Optional[str] = None
 
 
 @dataclass

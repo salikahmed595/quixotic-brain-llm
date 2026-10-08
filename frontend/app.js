@@ -108,6 +108,7 @@ const NAV = [
   { id: 'knowledge', label: 'Knowledge', icon: 'book', min: 1 },
   { id: 'add', label: 'Add information', icon: 'plus', min: 1 },
   { id: 'documents', label: 'Documents', icon: 'doc', min: 1 },
+  { id: 'sales', label: 'Sales memory', icon: 'msg', min: 3 },
   { group: 'Manage', min: 2 },
   { id: 'approvals', label: 'Approvals', icon: 'check', min: 2 },
   { id: 'requests', label: 'Access requests', icon: 'users', min: 2 },
@@ -660,6 +661,47 @@ async function pageDocuments(view) {
   load();
 }
 
+/* ================= SALES MEMORY (PRD §16-§17: past sales chats, imported per department) ================= */
+async function pageSales(view) {
+  view.innerHTML = `<div class="page" style="max-width:980px"><div class="page-head"><div><h1>Sales memory</h1><p>Past sales chats the AI learns from. Each file is used only by people in the department you choose.</p></div></div>
+    <form class="card grid" id="sf" style="gap:18px;margin-bottom:22px">
+      <div class="field"><label>Department</label><select class="select" name="dept" required><option value="">Choose who these chats are for…</option>${S.departments.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Chats file (JSON)</label><label class="card" id="sdrop" style="border:2px dashed var(--orange);box-shadow:none;text-align:center;background:var(--orange-50);cursor:pointer;display:block"><div style="color:var(--orange)">${ic('cloud', 34)}</div><b id="sName">Choose a JSON file or drop it here</b><div class="hint" id="sDetect">One object per message: customer_message, agent_response, scenario, outcome…</div><input type="file" name="file" id="sIn" accept=".json" hidden required></label></div>
+      <div id="sMsg"></div>
+      <div class="row" style="justify-content:flex-end"><button type="submit" class="btn primary">${ic('cloud', 17)} Process conversations</button></div></form>
+    <h3 style="margin-bottom:10px">Imports</h3><div id="sl">${loading()}</div></div>`;
+  const f = $('#sIn');
+  f.onchange = async () => {
+    const file = f.files[0]; $('#sName').textContent = file ? file.name : 'Choose a JSON file or drop it here'; if (!file) return;
+    try { const d = JSON.parse(await file.text()); const recs = Array.isArray(d) ? d : [];
+      $('#sDetect').textContent = recs.length ? `Detected: ${new Set(recs.map(r => r.conversation_id)).size.toLocaleString()} conversations, ${recs.length.toLocaleString()} messages` : 'This file is not a list of chat records.';
+    } catch (e) { $('#sDetect').textContent = 'This file is not valid JSON.'; }
+  };
+  const d = $('#sdrop'); d.ondragover = e => e.preventDefault(); d.ondrop = e => { e.preventDefault(); f.files = e.dataTransfer.files; f.onchange(); };
+  $('#sf').onsubmit = async e => {
+    e.preventDefault(); const form = e.target, btn = e.submitter, msg = $('#sMsg');
+    try { await busy(btn, async () => {
+      const fd = new FormData(); fd.append('file', form.file.files[0]); fd.append('department_id', form.dept.value);
+      await api('/v1/sales-memory/imports', { method: 'POST', form: fd });
+      msg.innerHTML = '<div class="banner ok">Uploaded. The chats are being processed below; large files take a few minutes.</div>'; form.reset();
+      $('#sName').textContent = 'Choose a JSON file or drop it here'; $('#sDetect').textContent = ''; load(); }); } catch (err) { msg.innerHTML = errBanner(err); }
+  };
+  const ST = { queued: ['Waiting', 'amber'], running: ['Processing', 'blue'], succeeded: ['Ready', 'green'], failed: ['Failed', 'red'] };
+  const load = async () => {
+    try {
+      const rows = (await api('/v1/sales-memory/imports')).imports; if (parseRoute().page !== 'sales') return clearInterval(S.timer);
+      $('#sl').innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>File</th><th>Department</th><th>Status</th><th>Chats learned</th><th>Uploaded</th><th></th></tr></thead><tbody>${rows.map(r => { const [l, c] = ST[r.status] || [r.status, ''];
+        const prog = r.status === 'running' && r.progress_total ? ` ${Math.round(100 * r.progress_done / r.progress_total)}%` : '';
+        return `<tr><td><b>${esc(r.filename || 'chats.json')}</b></td><td>${esc(r.department || '—')}</td><td><span class="chip ${c} dot">${l}${prog}</span>${r.error ? `<div class="hint" style="color:var(--red)">${esc(r.error)}</div>` : ''}</td><td>${Number(r.stored).toLocaleString()}</td><td>${fmtDate(r.created_at)}</td><td>${['succeeded', 'failed'].includes(r.status) && r.stored > 0 ? `<button class="btn ghost sm" data-del="${r.id}" title="Remove these chats">${ic('trash', 16)}</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`
+        : emptyState('msg', 'No chats imported yet', 'Upload a JSON file of past sales chats and choose the department that should learn from it.');
+      $$('[data-del]', view).forEach(b => b.onclick = () => modal('Remove these chats?', `<p style="color:var(--ink-2);margin-bottom:18px">The AI stops using the chats from this file. You can upload the file again later.</p><div class="row" style="justify-content:flex-end"><button class="btn" data-x>Cancel</button><button class="btn bad" data-ok>Remove</button></div>`,
+        { onMount: (el, close) => { $('[data-x]', el).onclick = close; $('[data-ok]', el).onclick = async () => { try { await api(`/v1/sales-memory/imports/${b.dataset.del}`, { method: 'DELETE' }); close(); toast('Removed'); load(); } catch (e) { toast(e.message); } }; } }));
+      if (rows.some(r => ['queued', 'running'].includes(r.status))) { clearInterval(S.timer); S.timer = setInterval(load, 4000); } else clearInterval(S.timer);
+    } catch (e) { $('#sl').innerHTML = errBanner(e); }
+  };
+  load();
+}
+
 /* ================= APPROVALS ================= */
 async function pageApprovals(view) {
   view.innerHTML = `<div class="page"><div class="page-head"><div><h1>Approvals</h1><p>Review knowledge before it becomes official.</p></div></div><div id="al">${loading()}</div></div>`;
@@ -929,6 +971,6 @@ async function pageVocabulary(view) {
   $('#tw').onclick = () => teachModal('', load); load();
 }
 
-const PAGES = { ask: renderAsk, knowledge: pageKnowledge, add: pageAdd, documents: pageDocuments, approvals: pageApprovals, requests: pageRequests, dashboard: pageDashboard, insights: pageInsights, users: pageUsers, departments: pageDepartments, keys: pageKeys, vocabulary: pageVocabulary, system: pageSystem };
+const PAGES = { ask: renderAsk, knowledge: pageKnowledge, add: pageAdd, documents: pageDocuments, sales: pageSales, approvals: pageApprovals, requests: pageRequests, dashboard: pageDashboard, insights: pageInsights, users: pageUsers, departments: pageDepartments, keys: pageKeys, vocabulary: pageVocabulary, system: pageSystem };
 boot();
 })();

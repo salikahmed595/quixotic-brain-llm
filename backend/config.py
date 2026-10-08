@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     # Restate Urdu / Roman Urdu / mixed questions as an English search query with one small LLM call (PRD §23). Optional.
     query_interpretation: bool = False
     feedback_learning: bool = True         # owner request: learn from 👍/👎 (retrieval order + personal style); docs/PRD_GAPS.md
+    # Owner request (2026-10-08): past sales chats (§16) are used in every Ask mode, and when no approved knowledge covers a
+    # question an answer is written from them alone, clearly labelled as not policy. Only past chats at least this similar
+    # (cosine) to the question are used. Unset = the PRD behaviour: history only in Sales Coach, never answering alone.
+    sales_history_min_similarity: Optional[float] = None
 
     # ---- pluggable providers (PRD §24, §27, §28) -------------------------------------
     embedding_provider: str = "bge-m3"     # PRD §24.1 initial model to evaluate
@@ -110,6 +114,8 @@ class Settings(BaseSettings):
             raise ValueError("require 0 <= confidence_medium <= confidence_high")
         if not 0 <= self.confidence_vector_medium <= self.confidence_vector_high <= 1:
             raise ValueError("require 0 <= confidence_vector_medium <= confidence_vector_high <= 1")
+        if self.sales_history_min_similarity is not None and not 0 <= self.sales_history_min_similarity <= 1:
+            raise ValueError("sales_history_min_similarity must be between 0 and 1")
         if not 1 <= self.rerank_top_k <= self.candidate_count:
             raise ValueError("require 1 <= rerank_top_k <= candidate_count")
         if self.reranker_provider and not self.reranker_model:

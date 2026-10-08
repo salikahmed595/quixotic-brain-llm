@@ -263,3 +263,25 @@ reversible. Veto any of it here. Migration 006. Switch: `QB_FEEDBACK_LEARNING=fa
 5. **Administrators** get Insights -> Answer quality: rated answers, helpful %, whether High / Medium / Low confidence really matches 👍 rates (useful to calibrate the thresholds), sources rated down / up, the recent 👎
    answers with reasons and an "Add missing knowledge" shortcut. No person is named. "Reset what it has learned" (admin) makes older ratings stop counting; nothing is deleted (audit trail intact; audited as `admin_action`).
 - Not done on purpose: reusing a past answer for a similar question (it could leak knowledge the new asker may not see, and PRD §21 requires validation first); changing knowledge or confidence thresholds automatically.
+
+## Owner-requested: past sales chats per department, answering from them when no policy exists (2026-10-08)
+
+The owner uploaded 4,216 already-extracted sales chat records (one JSON object per customer message / agent reply, PRD §16.2 fields) as an ordinary document. It never became searchable: the worker
+was stopped mid-job (jobs left `running` are not retried, see below), the file sat in Sales while the test employee only had Company Wide, and as a plain document the JSON would only be cut into text chunks.
+The owner then asked that each department's chats answer that department's staff (Upseller and Fresh Seller chats kept apart), and that an answer be given from past chats when no approved policy covers a question,
+clearly labelled. Veto any of it here. Migration 007.
+
+1. **Structured import** (`backend/sales_memory/importer.py`, `parse_structured`). A JSON list of objects with `customer_message` / `agent_response` is stored as sales memories as-is, without the Discord
+   parser/extractor plug-ins (which stay undefined, §2). Field names follow §16.2; `stage` is read as `sales_stage`; unknown fields are dropped. §17.2 steps still applied: anonymize (customer message, agent reply,
+   objection), detect language when missing, embed (the customer message, as before), store. `customer_objection` gets its own column (§17.2 "Extract Objection"). Records are embedded 32 at a time.
+2. **Per-department import screen** (Knowledge -> Sales memory, administrators, PRD §17.1 "Import Conversations"): choose the department, drop the JSON, see "Detected: N conversations, M messages", follow progress,
+   see how many chats were stored and **remove an import** (`DELETE /v1/sales-memory/imports/{job_id}`, audited) when the wrong file or department was used. `GET /v1/sales-memory/imports` lists imports.
+   Which chats belong to Upseller vs Fresh Seller is decided by the owner by uploading separate files; no automatic split rule exists.
+3. **Past chats in every Ask mode + history-only answers** — only when `QB_SALES_HISTORY_MIN_SIMILARITY` is set (unset = PRD behaviour: history only in Sales Coach, never answering alone).
+   - Past chats from the asker's own departments (same department filter as knowledge, §42) whose cosine similarity to the question is at least the setting are passed to the answer model in General mode too.
+   - When no approved knowledge is found or confidence is low (§29, §32), an answer is written from those chats only. It always starts with the fixed line *"Based on past sales chats, not an official Quixotic
+     policy. No approved policy or SOP covers this yet."* (PRD §19 distinction), prompt rule 14 forbids presenting it as policy or stating prices/discounts the chats do not show, its confidence comes from the
+     chat similarity on the vector thresholds (§31), and it is still logged as a failed question (§35) so the missing policy shows up for administrators. §20 is unchanged: when policy exists it leads.
+   - MEASURED on 800 of the owner's chats (BGE-M3): sales questions reach 0.58–0.72 similarity, but small talk matches chat lines even better ("hello" 0.97, "thanks" 0.88) and unrelated questions reach 0.49–0.68.
+     Similarity therefore only pre-filters (placeholder **0.55**); the answer model must also confirm the chats are about the same situation, else it replies `NO_RELEVANT_HISTORY` and the PRD §29/§32 answer is shown.
+4. Not fixed here (known gap): a job interrupted by stopping the worker stays `running` forever and its upload shows "Processing"; the local SQS stand-in (moto) also loses queued messages on restart. Re-upload in that case.

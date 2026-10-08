@@ -1,4 +1,5 @@
 """End-to-end against real PostgreSQL + pgvector: schema, workflow, ingestion, permissions-before-retrieval, hybrid search, ask."""
+import json
 import os
 from uuid import uuid4
 
@@ -204,3 +205,19 @@ def test_vocabulary_store_on_real_postgres(stores):
     ops.add_vocabulary("چھٹی", "leave", None)
     assert {e["meaning"] for e in ops.list_vocabulary()} == {"remote work", "leave"}
     assert ops.delete_vocabulary(a) and not ops.delete_vocabulary(a) and len(ops.list_vocabulary()) == 1
+
+
+def test_structured_sales_import_list_search_and_undo(stores):          # owner request (2026-10-08)
+    from backend.sales_memory.importer import SalesMemoryImporter
+    ops = stores["ops"]
+    sales, _, admin, emb, lang, _ = setup(stores, make_settings())
+    job = ops.create_job("discord.import", {"department_id": str(sales), "filename": "upsellers.json"}, admin)
+    raw = json.dumps([{"conversation_id": 1, "customer_objection": "price too high", "customer_message": "too expensive for me",
+                       "agent_response": "I understand", "scenario": "price objection", "stage": "objection", "outcome": "closed"}]).encode()
+    assert SalesMemoryImporter(ops, emb, lang, None, None).run(raw, sales, job) == 1
+    ops.update_job(job, status="succeeded")
+    c = stores["retrieval"].sales_search(emb.embed("too expensive"), emb.name, frozenset({sales}), 5)[0]
+    assert (c.customer_objection, c.sales_stage) == ("price too high", "objection")
+    row = ops.sales_memory_imports()[0]
+    assert (row["filename"], row["department"], row["stored"], row["status"]) == ("upsellers.json", "Sales", 1, "succeeded")
+    assert ops.delete_sales_memory_import(job) == 1 and ops.sales_memory_imports()[0]["stored"] == 0

@@ -66,9 +66,11 @@ class RetrievalSQLStore:
                      limit: int) -> list[SalesCase]:
         with self.pool.connection() as conn:
             rows = conn.execute(
-                "SELECT id, scenario, customer_message, agent_response, outcome, 1 - (embedding <=> %(emb)s) AS sim "
+                "SELECT id, scenario, customer_message, agent_response, outcome, customer_objection, sales_stage, "
+                "1 - (embedding <=> %(emb)s) AS sim "
                 "FROM sales_memories WHERE tenant_id=%(t)s AND embedding_model=%(m)s AND department_id = ANY(%(d)s) "
                 "ORDER BY embedding <=> %(emb)s LIMIT %(n)s",
                 {"emb": Vector(list(embedding)), "t": self.tenant, "m": model, "d": list(department_ids), "n": limit}).fetchall()
-        return [SalesCase(r["id"], r["scenario"], r["customer_message"], r["agent_response"], r["outcome"], float(r["sim"]))
+        return [SalesCase(r["id"], r["scenario"], r["customer_message"], r["agent_response"], r["outcome"], float(r["sim"]),
+                          r["customer_objection"], r["sales_stage"])
                 for r in rows]

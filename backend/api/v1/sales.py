@@ -48,11 +48,35 @@ def import_conversations(file: UploadFile = File(...), department_id: UUID = For
     except InvalidUpload as e:
         raise HTTPException(422, str(e))
     if ext != "json":
-        raise HTTPException(422, "Discord history must be a JSON file")
+        raise HTTPException(422, "Sales chat history must be a JSON file")
+    if department_id not in svc.users.all_department_ids():
+        raise HTTPException(422, "unknown department")
     job_id = uuid4()
     key = raw_discord_key(job_id, name)
     svc.storage.put(key, data)
-    jid = svc.ops.create_job("discord.import", {"s3_key": key, "department_id": str(department_id)}, actor.user_id)
+    jid = svc.ops.create_job("discord.import", {"s3_key": key, "department_id": str(department_id), "filename": name},
+                             actor.user_id)
     svc.queue.send(jid, "discord.import")
     audit.record(svc.ops, audit.ADMIN_ACTION, actor.user_id, actor.employee_id, action="import_discord_history", filename=name)
     return {"job_id": str(jid)}
+
+
+@router.get("/imports")
+def list_imports(_: Principal = Depends(require(P.IMPORT_HISTORICAL_DATA)), svc: Services = Depends(get_services)):
+    """§17.1: imports with progress (§47) and how many sales memories each stored."""
+    return {"imports": svc.ops.sales_memory_imports()}
+
+
+@router.delete("/imports/{job_id}")
+def delete_import(job_id: UUID, actor: Principal = Depends(require(P.IMPORT_HISTORICAL_DATA)),
+                  svc: Services = Depends(get_services)):
+    """Owner request (2026-10-08): undo an import made with the wrong file or department."""
+    job = svc.ops.get_job(job_id)
+    if job is None or job["type"] != "discord.import":
+        raise HTTPException(404, "import not found")
+    if job["status"] in ("queued", "running"):
+        raise HTTPException(409, "this import is still running")
+    n = svc.ops.delete_sales_memory_import(job_id)
+    audit.record(svc.ops, audit.ADMIN_ACTION, actor.user_id, actor.employee_id, action="delete_sales_memory_import",
+                 job_id=job_id, removed=n)
+    return {"removed": n}

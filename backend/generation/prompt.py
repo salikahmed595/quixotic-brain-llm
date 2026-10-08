@@ -52,6 +52,11 @@ Rules:
     user's own 👍/👎 ratings: follow it unless the user's explicit choices say otherwise. (owner request; PRD §21, §29)
 13. In <conversation>, an answer marked [not helpful] was rejected by the user: do not repeat it. Give a better, clearer answer, or say
     exactly what information is missing. Still answer only from <knowledge>. An answer marked [helpful] shows a style the user liked. (PRD §21)
+14. If <knowledge> is empty but <historical_cases> is present, no approved policy covers the question (owner request). Then answer from
+    the past chats only: say how agents handled similar customers and how those chats ended, and suggest a reply modelled on the
+    ones that closed. Never call it company policy, and never state a price, discount or promise the cases do not show. If none of
+    the past chats is about the same situation as the question (small talk, or an unrelated topic), reply with exactly
+    NO_RELEVANT_HISTORY and nothing else. (PRD §19, §20, §29)
 """
 
 
@@ -65,7 +70,9 @@ def build_user_prompt(context: AnswerContext, question: str) -> str:
         parts.append("<historical_cases>")
         for i, s in enumerate(context.sales_cases, 1):
             parts.append(
-                f"[H{i}] scenario: {neutralize(s.scenario) or '-'} | outcome: {neutralize(s.outcome) or '-'}\n"
+                f"[H{i}] scenario: {neutralize(s.scenario) or '-'} | outcome: {neutralize(s.outcome) or '-'}"
+                + (f" | stage: {neutralize(s.sales_stage)}" if s.sales_stage else "")
+                + (f" | objection: {neutralize(s.customer_objection)}" if s.customer_objection else "") + "\n"
                 f"customer: {neutralize(s.customer_message) or '-'}\nagent: {neutralize(s.agent_response) or '-'}"
             )
         parts.append("</historical_cases>")

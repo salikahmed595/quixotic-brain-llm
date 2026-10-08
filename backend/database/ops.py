@@ -206,18 +206,35 @@ class OpsStore:
                              (self.tenant, event, event, limit)).fetchall()
 
     # ---- sales memories (§16.2) ----
+    def sales_memory_imports(self, limit: int = 50) -> list[dict]:
+        """§17.1 import UI: each import with its department and how many memories it stored."""
+        with self.pool.connection() as c:
+            return c.execute(
+                "SELECT j.id, j.status, j.progress_done, j.progress_total, j.error, j.created_at, j.updated_at, "
+                "j.payload->>'filename' AS filename, d.name AS department, "
+                "(SELECT count(*) FROM sales_memories m WHERE m.import_job_id = j.id) AS stored "
+                "FROM jobs j LEFT JOIN departments d ON d.id::text = j.payload->>'department_id' "
+                "WHERE j.tenant_id=%s AND j.type='discord.import' ORDER BY j.created_at DESC LIMIT %s",
+                (self.tenant, limit)).fetchall()
+
+    def delete_sales_memory_import(self, job_id: UUID) -> int:
+        """Remove the memories one import stored (a wrong file or department). The job row stays for the audit trail."""
+        with self.pool.connection() as c:
+            return c.execute("DELETE FROM sales_memories WHERE tenant_id=%s AND import_job_id=%s",
+                             (self.tenant, job_id)).rowcount
+
     def insert_sales_memory(self, rec: dict, embedding: Sequence[float], model: str, department_id: UUID,
                             job_id: Optional[UUID] = None) -> UUID:
         with self.pool.connection() as c:
             return c.execute(
                 "INSERT INTO sales_memories (tenant_id, department_id, conversation_id, channel, scenario, customer_intent, "
                 "customer_message, agent_response, sales_stage, product, outcome, sale_value, discount_given, currency, "
-                "language, quality_score, embedding, embedding_model, import_job_id) "
+                "language, quality_score, customer_objection, embedding, embedding_model, import_job_id) "
                 "VALUES (%(t)s,%(dept)s,%(conversation_id)s,%(channel)s,%(scenario)s,%(customer_intent)s,%(customer_message)s,"
                 "%(agent_response)s,%(sales_stage)s,%(product)s,%(outcome)s,%(sale_value)s,%(discount_given)s,%(currency)s,"
-                "%(language)s,%(quality_score)s,%(emb)s,%(model)s,%(job)s) RETURNING id",
+                "%(language)s,%(quality_score)s,%(customer_objection)s,%(emb)s,%(model)s,%(job)s) RETURNING id",
                 {**{k: rec.get(k) for k in ("conversation_id", "channel", "scenario", "customer_intent", "customer_message",
                                             "agent_response", "sales_stage", "product", "outcome", "sale_value",
-                                            "discount_given", "currency", "language", "quality_score")},
+                                            "discount_given", "currency", "language", "quality_score", "customer_objection")},
                  "t": self.tenant, "dept": department_id, "emb": Vector(list(embedding)), "model": model,
                  "job": job_id}).fetchone()["id"]

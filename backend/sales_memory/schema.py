@@ -21,6 +21,7 @@ class SalesMemoryRecord(BaseModel):
     currency: Optional[str] = None
     language: Optional[str] = None
     quality_score: Optional[float] = None    # "quality signals" are not defined in the PRD -> may be None
+    customer_objection: Optional[str] = None # PRD §17.2 "Extract Objection" (not in the §16.2 example; stored when given)
 
     def embedding_text(self) -> str:
         """Text that is embedded. PRD §17.2 says 'Generate Embeddings' without naming the text;
