@@ -95,6 +95,11 @@ def build_user_prompt(context: AnswerContext, question: str) -> str:
         parts.append("<user_preferences>\n" + "\n".join(shown) + "\n</user_preferences>")
     if not context.sales_cases:
         parts.append("Note: no historical sales conversations were retrieved. Do not claim anything worked in past conversations.")
+    elif not context.knowledge:                          # rule 14 gate, placed next to the question where it is followed
+        parts.append("Note: there is no approved knowledge, only past chats. First decide whether the question asks how to handle a "
+                     "customer or a sales situation that these past chats show. A greeting, thanks, small talk, or a question about "
+                     "anything else (HR, IT, company facts, general knowledge) is NOT covered: then reply with exactly "
+                     "NO_RELEVANT_HISTORY and nothing else.")
     parts.append(f"Question:\n{question}")
     return "\n".join(parts)
 

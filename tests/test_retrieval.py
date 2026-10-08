@@ -333,6 +333,8 @@ def test_prompt_allows_history_only_answers_but_never_as_policy():
     c = _case(0.8); c.customer_objection, c.sales_stage = "price too high", "objection"
     p = build_user_prompt(AnswerContext(knowledge=[], sales_cases=[c]), "q")
     assert "stage: objection | objection: price too high" in p
+    assert "reply with exactly NO_RELEVANT_HISTORY" in p                         # the gate sits next to the question
+    assert "NO_RELEVANT_HISTORY" not in build_user_prompt(AnswerContext(knowledge=[cand()], sales_cases=[c]), "q")
 
 
 def test_off_topic_past_chats_fall_back_to_the_prd_answer():                  # "hello" matches greeting chats at 0.97

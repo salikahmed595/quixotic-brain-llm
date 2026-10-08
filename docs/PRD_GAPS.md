@@ -284,4 +284,7 @@ clearly labelled. Veto any of it here. Migration 007.
      chat similarity on the vector thresholds (§31), and it is still logged as a failed question (§35) so the missing policy shows up for administrators. §20 is unchanged: when policy exists it leads.
    - MEASURED on 800 of the owner's chats (BGE-M3): sales questions reach 0.58–0.72 similarity, but small talk matches chat lines even better ("hello" 0.97, "thanks" 0.88) and unrelated questions reach 0.49–0.68.
      Similarity therefore only pre-filters (placeholder **0.55**); the answer model must also confirm the chats are about the same situation, else it replies `NO_RELEVANT_HISTORY` and the PRD §29/§32 answer is shown.
+     The check is a note placed right before the question (a rule in the system prompt alone was ignored: "hello" got "Hello! How can I assist you?"). MEASURED end to end with gpt-4o-mini on a 300-chat
+     sample: 5/6 sales questions answered from the chats (incl. Roman Urdu), 6/6 off-topic questions ("hello", "thanks", leave days, password reset, a joke, a capital city) fell back to the PRD answer.
+   - Import speed on this PC (Ryzen 5 2600, CPU): ~0.2 s per chat record to embed, so ~4,000 records take roughly 15-40 minutes; progress is shown on the Sales memory page.
 4. Not fixed here (known gap): a job interrupted by stopping the worker stays `running` forever and its upload shows "Processing"; the local SQS stand-in (moto) also loses queued messages on restart. Re-upload in that case.
