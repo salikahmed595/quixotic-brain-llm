@@ -123,6 +123,39 @@ For live editing run `npm run dev` in `web/` (port 5173, API calls forwarded to 
 
 Everyone gets the chat sidebar (new chat, previous chats, rename, delete); staff also get a collapsible *Workspace* group.
 
+### Visual regression test (PRD §13 AT-08)
+
+`web/tests/visual.spec.ts` (Playwright, Chromium) signs in as an employee and as an administrator against the **running local
+stack** and checks:
+
+- the home screen at 1478 × 907 (employee) and 1468 × 901 (admin) against the two §4 reference screenshots in
+  `UI images/reference/` — chat-history titles, the mascot and the Workspace scrollbar are masked; small offsets (≤ 4 px) and
+  font anti-aliasing are tolerated, and a self-check proves a 10 px layout drift fails the comparison;
+- the employee sidebar has no Workspace / Knowledge / Manage / Administration items (§4.2);
+- the admin sidebar groups and items are in the exact §4.3 order;
+- at 375 px (drawer closed and open): no horizontal scroll and every control is at least 44 × 44 px (§4.4).
+
+It needs one administrator and one employee who is a member of **every** active department (so the card reads "Company Wide", as
+in the screenshot), named `Administrator` and `Employee` like the reference cards. Credentials come from the environment
+(`QA_ADMIN_USER`, `QA_EMPLOYEE_USER`, `QA_PASSWORD`, optional `QA_BASE_URL`, default `http://localhost:8000`) or from a gitignored
+`web/.env.visual` with the same `KEY=value` lines. Never commit them.
+
+```bash
+python -m backend.cli create-user --employee-id qa_visual_admin --email qa.visual.admin@example.com --name Administrator --role administrator --department "Company Wide"
+```
+
+```bash
+cd web && npm ci && npx playwright install chromium && npm run build
+```
+
+```bash
+cd web && npm run test:visual
+```
+
+(For `create-user`, set `QB_NEW_USER_PASSWORD` or type the password at the prompt; create the employee the same way with
+`--role employee` and one `--department` per active department.) Failures leave `actual`, `expected` and `diff` PNGs in
+`web/test-results/` and an HTML report in `web/playwright-report/`.
+
 Sales Memory and Product Hub screens were removed (the backend's sales-memory search still powers the *Sales coach* mode in Ask).
 
 ## Your answer-model key (OpenAI / Gemini / Claude)

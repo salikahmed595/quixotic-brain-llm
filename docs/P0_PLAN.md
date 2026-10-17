@@ -73,14 +73,14 @@ answered; work that does not depend on them goes first.
 - Strictly own chats only; admin analytics aggregate (§6 FR-CHAT-09).
 - **Tests:** user A can never read, search, rename or delete user B's chats.
 
-## M6 — Frontend rebuild with screenshot parity — ✅ built 2026-10-17 (visual regression test still to add)
+## M6 — Frontend rebuild with screenshot parity — ✅ built 2026-10-17
 
 - Vite + React + TypeScript + Tailwind (§11), replacing `frontend/app.js`; same backend contract.
 - Shared home screen per §4.1 (sidebar, hero, mascot, wave lines, pills, 960 px composer, four example cards, profile card); employee sidebar per §4.2; admin sidebar exact order per §4.3.
 - Pages for P0: signup, verify, pending, rejected, login, reset; chat + sources drawer, loading/retry/unavailable states; admin Users, Access requests, Documents, Departments. Other admin items visible in the sidebar per §4.3 but open "coming in Phase 2" placeholders. ❓ confirm
 - Web Search pill and microphone present but disabled until P1 (§4.1 vs §14). ❓ confirm
 - Responsive + accessibility per §4.4 (drawer, 44 px targets, focus states, keyboard).
-- **Tests:** Playwright visual regression at 1470 × 900 against both screenshots, role-based nav checks (AT-01 end-to-end, AT-08).
+- **Tests:** Playwright visual regression at 1470 × 900 against both screenshots, role-based nav checks (AT-01 end-to-end, AT-08). ✅ `web/tests/visual.spec.ts`, `npm run test:visual` (AT-08).
 
 ## M7 — Audit, operations and release readiness
 

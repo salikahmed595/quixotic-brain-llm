@@ -75,9 +75,10 @@ export function Sidebar({ onClose, onNewChat }: { onClose: () => void; onNewChat
 
   return (
     <nav aria-label="Main" className="flex flex-col h-full w-full bg-side px-2.5 pt-2.5">
-      <div className="flex items-center justify-between pl-0.5 pr-1 h-10">
-        <a href="#/ask" onClick={e => { e.preventDefault(); onNewChat(); }} className="no-underline"><Brand /></a>
-        <button className="w-10 h-10 grid place-items-center rounded-[10px] text-ink-2 hover:bg-orange-100 hover:text-orange" onClick={onClose} aria-label="Close sidebar" title="Close sidebar">
+      {/* PRD §4.4: 44 × 44 px touch targets in the mobile drawer; desktop keeps the §4 screenshot sizes */}
+      <div className="flex items-center justify-between pl-0.5 pr-1 h-10 max-[900px]:h-11">
+        <a href="#/ask" onClick={e => { e.preventDefault(); onNewChat(); }} className="no-underline max-[900px]:h-11 max-[900px]:inline-flex max-[900px]:items-center"><Brand /></a>
+        <button className="w-10 h-10 max-[900px]:w-11 max-[900px]:h-11 grid place-items-center rounded-[10px] text-ink-2 hover:bg-orange-100 hover:text-orange" onClick={onClose} aria-label="Close sidebar" title="Close sidebar">
           <Icon name="sidebar" size={20} />
         </button>
       </div>
@@ -89,7 +90,7 @@ export function Sidebar({ onClose, onNewChat }: { onClose: () => void; onNewChat
       </label>
 
       {groups.length > 0 && (<>
-        <button className="flex items-center gap-2.5 h-8 px-3 mt-2.5 text-[12.5px] font-bold tracking-[.06em] uppercase text-muted hover:text-orange rounded-lg"
+        <button className="flex items-center gap-2.5 h-8 max-[900px]:h-11 px-3 mt-2.5 text-[12.5px] font-bold tracking-[.06em] uppercase text-muted hover:text-orange rounded-lg"
           aria-expanded={wsOpen} onClick={() => { setWsOpen(!wsOpen); storage.set('qb_ws', wsOpen ? '0' : '1'); }}>
           <Icon name="chevd" size={14} className={`transition-transform ${wsOpen ? '' : '-rotate-90'}`} />Workspace
         </button>

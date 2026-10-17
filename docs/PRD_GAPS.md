@@ -95,7 +95,16 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 
 - **Measured parity.** At 1468 × 901 the home screen matches Reference A/B within ~5 px (headline, subtitle, mascot, labels,
   composer and its controls, example cards); the admin sidebar rows, group gaps and profile card were tuned to the screenshot.
-  An automated visual regression test (§13 AT-08) is **not yet** in the repo.
+  **AT-08 is automated (2026-10-17):** `web/tests/visual.spec.ts` (Playwright) compares both home screens with the
+  references and checks §4.2/§4.3 navigation and the §4.4 375 px rules; how to run it is in `docs/backend.md` (Front-end).
+  The PRD gives no pixel tolerance, so these are implementation choices (veto if needed): a pixel counts as different only
+  when pixelmatch (threshold 0.2) flags it and no similar colour (±48 per channel) lies within 4 px in the other image;
+  at most 0.8 % of pixels may differ (measured: employee 0.10 %, admin 0.42 %; a 10 px drift gives ≥ 1.3 %). Masked: chat
+  history titles (personal data), the mascot (animated) and the Workspace scrollbar (the reference shows the Windows
+  classic scrollbar, i.e. browser chrome). The test accounts must be named "Administrator" / "Employee" and the employee
+  must belong to every active department to match the reference cards.
+- **Mobile touch targets fixed by AT-08:** in the ≤ 900 px drawer the brand link, Close sidebar button and WORKSPACE header
+  were 32–40 px; they are now 44 px there (§4.4). Desktop sizes are unchanged.
 - **Font: Plus Jakarta Sans** (Google Fonts) — the font of the app the screenshots were taken from. ❓ Veto if the company has another.
 - **Mascot** recreated as SVG (`web/src/components/Mascot.tsx`) because no original exists (owner).
 - **"Company Wide"** on the profile card only for administrators or people who are members of every active department (§4.2, §15).
@@ -109,7 +118,7 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 - **Provider failures** (rejected key, outage) now return 503 "The answer service is unavailable right now" instead of a 500;
   the chat shows it with a Retry button (FR-CHAT-07). The provider's own message stays in the server log.
 - Implementation necessities: React 18.3, Vite 6.3, Tailwind 4.1, TypeScript 5.8 (exact versions in `web/package.json`); Node 24 build
-  stage in the Dockerfile.
+  stage in the Dockerfile. Test-only: Playwright 1.63, pixelmatch 7.1, pngjs 7.0 (dev dependencies).
 
 ### 0.4 What already works and is reused
 
