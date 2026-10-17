@@ -8,6 +8,78 @@ thing needed** and lists it here so the owner can decide. Each item names the PR
 
 ---
 
+## 0. PRD replaced on 2026-10-17 — conflicts between the new PRD and the existing code
+
+`PRODUCT.md` is now **Quixotic AI PRD v1.0 (16 Oct 2026)**, 16 sections. The earlier "Quixotic Brain" PRD (67
+sections) is superseded and is kept only in `docs/archive/PRODUCT_quixotic_brain_v0.md`.
+
+> **Old citations.** Every `PRD §N` in the code, in `docs/backend.md` and in **sections 1–6 and the dated owner
+> sections below** refers to the *superseded* PRD. Look such numbers up in the archive file, not in `PRODUCT.md`.
+> New work cites the new PRD (`PRD §5 FR-AUTH-03`, `PRD §13 AT-05`, …). Old citations are re-pointed as each
+> module is touched in the P0 milestones (`docs/P0_PLAN.md`).
+
+Nothing in the code has changed yet. Each row says what the new PRD requires, what the code does today, and what
+P0 will do. ❓ = needs your decision before that milestone starts.
+
+### 0.1 Accounts, auth and roles
+
+| Area | New PRD | Code today | P0 handling |
+|---|---|---|---|
+| Account states | §5 FR-AUTH-05: Pending, Active, Rejected, Suspended, Deactivated | `approval_status` pending/approved/rejected + `is_active` boolean | Migrate to one `account_status` with the five PRD states (M1) |
+| Email verification | §5 FR-AUTH-02: verify email or invite/OTP | none | Required in P0 (§14). ❓ **Which mail provider / sender address?** Until set, signup fails loudly with "email not configured" |
+| Password hashing | §5 FR-AUTH-06: Argon2id preferred | `hashlib.scrypt` | Switch to Argon2id (`argon2-cffi`); verify old scrypt hashes and rehash on next login (M1) |
+| Sessions | §5 FR-AUTH-06: HttpOnly secure session cookies, CSRF, expiry, logout; §5 FR-AUTH-05 suspension revokes sessions promptly | Stateless HS256 JWT bearer token in JS; no logout; no revocation | Server-side `sessions` table (§12), HttpOnly cookie, CSRF token, `POST /auth/logout`, revoke on suspend/reject (M1) |
+| Password reset | §5 FR-AUTH-06 | only change-password while logged in | Add reset by emailed link (needs the mail provider above) |
+| Admin MFA | §5 FR-AUTH-06 | none | ❓ **Method?** (TOTP authenticator app is the usual choice.) Not invented until you confirm |
+| First admin | §5 FR-AUTH-06: one-time protected setup path, never via public signup | CLI `backend/cli.py` creates users | Keep the CLI as the one-time path; make it refuse once any system admin exists (M1). ❓ OK? |
+| Signup fields | §5 FR-AUTH-01: full name, work email, password, confirm, requested department; employee ID/phone optional | employee ID required (`users.employee_id NOT NULL`) | ❓ **Do you use employee IDs / phone?** If not, make them optional |
+| Roles | §3: Employee, Department Manager / Knowledge Reviewer, Knowledge Admin, System Admin, Founder/CEO | employee, contributor, manager, administrator | ❓ **Mapping:** proposed `manager → department_reviewer`, `administrator → system_admin`; `contributor` has no new-PRD equivalent (old PRD §9.2 let contributors upload; the new §3 lists no employee upload right and §9 says not all employees may write to the vault) — proposed: fold into `employee`. Knowledge Admin "publisher permission" needs to be a separate grant |
+| Founder/CEO | §3, §9: authority over Telegram/Discord (Phase 2) | none | Phase 2 only; not built in P0 |
+| "Company Wide" | §4.2, §15: never by default, never faked | already: no implicit visibility | Unchanged |
+| Self-approval | §7 Approvals: prevent where policy requires | managers can approve own uploads | ❓ **Which changes need separation of duties?** P0 has no Approvals page (§14 puts it in P1) |
+
+### 0.2 Knowledge, retrieval and answers
+
+| Area | New PRD | Code today | P0 handling |
+|---|---|---|---|
+| Document statuses | §8: Draft / Under Review / Approved / Published / Archived | draft, submitted, pending_review, approved, active, rejected, archived, expired | Migrate: draft→Draft, submitted+pending_review→Under Review, approved→Approved, active→Published, archived→Archived. ❓ **`rejected` and `expired` are not PRD states** — keep as change-record outcomes, not statuses? (`§8` does say "unexpired content", so expiry exists as a date, not a state) |
+| Document fields | §8: category, sensitivity/access scope, owner, approving user, provenance, effective date, version ID, indexing checksum | partial: no sensitivity, owner, effective date, checksum; `access_level` only a label | Add the missing columns + `document_permissions` (§12) (M3). ❓ **Sensitivity levels?** (names and who may see each) |
+| Authoritative store | §8: Obsidian-compatible Markdown vault, server-side, Git-versioned | Postgres rows + raw files in S3 / local folder | Add a Git-backed vault directory on the server; publication writes the Markdown file and commits (M3). ❓ **Obsidian front-matter keys** for the §8 fields — none are specified |
+| Retrieval filter | §8: "approved, unexpired" content | `status = 'active'` | Filter `Published` + not past expiry (M3) |
+| LLM | §8, §11: DeepSeek or configured LLM; §10: no confidential data to any provider until the company approves it | Gemini / OpenAI / Claude / Bedrock behind `generate_answer` | Add a DeepSeek provider behind the same interface; keep the others. ❓ **Has the company approved DeepSeek (or any provider) and its retention terms?** Until yes, generation must stay off or local |
+| Not-found reply | §6 FR-CHAT-04: exact text "I couldn't find an approved answer in the company knowledge base." + Report missing information | different wording; failed questions logged | Use the exact text; add "Report missing information" → `knowledge_gaps` (M4) |
+| Knowledge gaps | §9, §12: de-duplicated, assigned to department owner | `query_log` failed questions | New `knowledge_gaps` table, dedupe on normalized question + department. ❓ **De-dup rule** not specified — exact normalized text match until you say otherwise |
+| Answers from past sales chats | §1: never invent policies/prices; §7 Sales memory = *approved* playbooks/objection examples; no unrestricted import of identifiable transcripts | commit 48939eb answers from imported past chats when no policy exists (labelled "history only") | **Conflict.** Proposed: turn off the history-only answer path for P0 (Sales memory is P1); keep the importer but only for reviewed, anonymized records. ❓ Confirm |
+| Confidence | old PRD showed High/Medium/Low; new PRD silent | shown in UI | Keep (harmless), but no longer PRD-required. ❓ keep or remove? |
+| Language | §6 FR-CHAT-08: answer in the question's language | language detected; answer language not instructed; Roman Urdu normalizer | Instruct the LLM to answer in the detected language; keep the Urdu/Roman Urdu work |
+| Web Search | §6 FR-CHAT-05 (P1 governance, §14) | none | P0 shows the pill per §4.1 but disabled until P1. ❓ OK? |
+| Voice questions | §6 FR-CHAT-02 (P1, §14) | none | P0 shows the microphone per §4.1, disabled until P1 |
+
+### 0.3 Platform, API and UI
+
+| Area | New PRD | Code today | P0 handling |
+|---|---|---|---|
+| API paths | §11 contract: `/auth/*`, `/chats/*`, `/admin/*`, `/knowledge/*` (marked "illustrative") | `/v1/auth`, `/v1/conversations`, `/v1/documents`, `/v1/ask` … | ❓ **Rename to the §11 paths, or keep `/v1/` prefix?** Proposed: `/v1` + §11 names (`/v1/chats`, `/v1/admin/access-requests`), old paths removed |
+| Chat messages | §11: `POST /chats/{id}/messages` asks within a chat | `POST /v1/ask` with a conversation id | Add the §11 route; `/v1/ask` stays for internal apps (API keys) ❓ |
+| Frontend stack | §11: React + TypeScript + Tailwind (Next.js or Vite) | vanilla `frontend/app.js` (976 lines) + `app.css` | Rebuild in Vite + React + TS + Tailwind (no Next.js server needed) (M6) |
+| Reference screenshots | §4: `image(20261016-164021).png` (admin), `image(20261016-164058).png` (employee) | **not in the repo** — `UI images/` holds older ChatGPT mock-ups | ❓ **Please add both screenshots** (and the original mascot/icon assets if they exist). M6 and AT-08 are blocked without them |
+| Admin sidebar | §4.3 exact order incl. WORKSPACE group, Approvals, System | close but not identical | Match §4.3 exactly in M6 |
+| Queue | §11: Redis + worker queue | Amazon SQS + ECS worker | ❓ **AWS still the target?** New PRD says "Dockerized services", no AWS. Proposed: Redis queue (RQ) + Docker Compose; keep S3-compatible object storage interface (MinIO locally) |
+| Object storage | §11: private object storage for originals | S3 | Unchanged (any S3-compatible store) |
+| Deployment | §11: Docker, HTTPS reverse proxy, backups, logs, staging + prod; §16: tested backup/restore | Dockerfile + compose for local; AWS notes | Write a deployment guide (M7). ❓ **Where will it run?** (host / VM / cloud) |
+| Load testing | §2, §13 AT-09: 160 sessions, 40 chats baseline, 160 burst | none | Add a load-test script (M7); tool choice listed under implementation necessities |
+| Non-goals | old PRD §5 banned workflow automation & multi-agent systems; new §11 allows Hermes Agent (Phase 2) and optional n8n | `CLAUDE.md` Rule 1.4 cites the old list | `CLAUDE.md` now cites new §15 exclusions |
+
+### 0.4 What already works and is reused
+
+Hybrid retrieval (Postgres FTS + pgvector) with permission filters **before** search; reranker interface; ingestion of
+PDF/DOCX/TXT/MD with validation and size limits; versioning with one active version per item; signup → pending →
+admin approve/reject with role + departments; per-user chats (create/list/rename/delete); audit log table; feedback
+👍/👎; API keys (hashed, masked, revocable); vocabulary; dashboard/insights endpoints; prompt-injection guard
+(documents are data); 4-provider LLM interface; evaluation harness; Docker Postgres launcher.
+
+---
+
 ## 1. Required settings with no default (the app will not start without them)
 
 | Setting | PRD § | What the PRD says | Note |

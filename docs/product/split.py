@@ -20,38 +20,22 @@ def clean(lines):
     s = re.sub(r'\n-{3,}\s*$', '', '\n'.join(lines).strip()).strip()
     return s + '\n'
 OVERRIDE = {
- 1: 'Name, type, org, AWS target, primary users; "One Brain. Multiple Quixotic products."',
- 6: 'Diagram: Knowledge + Sales Memory + Business Rules -> RAG engine -> API layer -> apps',
- 7: 'Pipeline: auth, permissions, filters, normalize, BM25 + BGE-M3, rerank 20-40 to 5-8, LLM, sources',
- 9: 'Employee, Contributor, Manager, Administrator: what each can and cannot do',
- 12: 'Knowledge types, Add Knowledge form (no technical terms), approval workflow, tracked fields',
- 13: 'V1 file types, upload form, processing pipeline (extract, chunk, embed, index)',
- 14: 'Metadata JSON per chunk; used for access, filtering, versions, analytics',
- 17: 'Discord JSON import UI and 15-step processing pipeline',
- 23: 'Roman Urdu normalization example; keep the original query for audit',
- 25: 'BM25: exact names, codes, IDs, acronyms, error codes',
- 28: 'Replaceable LLM layer (OpenAI, Gemini, Claude, Bedrock, local); generate_answer()',
- 29: 'Answer only from retrieved knowledge; never invent policies or prices; "not found" reply',
- 30: 'Source format (title, section, version, updated) and historical evidence counts',
- 33: 'Sidebar: Ask Brain, Knowledge, Sales Memory, Add Information, Documents, Insights + Admin items',
- 35: 'Failed questions list (low confidence, not found) with Add Missing Knowledge action',
- 36: 'Knowledge health counters: active, outdated, no owner, stale, duplicates, conflicts',
- 37: 'Core /v1 endpoints: ask, search, documents, sales-memory, feedback, health',
- 38: 'POST /v1/ask request and response JSON',
- 42: 'RBAC flow: user, role, department, permissions, metadata filter, retrieval (before retrieval)',
- 43: 'Why AWS (credits, private networking, RDS, S3, ECS, SQS, CloudWatch)',
- 44: 'V1 stack per layer: Next.js/Vercel, FastAPI/ECS, RDS pgvector, S3, SQS, BGE-M3, Bedrock',
- 46: 'S3 buckets/paths: raw/documents, raw/discord, processed, exports, backups',
- 47: 'Async jobs via SQS + ECS workers; frontend shows progress',
- 50: 'Repo layout: frontend, backend modules, workers, evaluation, migrations, docs',
- 52: 'Documents are data, never instructions; malicious-document example',
- 54: 'Backups: RDS automatic, S3 versioning, metadata, config',
- 55: 'CloudWatch metrics: errors, latency, CPU, queue depth, model latencies',
- 56: 'Targets: search < 2s, full answer 5-8s, dashboard < 2s, instant upload acceptance',
- 58: 'Company-specific evaluation question set with expected sources',
- 62: 'User stories: employee, sales agent, manager, admin, developer',
- 65: 'Core principle: knowledge belongs to the Brain; apps consume it, never duplicate it',
- 67: 'Final definition: not just a chatbot; engine, RAG platform, sales memory, API, assistant',
+ 1: 'Permission-aware RAG assistant; never invent policies/prices/refunds; missing evidence -> knowledge-gap request',
+ 2: 'Six goals; targets: p95 chat < 8s, retrieval < 2s, >=95% cited, 0 cross-dept leaks, reindex < 60s, 160/40 load',
+ 3: 'Employee, Dept Manager/Reviewer, Knowledge Admin, System Admin, Founder/CEO; server-side deny-by-default',
+ 4: 'Screenshot-exact UI: shared hero/composer/cards, employee vs admin sidebar order, responsive rules',
+ 5: 'FR-AUTH-01..07: signup, email verification, Pending, admin approval, account states, Argon2id/sessions/MFA',
+ 6: 'FR-CHAT-01..09: chats, voice, suggestion cards, Company Knowledge default, not-found text, Web Search, scopes',
+ 7: 'Admin page table: Knowledge ... System minimum functionality',
+ 8: 'Obsidian Markdown vault, document fields/statuses, ACL-first hybrid retrieval, DeepSeek, atomic publication',
+ 9: 'Phase 2: Hermes Telegram/Discord proposals, voice notes, diffs, approval, reindex; knowledge-gap loop',
+ 10: 'RBAC + ABAC before retrieval, secrets server-side, audit, upload protection, provider approval, retention',
+ 11: 'React+TS+Tailwind, FastAPI, Postgres/pgvector, Redis worker, Docker; minimum API contract',
+ 12: 'Core data entities list; last indexed version + checksum; idempotent bot events',
+ 13: 'AT-01..AT-09 acceptance journeys',
+ 14: 'P0 Phase 1 ... P3 Later',
+ 15: 'Exclusions for v1',
+ 16: 'Definition of done; implementation direction to Claude Code',
 }
 def summary(body, subs):
     lines = [l.strip() for l in body.split('\n')[1:]]
@@ -72,18 +56,16 @@ for s in secs:
     tok = len(body) // 4; tot += tok
     idx.append((s['n'], s['t'], fn, tok, OVERRIDE.get(s['n']) or summary(body, subs)))
 open(f'{out}/00-title.md', 'w', encoding='utf-8').write(clean(pre))
-groups = {'Vision & scope': range(1, 9), 'People & structure': range(9, 11), 'Ask Brain & knowledge': range(11, 16),
- 'Sales memory & intelligence': range(16, 22), 'Language & retrieval': range(22, 29), 'Answer quality': range(29, 33),
- 'Frontend & dashboards': range(33, 37), 'API & access': range(37, 43), 'Infrastructure & data': range(43, 51),
- 'Security & operations': range(51, 57), 'Scale, evaluation & cost': range(57, 61), 'Plan & success': range(61, 68)}
+groups = {'Vision, goals & roles': range(1, 4), 'UI': range(4, 5), 'Auth & chat': range(5, 7),
+ 'Admin & knowledge': range(7, 10), 'Security & architecture': range(10, 13), 'Acceptance, phases & done': range(13, 17)}
 full = sum(len(l) + 1 for l in src) // 4
-L = ['# Quixotic Brain — Product Spec Index', '',
+L = ['# Quixotic AI — Product Spec Index', '',
  f'`PRODUCT.md` (~{full:,} tokens) is split into {len(idx)} section files in `docs/product/` (largest ~{max(i[3] for i in idx)} tokens). Read this index, then open only the file(s) you need. Token counts are estimates (~4 chars/token).', '',
  '## Quick lookup', '', '| If you need… | Open |', '|---|---|',
- '| What the product is, goals, non-goals | 01, 04, 05 |', '| Roles & permissions (RBAC) | 09, 42 |', '| Ask Brain behaviour, modes, example | 11 |',
- '| Knowledge entry, approval states, versions | 12, 15 |', '| Uploading documents | 13 |', '| Sales memory & Discord import | 16–19 |',
- '| Retrieval pipeline | 07, 24–27 |', '| Answer rules (sources, confidence, no hallucination, priority) | 20, 29–32 |', '| API endpoints & keys | 37–40 |',
- '| Stack, AWS, database | 43–50 |', '| Security & audit | 51–53 |', '| Phases & acceptance criteria | 61, 63, 64 |', '']
+ '| Vision, goals, targets | 01, 02 |', '| Roles & permissions | 03, 10 |', '| UI (screenshots, sidebars, responsive) | 04 |',
+ '| Signup, approval, login, account states | 05 |', '| Chat behaviour, not-found text, Web Search | 06 |', '| Admin pages | 07 |',
+ '| Documents, versions, retrieval pipeline | 08 |', '| Telegram/Discord/Hermes, knowledge gaps | 09 |', '| Stack & API contract | 11 |',
+ '| Data entities | 12 |', '| Acceptance tests, phases, exclusions, done | 13–16 |', '']
 for g, r in groups.items():
     L += [f'## {g}', '', '| # | Section | File | ~Tok | Covers |', '|---|---|---|---|---|']
     L += [f'| {n} | {t} | [{fn}]({fn}) | {tok} | {sm} |' for n, t, fn, tok, sm in idx if n in r]
