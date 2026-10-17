@@ -9,7 +9,9 @@ archived notes move to Archive/. Front-matter keys are listed in docs/PRD_GAPS.m
 IMPLEMENTATION NECESSITY: the `git` command-line tool must be installed on the server (docs/PRD_GAPS.md §4)."""
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
 import threading
 from pathlib import Path
@@ -60,13 +62,18 @@ def parse_note(text: str) -> tuple[dict, str]:
 
 
 class GitVault:
-    def __init__(self, root: str, author: str = "Quixotic AI <vault@quixotic.ai>") -> None:
+    """`remote`: optional bare repository shared with the CEO's Obsidian (docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H4). The backend
+    pushes `main` there after every publication; people push only `proposals/<name>` branches (enforced by the server hook)."""
+
+    def __init__(self, root: str, author: str = "Quixotic AI <vault@quixotic.ai>", remote: Optional[str] = None) -> None:
         self.root = Path(root).resolve()
         self.author = author
+        self.remote = remote
 
-    def _git(self, *args: str) -> str:
+    def _git(self, *args: str, cwd: Optional[Path] = None) -> str:
+        env = {**os.environ, "QUIXOTIC_BACKEND": "1"}                 # the server hook lets only the backend write `main`
         try:
-            r = subprocess.run(["git", *args], cwd=self.root, capture_output=True, text=True, timeout=60)
+            r = subprocess.run(["git", *args], cwd=cwd or self.root, capture_output=True, text=True, timeout=120, env=env)
         except FileNotFoundError:
             raise VaultError("the git command is not installed on this server (needed for the knowledge vault, PRD §8)")
         if r.returncode != 0:
@@ -76,21 +83,81 @@ class GitVault:
     def ensure(self) -> None:
         if (self.root / ".git").is_dir():
             return
+        name, email = re.match(r"(.*) <(.*)>", self.author).groups()
+        if self.remote and self._remote_has_main():
+            self.root.parent.mkdir(parents=True, exist_ok=True)
+            self._git("clone", "--branch", "main", self.remote, str(self.root), cwd=self.root.parent)
+            self._git("config", "user.name", name)
+            self._git("config", "user.email", email)
+            return
         self.root.mkdir(parents=True, exist_ok=True)
         self._git("init", "-b", "main")
-        name, email = re.match(r"(.*) <(.*)>", self.author).groups()
         self._git("config", "user.name", name)
         self._git("config", "user.email", email)
+        if self.remote:
+            self._git("remote", "add", "origin", self.remote)
         (self.root / "README.md").write_text("# Quixotic AI knowledge vault\n\nApproved company knowledge. Written by the Quixotic AI "
                                              "backend when a proposal is published; do not edit `main` by hand.\n", encoding="utf-8")
         self._git("add", "README.md")
         self._git("commit", "-m", "Create the knowledge vault")
+        self._push()
+
+    def _remote_has_main(self) -> bool:
+        try:
+            return bool(self._git("ls-remote", "--heads", self.remote, "main", cwd=Path.cwd()))
+        except VaultError:
+            return False
+
+    def _push(self) -> None:
+        if self.remote:
+            self._git("push", "origin", "main")
 
     def _commit(self, message: str) -> str:
         if not self._git("status", "--porcelain"):
             return self._git("rev-parse", "HEAD")                 # nothing changed (e.g. metadata-only, same text)
         self._git("commit", "-m", message)
+        self._push()
         return self._git("rev-parse", "HEAD")
+
+    # ---- proposals branches (Obsidian sync) ----
+    def fetch(self) -> None:
+        self.ensure()
+        if self.remote:
+            self._git("fetch", "--prune", "origin")
+
+    def branch_changes(self, branch: str) -> list[tuple[str, str]]:
+        """(status, path) of notes changed on origin/<branch> since it split from main: A added, M modified, D deleted."""
+        out = self._git("diff", "--name-status", "--no-renames", f"main...origin/{branch}")
+        rows = []
+        for line in out.splitlines():
+            st, _, path = line.partition("\t")
+            if path.lower().endswith(".md") and not path.startswith((".obsidian/", "Archive/")) and path != "README.md":
+                rows.append((st[:1], path))
+        return rows
+
+    def show(self, ref: str, path: str) -> Optional[str]:
+        try:
+            return self._git("show", f"{ref}:{path}")
+        except VaultError:
+            return None
+
+    def merge_main_into(self, branch: str) -> None:
+        """After decisions, the person's branch receives the official notes (main wins where both changed), so their Obsidian shows
+        what is live on the next pull. Their own unpublished notes stay on their branch."""
+        if not self.remote:
+            return
+        with _lock:
+            self.fetch()
+            tmp = self.root / ".sync-worktree"
+            if tmp.exists():
+                self._git("worktree", "remove", "--force", str(tmp))
+                shutil.rmtree(tmp, ignore_errors=True)
+            self._git("worktree", "add", "--force", "-B", "sync-branch", str(tmp), f"origin/{branch}")
+            try:
+                self._git("merge", "-X", "theirs", "--no-edit", "main", cwd=tmp)
+                self._git("push", "origin", f"HEAD:refs/heads/{branch}", cwd=tmp)
+            finally:
+                self._git("worktree", "remove", "--force", str(tmp))
 
     def publish(self, path: str, old_path: Optional[str], content: str, message: str) -> str:
         """Writes (or moves and writes) one note and commits. Returns the commit id."""
@@ -102,7 +169,7 @@ class GitVault:
                 self._git("mv", old_path, path)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
-            self._git("add", path)
+            self._git("add", "--", path)
             return self._commit(message)
 
     def archive(self, path: Optional[str], message: str) -> tuple[Optional[str], str]:

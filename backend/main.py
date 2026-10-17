@@ -11,7 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .api.services import Services, build_services
-from .api.v1 import admin, ask, auth, chats, conversations, feedback, gaps, insights, knowledge, sales, system, vocabulary
+from .api.v1 import (admin, ask, auth, chats, conversations, feedback, gaps, insights, integrations, knowledge, sales, system,
+                     vocabulary)
 from .config import get_settings
 
 
@@ -25,7 +26,7 @@ def create_app(services: Optional[Services] = None) -> FastAPI:
     app = FastAPI(title="Quixotic Brain", version="v1", lifespan=lifespan)
     if services is not None:
         app.state.services = services
-    for r in (insights.router, auth.router, admin.public, ask.router, knowledge.router, knowledge.admin, gaps.router, system.router, sales.router,
+    for r in (insights.router, auth.router, admin.public, ask.router, knowledge.router, knowledge.admin, gaps.router, system.router, integrations.router, integrations.admin, sales.router,
               feedback.router, admin.router, chats.router, conversations.router, vocabulary.router):
         app.include_router(r)
     # Optional, for hosting the front-end elsewhere (stack: Vercel). Comma-separated origins; unset = no CORS.

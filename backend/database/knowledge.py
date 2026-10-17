@@ -249,6 +249,10 @@ class KnowledgeStore:
                 (self.tenant, kind, item_id, version_id, base_version_id, title, summary, Jsonb(meta), source, source_ref, submitted_by,
                  high_impact, required_approvals, gap_id)).fetchone()["id"]
 
+    def set_transcript(self, proposal_id: UUID, transcript: Optional[str]) -> None:
+        with self.pool.connection() as c:
+            c.execute("UPDATE knowledge_proposals SET transcript=%s WHERE id=%s", (transcript, proposal_id))
+
     def proposal_by_ref(self, source: str, source_ref: str) -> Optional[dict]:
         with self.pool.connection() as c:
             return c.execute("SELECT * FROM knowledge_proposals WHERE tenant_id=%s AND source=%s AND source_ref=%s",

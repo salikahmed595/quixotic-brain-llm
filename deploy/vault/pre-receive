@@ -1,0 +1,21 @@
+#!/bin/bash
+# Quixotic AI vault (docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H4). Only the backend writes `main` (published, approved knowledge).
+# A person's SSH key may push ONLY refs/heads/proposals/<their name> (set by the key's command= in authorized_keys):
+# no other branch, no deleting, no force-push.
+set -euo pipefail
+zero=0000000000000000000000000000000000000000
+while read -r old new ref; do
+  if [ "${QUIXOTIC_BACKEND:-}" = "1" ] && [ -z "${SSH_CONNECTION:-}" ]; then
+    continue                                   # the backend, writing locally (never over SSH)
+  fi
+  want="refs/heads/proposals/${QUIXOTIC_BRANCH:-}"
+  if [ -z "${QUIXOTIC_BRANCH:-}" ] || [ "$ref" != "$want" ]; then
+    echo "Quixotic AI: this key may only push $want" >&2; exit 1
+  fi
+  if [ "$new" = "$zero" ]; then
+    echo "Quixotic AI: deleting your proposals branch is not allowed" >&2; exit 1
+  fi
+  if [ "$old" != "$zero" ] && ! git merge-base --is-ancestor "$old" "$new"; then
+    echo "Quixotic AI: force-push is not allowed; pull first" >&2; exit 1
+  fi
+done

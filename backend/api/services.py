@@ -12,6 +12,7 @@ from ..config import Settings
 from ..database.accounts import OneTimeTokenStore, SessionStore, SystemSettingsStore
 from ..database.conversations import ConversationStore
 from ..database.gaps import GapStore
+from ..database.integrations import IntegrationStore
 from ..database.knowledge import KnowledgeStore
 from ..database.ops import OpsStore
 from ..database.pool import make_pool, migrate
@@ -54,6 +55,8 @@ class Services:
     system_settings: Any = None         # PRD §12 system_settings
     mailer: Any = None                  # PRD §5 FR-AUTH-02 email
     gaps: Any = None                    # PRD §9 knowledge gaps
+    integrations: Any = None            # PRD §9 / §12 integration identities and events
+    approvals_bot: Any = None           # backend-owned Telegram approvals bot (None when Telegram is not configured)
 
 
 def build_services(settings: Settings, parser=None, extractor=None, run_migrations: bool = True,
@@ -82,7 +85,7 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         finally:
             ready.set()
     threading.Thread(target=_warm, daemon=True, name="model-warmup").start()
-    return Services(
+    out = Services(
         settings=settings, users=UserStore(pool, t), knowledge=knowledge, ops=ops, analytics=AnalyticsStore(pool, t),
         search=search, ask=AskService(search, get_generator(settings), settings),
         ingestion=IngestionService(knowledge, storage, embedder, language, settings),
@@ -90,4 +93,9 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         storage=storage, queue=SQSQueue(settings), language=language, embedder=embedder,
         limiter=SlidingWindowLimiter(), pool=pool, conversations=ConversationStore(pool, t), models_ready=ready,
         sessions=SessionStore(pool, t), one_time=OneTimeTokenStore(pool), system_settings=SystemSettingsStore(pool, t),
-        mailer=make_mailer(settings), gaps=GapStore(pool, t))
+        mailer=make_mailer(settings), gaps=GapStore(pool, t), integrations=IntegrationStore(pool, t))
+    if settings.telegram_bot_token:
+        from ..integrations.approvals_bot import ApprovalsBot
+        from ..integrations.telegram import TelegramBot
+        out.approvals_bot = ApprovalsBot(out, TelegramBot(settings.telegram_bot_token))
+    return out

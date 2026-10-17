@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     # {"internal": ["employee", ...], "confidential": ["knowledge_admin", "system_admin"]}. Retrieval filters on it (§10).
     sensitivity_levels_json: str
 
+    # ---- Hermes + Telegram + Obsidian (PRD §9; optional Phase 2 integration — off unless configured) ----------------------
+    telegram_bot_token: Optional[str] = None          # Bot 2 "Quixotic Approvals" (owned by this backend). Unset = no Telegram.
+    telegram_webhook_secret: Optional[str] = None     # checked on every webhook call (X-Telegram-Bot-Api-Secret-Token)
+    hermes_shared_secret: Optional[str] = None        # HMAC key shared with the quixotic-mcp sidecar. Unset = Hermes endpoints off.
+    vault_remote: Optional[str] = None                # bare Git repository the CEO's Obsidian syncs with (docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H4)
+
     # ---- ingestion (PRD §13) — PRD gives no sizes ------------------------------------
     max_upload_bytes: int                  # PRD §51 "Upload size limits" without a number
     chunk_size: int                        # PRD §13.3 "Chunk Content" without a strategy
@@ -193,6 +199,10 @@ class Settings(BaseSettings):
             raise ValueError("require 1 <= rerank_top_k <= candidate_count")
         if self.mail_backend == "smtp" and not (self.smtp_host and self.smtp_port and self.mail_from):
             raise ValueError("mail_backend=smtp needs smtp_host, smtp_port and mail_from")
+        for name in ("hermes_shared_secret", "telegram_webhook_secret"):
+            v = getattr(self, name)
+            if v is not None and len(v) < 32:
+                raise ValueError(f"{name} must be at least 32 characters")
         if self.one_time_link_ttl_seconds < 60:
             raise ValueError("one_time_link_ttl_seconds must be at least 60")
         if self.reranker_provider and not self.reranker_model:

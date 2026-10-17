@@ -1,0 +1,4 @@
+# quixotic-mcp sidecar: the only tools Hermes Agent gets (docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H2). Pinned.
+mcp==2.3.0
+httpx==0.28.1
+uvicorn==0.46.0

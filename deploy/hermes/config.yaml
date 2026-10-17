@@ -1,0 +1,31 @@
+# Hermes Agent configuration for Quixotic AI (copied to the Hermes data folder as config.yaml).
+# docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H0/H1. PRD §15: no open-ended filesystem/shell permissions — Hermes gets ONLY the
+# quixotic MCP tools. Verify after every Hermes upgrade with:  docker compose run --rm hermes tools   (step H0 in the plan).
+model:
+  provider: openai                 # OPENAI_API_KEY in Hermes' .env; DeepSeek later through an OpenAI-compatible endpoint
+toolsets:
+  - hermes-telegram
+agent:
+  # Everything Hermes ships with is switched off: no shell, files, web, browser, code, memory, self-written skills, sub-agents, cron.
+  disabled_toolsets: [terminal, file, web, search, browser, code_execution, memory, skills, session_search, delegation, cronjob,
+                      image_gen, vision, todo, messaging, debugging, tts, discord, discord_admin]
+approvals:
+  mode: manual
+  unattended_mode: deny
+  cron_mode: deny
+  single_query_mode: deny
+unauthorized_dm_behavior: ignore   # only TELEGRAM_ALLOWED_USERS may talk to it
+security:
+  allow_private_urls: false
+stt:
+  enabled: true
+  provider: openai                 # owner decision 2026-10-17 (VOICE_TOOLS_OPENAI_KEY)
+mcp_servers:
+  quixotic:
+    url: "http://quixotic-mcp:8765/mcp"           # internal Docker network only
+    headers:
+      Authorization: "Bearer ${QUIXOTIC_MCP_TOKEN}"
+    tools:
+      include: [get_context, search_approved_knowledge, propose_knowledge_change, get_proposal_status, report_knowledge_gap]
+      prompts: false
+      resources: false

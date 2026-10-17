@@ -157,8 +157,11 @@ def test_ops_stores_keys_jobs_logs_feedback_dashboard(stores):
     assert stores["retrieval"].sales_search(emb.embed("x"), emb.name, frozenset(), 5) == []
 
     d = stores["analytics"].dashboard(None)
-    assert d["knowledge_chunks"] >= 1 and d["sales_memories"] >= 1 and d["departments"] == 10 and d["questions_this_week"] >= 1
-    assert d["retrieval_success"] == 0.0 and d["most_used_sources"][0]["title"] == "Dash Policy"
+    assert d["knowledge_chunks"] >= 1 and d["published_documents"] >= 1 and d["questions_this_week"] >= 1     # PRD §7 Dashboard
+    assert d["answered_rate"] == 0.0 and d["most_used_sources"][0]["title"] == "Dash Policy" and d["target_users"] == 160
+    assert {"approved_users", "pending_accounts", "active_chats", "unresolved_gaps", "index_not_current", "jobs"} <= set(d)
+    ins = stores["analytics"].insights(30)
+    assert ins["top_questions"] and ins["latency_ms"]["targets"] == {"answer_p95": 8000, "retrieval_p95": 2000}
     assert stores["analytics"].knowledge_health()["active_documents"] >= 1
     assert stores["analytics"].dashboard(frozenset())["knowledge_chunks"] == 0
 

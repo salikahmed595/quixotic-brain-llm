@@ -18,6 +18,7 @@ from backend.auth.security import SlidingWindowLimiter, hash_password
 from backend.database.accounts import OneTimeTokenStore, SessionStore, SystemSettingsStore
 from backend.database.conversations import ConversationStore
 from backend.database.gaps import GapStore
+from backend.database.integrations import IntegrationStore
 from backend.database.knowledge import KnowledgeStore
 from backend.database.ops import OpsStore
 from backend.database.retrieval_store import RetrievalSQLStore
@@ -78,7 +79,8 @@ def stack(db, monkeypatch, tmp_path):
                        importer=SalesMemoryImporter(ops, emb, lang, None, None), storage=storage, queue=SQSQueue(s),
                        language=lang, embedder=emb, limiter=SlidingWindowLimiter(), pool=db,
                        sessions=SessionStore(db, t), one_time=OneTimeTokenStore(db), system_settings=SystemSettingsStore(db, t),
-                       mailer=ConsoleMailer(), conversations=ConversationStore(db, t), gaps=GapStore(db, t))
+                       mailer=ConsoleMailer(), conversations=ConversationStore(db, t), gaps=GapStore(db, t),
+                       integrations=IntegrationStore(db, t))
         yield svc, TestClient(create_app(svc))
 
 

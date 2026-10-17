@@ -2,9 +2,24 @@
 
 Researched 2026-10-17. Implements PRD §9 (Hermes, Telegram and Discord knowledge ingestion), within §1, §3, §10, §11 and
 §15. Owner decisions are in `docs/PRD_GAPS.md` §0.7; the milestone is "After M3" in `docs/P0_PLAN.md`.
-**Nothing here is built yet.** It starts after M3 (vault, statuses, publication) and must not delay the §16 Phase 1 release.
+**Status (2026-10-17): built** — H1–H5 are in the repository and tested (see "What was built" below). H0 (proving the lock-down on
+the real Hermes image) is a checklist to repeat on every Hermes upgrade. It must not delay the §16 Phase 1 release.
 
 ---
+
+## What was built (2026-10-17)
+
+| Piece | Where | Tested by |
+|---|---|---|
+| Signed Hermes endpoints: context, search, knowledge proposals (§11), proposal status, knowledge gaps | `backend/api/v1/integrations.py` | `tests/integration/test_hermes.py` |
+| **Confirmation by the real sender**: a Hermes proposal waits as `awaiting_confirmation` until the linked Telegram account taps Confirm in the approvals bot (the model can never act in someone else's name) | `backend/integrations/approvals_bot.py` | AT-07 test |
+| Approvals bot (Bot 2): Confirm/Cancel, Approve/Reject with the same rules as the web, `/start` (shows your Telegram ID), `/pending`, publication confirmation with link, gap notices | `backend/integrations/approvals_bot.py`, webhook `POST /v1/integrations/telegram/webhook`, local poller `python -m workers.telegram_poll` | AT-07 + high-impact test |
+| quixotic-mcp sidecar (the only tools Hermes has) | `integrations/mcp/` | `tests/test_mcp_sidecar.py` + real HTTP smoke test |
+| Hermes configuration (tools locked down, allowlist, OpenAI STT) | `deploy/hermes/config.yaml`, `SOUL.md`, `hermes.env.example` | H0 checklist below |
+| Obsidian sync: push to `proposals/<name>` → proposals; `main` written only by the backend; branch receives the official note after publication | `backend/knowledge/vault_sync.py`, `deploy/vault/*` | Git round-trip test + hook test |
+| Linking accounts (Telegram IDs, Obsidian branches) | Admin → System → Integrations | admin test |
+
+Setup on the server: `docs/backend.md` → "Hermes, Telegram and Obsidian".
 
 ## 1. The idea in one picture
 

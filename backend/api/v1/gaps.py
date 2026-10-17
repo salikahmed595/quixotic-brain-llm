@@ -36,6 +36,12 @@ def record_gap(svc: Services, p: Principal, question: str, requested: Optional[U
         return None
     dept = gap_department(svc, p, requested)
     gid, created = store.record(question, dept)
+    bot = getattr(svc, "approvals_bot", None)
+    if created and bot:
+        try:
+            bot.notify_department(dept, f"\"{question[:300]}\"\n\n{svc.settings.public_url}/#/knowledge")
+        except Exception:
+            pass
     if created:
         for r in (svc.users.reviewers_for([dept]) if dept else []):
             if getattr(svc, "mailer", None):

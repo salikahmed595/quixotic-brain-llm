@@ -244,8 +244,7 @@ export function SystemPage() {
             ['Access levels', Object.entries(s.retrieval.sensitivity_levels).map(([k, v]) => `${k}: ${(v as string[]).length} roles`).join(' · ')]]} /></div>
           <div className="card"><b>Knowledge vault and backups</b><KV rows={[['Vault (Git)', s.vault.path], ['Last commit', s.vault.head ? s.vault.head.slice(0, 10) : 'none yet'],
             ['Last backup', s.backups ? `${fmtDate(s.backups.at)} · ${s.backups.status}` : <span className="chip amber">No backup recorded</span>]]} /></div>
-          <div className="card"><b>Integrations</b>{Object.keys(s.integrations || {}).length ? <KV rows={Object.entries(s.integrations).map(([k, v]: [string, any]) => [k, <span key={k} className={`chip dot ${v.ok ? 'green' : 'red'}`}>{v.ok ? 'OK' : 'Problem'} · {fmtDate(v.at)}</span>])} />
-            : <p className="hint mt-2">No integrations connected yet (Telegram via Hermes reports here once set up).</p>}</div>
+          <IntegrationsCard />
           <div className="card"><b>Incident controls</b><p className="hint mt-1.5">Stop all answers at once, e.g. if wrong information was published or the AI provider misbehaves. Document search keeps working.</p>
             <button className={`btn mt-2.5 ${s.incident?.answers_paused ? 'good' : 'bad'}`} onClick={pause}>{s.incident?.answers_paused ? 'Resume answers' : 'Pause answers'}</button></div>
         </div>
@@ -281,4 +280,36 @@ function IncidentForm({ paused, close, done }: { paused: boolean; close: () => v
       <button className={`btn ${paused ? 'good' : 'bad'}`} disabled={a.busy} onClick={() => a.run(async () => {
         await api('/v1/admin/system/incident', { method: 'POST', body: { answers_paused: !paused, message: msg.trim() || null } }); close(); toast(paused ? 'Answers resumed' : 'Answers paused'); done(); })}>{paused ? 'Resume answers' : 'Pause answers'}</button></div>
   </>);
+}
+
+
+/* Hermes + Telegram + Obsidian (PRD §9 step 1): only linked accounts of active people can send or approve. */
+type Ident = { id: string; platform: string; external_id: string; label?: string | null; full_name: string; email: string; role: string; account_status: string };
+function IntegrationsCard() {
+  const { data, error, reload } = useLoad(() => Promise.all([api<{ identities: Ident[]; telegram: boolean; hermes: boolean; obsidian: boolean }>('/v1/admin/integrations/identities'),
+    api<{ users: { id: string; full_name: string; role: string }[] }>('/v1/admin/users?status=active').then(r => r.users)]));
+  const [f, setF] = useState({ platform: 'telegram', external_id: '', user_id: '', label: '' }); const a = useAction();
+  if (error) return <div className="card"><b>Integrations</b><Banner kind="err" className="mt-2">{error}</Banner></div>;
+  if (!data) return <div className="card"><b>Integrations</b><Loading /></div>;
+  const [st, users] = data;
+  const chip = (on: boolean, label: string) => <span className={`chip dot ${on ? 'green' : ''}`}>{label}: {on ? 'configured' : 'off'}</span>;
+  return (
+    <div className="card md:col-span-2"><b>Integrations — Telegram, Hermes, Obsidian</b>
+      <div className="flex flex-wrap gap-2 mt-2">{chip(st.telegram, 'Approvals bot')}{chip(st.hermes, 'Hermes')}{chip(st.obsidian, 'Obsidian sync')}</div>
+      <p className="hint mt-2">Link a person's Telegram ID (they send <code>/start</code> to the Quixotic Approvals bot to see it) or their Obsidian branch name. Only linked, active people can propose or approve from there; every change is still reviewed.</p>
+      {st.identities.length > 0 && <div className="table-wrap !border-0 mt-2"><table><thead><tr><th>Where</th><th>Account</th><th>Person</th><th /></tr></thead>
+        <tbody>{st.identities.map(i => <tr key={i.id}><td>{i.platform === 'telegram' ? 'Telegram' : 'Obsidian branch'}</td><td><code>{i.platform === 'obsidian' ? 'proposals/' : ''}{i.external_id}</code>{i.label && <div className="hint">{i.label}</div>}</td>
+          <td>{i.full_name}<div className="hint">{i.role.replace('_', ' ')}{i.account_status !== 'active' ? ' · not active' : ''}</div></td>
+          <td><button className="btn ghost sm" aria-label="Remove link" onClick={() => confirmModal('Remove this link?', 'They can no longer propose or approve from there.', 'Remove', async () => { await api(`/v1/admin/integrations/identities/${i.id}`, { method: 'DELETE' }); reload(); })}><Icon name="trash" size={16} /></button></td></tr>)}</tbody></table></div>}
+      <form className="grid grid-cols-[150px_1fr_1fr_1fr_auto] gap-2 mt-3 max-md:grid-cols-1" onSubmit={e => { e.preventDefault(); a.run(async () => {
+        await api('/v1/admin/integrations/identities', { method: 'POST', body: { ...f, external_id: f.external_id.trim(), label: f.label.trim() || null } }); setF({ ...f, external_id: '', label: '' }); toast('Linked'); reload(); }); }}>
+        <select className="select" value={f.platform} onChange={e => setF({ ...f, platform: e.target.value })} aria-label="Where"><option value="telegram">Telegram</option><option value="obsidian">Obsidian branch</option></select>
+        <input className="input" required value={f.external_id} onChange={e => setF({ ...f, external_id: e.target.value })} placeholder={f.platform === 'telegram' ? 'Telegram ID, e.g. 123456789' : 'Branch name, e.g. ceo'} aria-label="Account" />
+        <select className="select" required value={f.user_id} onChange={e => setF({ ...f, user_id: e.target.value })} aria-label="Person"><option value="" disabled>Person…</option>{users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}</select>
+        <input className="input" value={f.label} onChange={e => setF({ ...f, label: e.target.value })} placeholder="Label (optional)" aria-label="Label" />
+        <button className="btn primary" disabled={a.busy}>Link</button>
+      </form>
+      {a.error && <Banner kind="err" className="mt-2">{a.error}</Banner>}
+    </div>
+  );
 }

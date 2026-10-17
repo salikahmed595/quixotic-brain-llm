@@ -165,8 +165,22 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 
 ### 0.7 Hermes, Telegram and Obsidian (owner, 2026-10-17)
 
-Status today: **not built.** No Hermes, Telegram or vault code exists in `backend/`, `workers/` or the Docker setup.
-PRD §9 describes the flow; §14 puts it in P2 / Phase 3 and §16 says it must not delay the Phase 1 launch.
+Status: **built 2026-10-17** after M3 (owner asked for the full product). PRD §9 describes the flow; §14 puts it in P2 / Phase 3
+and §16 says it must not delay the Phase 1 launch — it is optional and off until its settings are filled in.
+
+Design choices added while building (veto if needed):
+- **Sender confirmation:** Hermes cannot prove who is talking to it, so every Hermes proposal waits until the *linked Telegram
+  account* taps Confirm in the backend-owned approvals bot (identity from Telegram itself). Wrong attribution therefore can never
+  submit anything. `QUIXOTIC_DEFAULT_TELEGRAM_USER` may name the one person who uses the Hermes bot.
+- **Approvals in Telegram** follow exactly the web rules (reviewers for their departments, a publisher's approval, two people for
+  high-impact topics; the CEO counts as a publisher, so the CEO's own approval plus one more person publishes a refund rule).
+- **Obsidian:** a push to `proposals/<name>` (SSH key restricted by the server hook) becomes proposals for every note changed since
+  the branch split from `main`. The same note content is proposed once. Notes need `departments:` and (new notes) `sensitivity:`
+  front matter; the person is told when a note was not sent. After a publication `main` is merged into each linked branch
+  (`-X theirs`), so the official note replaces theirs on the next pull. ❓ O6: a *rejected* note stays on their branch until they
+  change or delete it (no automatic revert).
+- **Message retention:** the backend stores only the proposal text, the voice transcript and event ids; Telegram message text
+  is not kept elsewhere. ❓ O5 retention period still open.
 
 | Topic | PRD | Owner decision (2026-10-17) |
 |---|---|---|

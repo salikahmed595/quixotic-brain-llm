@@ -84,7 +84,7 @@ class KnowledgeService:
     def __init__(self, svc) -> None:
         self.svc = svc
         self.store = svc.knowledge
-        self.vault = GitVault(svc.settings.vault_dir)
+        self.vault = GitVault(svc.settings.vault_dir, remote=getattr(svc.settings, "vault_remote", None))
 
     # ---- helpers ----
     def _enqueue(self, job_type: str, payload: dict, actor: Optional[UUID]) -> UUID:
@@ -120,7 +120,8 @@ class KnowledgeService:
         return sorted(names.get(UUID(str(i)), str(i)) for i in ids)
 
     # ---- proposing (§7 Add information / Documents, §11 POST /knowledge/proposals) ----
-    def propose_new(self, actor: Principal, d: Draft, *, source: str = "web", source_ref: Optional[str] = None) -> dict:
+    def propose_new(self, actor: Principal, d: Draft, *, source: str = "web", source_ref: Optional[str] = None,
+                    confirm_first: bool = False, transcript: Optional[str] = None) -> dict:
         self._check_draft(actor, d)
         if source_ref and (dup := self.store.proposal_by_ref(source, source_ref)):
             return {"proposal_id": str(dup["id"]), "duplicate": True}             # §12 bot events never write twice
@@ -137,11 +138,12 @@ class KnowledgeService:
         job = self._enqueue("knowledge.process", {"version_id": str(vid)}, actor.user_id)
         audit.record(self.svc.ops, audit.KNOWLEDGE_SUBMISSION, actor.user_id, actor.employee_id, proposal=pid, title=d.title,
                      kind="create", source=source, high_impact=high)
-        self._notify_reviewers(pid)
-        return {"proposal_id": str(pid), "item_id": str(item), "version_id": str(vid), "job_id": str(job), "high_impact": high}
+        status = self._submitted(pid, confirm_first, transcript)
+        return {"proposal_id": str(pid), "item_id": str(item), "version_id": str(vid), "job_id": str(job), "high_impact": high,
+                "status": status}
 
     def propose_update(self, actor: Principal, item_id: UUID, d: Draft, *, source: str = "web",
-                       source_ref: Optional[str] = None) -> dict:
+                       source_ref: Optional[str] = None, confirm_first: bool = False, transcript: Optional[str] = None) -> dict:
         item = self.store.get_item(item_id)
         if item is None or not self._may_see(actor, item):
             raise KnowledgeError(404, "document not found")
@@ -164,8 +166,24 @@ class KnowledgeService:
         job = self._enqueue("knowledge.process", {"version_id": str(vid)}, actor.user_id)
         audit.record(self.svc.ops, audit.KNOWLEDGE_SUBMISSION, actor.user_id, actor.employee_id, proposal=pid, title=d.title,
                      kind="update", source=source, high_impact=high)
+        status = self._submitted(pid, confirm_first, transcript)
+        return {"proposal_id": str(pid), "item_id": str(item_id), "version_id": str(vid), "job_id": str(job), "high_impact": high,
+                "status": status}
+
+    def _submitted(self, pid: UUID, confirm_first: bool, transcript: Optional[str]) -> str:
+        """Web proposals go straight to review. Bot proposals first wait for the real sender's confirmation tap in the
+        backend-owned approvals bot (§9 step 1: verified identity; step 2: the transcript is confirmed)."""
+        if transcript:
+            self.store.set_transcript(pid, transcript[:4000])
+        bot = getattr(self.svc, "approvals_bot", None)
+        if confirm_first:
+            if bot is None:
+                raise KnowledgeError(503, "Telegram confirmations are not configured (QB_TELEGRAM_BOT_TOKEN)")
+            self.store.set_proposal_status(pid, "awaiting_confirmation", expect=("open",))
+            bot.request_confirmation(pid)
+            return "awaiting_confirmation"
         self._notify_reviewers(pid)
-        return {"proposal_id": str(pid), "item_id": str(item_id), "version_id": str(vid), "job_id": str(job), "high_impact": high}
+        return "open"
 
     def propose_archive(self, actor: Principal, item_id: UUID, note: Optional[str]) -> dict:
         item = self.store.get_item(item_id)
@@ -211,7 +229,7 @@ class KnowledgeService:
             raise KnowledgeError(404, "proposal not found")
         if p["submitted_by"] != actor.user_id and not can(actor.role, P.MANAGE_DOCUMENTS):
             raise KnowledgeError(403, "only the person who proposed it can withdraw it")
-        if not self.store.set_proposal_status(proposal_id, "withdrawn", expect=("open", "changes_requested")):
+        if not self.store.set_proposal_status(proposal_id, "withdrawn", expect=("open", "changes_requested", "awaiting_confirmation")):
             raise KnowledgeError(409, "this proposal can no longer be withdrawn")
         if p["kind"] in ("create", "update"):
             self.store.set_status(p["version_id"], DRAFT, actor.user_id, "proposal withdrawn")
@@ -306,6 +324,10 @@ class KnowledgeService:
                 dept_ids = meta.get("department_ids") or [str(x) for x in item["department_ids"]]
                 dept_names = self._dept_names(dept_ids)
                 path = note_path(str(item["id"]), merged["title"], dept_names)
+                if p["source"] == "obsidian" and p.get("source_ref"):
+                    path = p["source_ref"].split(":", 2)[2]           # keep the CEO's own file, so their branch merges cleanly
+                elif item["vault_path"] and not item["vault_path"].startswith("Archive/"):
+                    path = item["vault_path"]
                 note = render_note({"id": str(item["id"]), "title": merged["title"], "category": merged.get("category"),
                                     "departments": dept_names, "sensitivity": merged.get("sensitivity"),
                                     "owner": self._name(merged.get("owner_id")), "approved_by": self._name(actor),
@@ -335,6 +357,8 @@ class KnowledgeService:
                          proposal=proposal_id, error=str(exc)[:300])
             self._notify_admins(f"Publication failed: {item['title']}", f"The previous version stays live. Reason: {exc}\n"
                                 f"Retry from Approvals: {self.svc.settings.public_url}/#/approvals")
+            self._notify_submitter(p, f"Not published yet: {item['title']}", "Publishing failed, so the previous version stays live. "
+                                   "An administrator was alerted and can retry.")
             raise
 
     def _verify_retrievable(self, version_id: UUID) -> None:
@@ -364,6 +388,9 @@ class KnowledgeService:
         gaps = getattr(self.svc, "gaps", None)
         if gaps and p.get("gap_id"):
             gaps.resolve_by_proposal(p["id"], p["gap_id"], None)
+        if getattr(self.svc.settings, "vault_remote", None) and getattr(self.svc, "integrations", None):
+            from .vault_sync import VaultSync
+            VaultSync(self.svc).refresh_branches()
         hook = getattr(self.svc, "on_published", None)
         if hook:
             try:
@@ -412,13 +439,19 @@ class KnowledgeService:
         u = self.svc.users.get(p["submitted_by"]) if p.get("submitted_by") else None
         if u and getattr(self.svc, "mailer", None):
             send_safely(self.svc.mailer, u["email"], subject, text)
-        hook = getattr(self.svc, "notify_user", None)
-        if hook and u:
-            hook(u, subject, text)
+        bot = getattr(self.svc, "approvals_bot", None)
+        if bot and u:
+            bot.notify_user(u, subject, text)
 
     def _notify_reviewers(self, proposal_id: UUID) -> None:
         from ..notifications.mail import send_safely
         p = self.store.get_proposal(proposal_id)
+        bot = getattr(self.svc, "approvals_bot", None)
+        if bot:
+            try:
+                bot.notify_reviewers(proposal_id)
+            except Exception:
+                log.exception("Telegram review notification failed")
         if not getattr(self.svc, "mailer", None):
             return
         people = {r["email"] for r in self.svc.users.reviewers_for(self.proposal_departments(p))}
