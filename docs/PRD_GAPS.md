@@ -61,7 +61,7 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 |---|---|---|---|
 | API paths | §11 contract: `/auth/*`, `/chats/*`, `/admin/*`, `/knowledge/*` (marked "illustrative") | `/v1/auth`, `/v1/conversations`, `/v1/documents`, `/v1/ask` … | ❓ **Rename to the §11 paths, or keep `/v1/` prefix?** Proposed: `/v1` + §11 names (`/v1/chats`, `/v1/admin/access-requests`), old paths removed |
 | Chat messages | §11: `POST /chats/{id}/messages` asks within a chat | `POST /v1/ask` with a conversation id | Add the §11 route; `/v1/ask` stays for internal apps (API keys) ❓ |
-| Frontend stack | §11: React + TypeScript + Tailwind (Next.js or Vite) | vanilla `frontend/app.js` (976 lines) + `app.css` | Rebuild in Vite + React + TS + Tailwind (no Next.js server needed) (M6) |
+| Frontend stack | §11: React + TypeScript + Tailwind (Next.js or Vite) | **Done (M6, 2026-10-17):** `web/` — Vite + React 18 + TypeScript + Tailwind 4; old `frontend/` removed | Built to `web/dist`, served by the API (`QB_FRONTEND_DIR=web/dist`) |
 | Reference screenshots | §4: `image(20261016-164021).png` (admin), `image(20261016-164058).png` (employee) | **Added 2026-10-17** in `UI images/reference/` (sizes match §4). Older mock-ups in `UI images/` are superseded | Findings in §0.5. **Owner: no mascot file — recreate it** as SVG (M6) |
 | Admin sidebar | §4.3 exact order incl. WORKSPACE group, Approvals, System | close but not identical | Match §4.3 exactly in M6 |
 | Queue | §11: Redis + worker queue | Amazon SQS + ECS worker | **Owner (2026-10-17): one budget-friendly EC2 server.** Redis per §11 runs as a container on that server (no ElastiCache). Replaces SQS in M7 |
@@ -90,6 +90,26 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 - **Example cards:** the admin screenshot shows the first card with the orange outline — this is the hover/active state from §4.1, not a default selection.
 - **Font:** a rounded geometric sans; it cannot be identified with certainty from a raster image. ❓ **Do you have the font name or files?** Until then M6 picks the closest match by visual comparison and lists it under implementation necessities (§4.1 "rather than guessing").
 - **Mascot and icons:** no original files exist (owner, 2026-10-17). M6 recreates them as SVG and reviews them side by side with the screenshots (§4).
+
+### 0.6 Front-end rebuild (M6, 2026-10-17) — choices and what is still open
+
+- **Measured parity.** At 1468 × 901 the home screen matches Reference A/B within ~5 px (headline, subtitle, mascot, labels,
+  composer and its controls, example cards); the admin sidebar rows, group gaps and profile card were tuned to the screenshot.
+  An automated visual regression test (§13 AT-08) is **not yet** in the repo.
+- **Font: Plus Jakarta Sans** (Google Fonts) — the font of the app the screenshots were taken from. ❓ Veto if the company has another.
+- **Mascot** recreated as SVG (`web/src/components/Mascot.tsx`) because no original exists (owner).
+- **"Company Wide"** on the profile card only for administrators or people who are members of every active department (§4.2, §15).
+- **+ button** opens the answer mode: *Answer* or *Search only*. The old "Sales coach" mode is gone from the UI because past
+  sales chats are off. The PRD does not say what + does. ❓
+- **Web Search pill and microphone** are shown (§4.1) but only explain that they come later (§14 P1: FR-CHAT-05, FR-CHAT-02).
+- **Search chats** filters chat titles in the browser; FR-CHAT-01 also asks for searching message text (needs a backend endpoint).
+- **Report missing information** (FR-CHAT-04): contributors and above go to Add information; employees send it as feedback
+  ("Missing information") until the M4 `knowledge_gaps` queue exists.
+- **Sign-in** still stores the backend's bearer token in the browser; M1 replaces it with HttpOnly cookies (FR-AUTH-06).
+- **Provider failures** (rejected key, outage) now return 503 "The answer service is unavailable right now" instead of a 500;
+  the chat shows it with a Retry button (FR-CHAT-07). The provider's own message stays in the server log.
+- Implementation necessities: React 18.3, Vite 6.3, Tailwind 4.1, TypeScript 5.8 (exact versions in `web/package.json`); Node 24 build
+  stage in the Dockerfile.
 
 ### 0.4 What already works and is reused
 
@@ -212,7 +232,7 @@ the model needs a migration + re-index, §24.2) · `sentence-transformers` for B
 - `scripts/dev_up.py` drops trailing `# comments` from `.env` values (like python-dotenv) and stops with a clear message when `.env`
   is missing. Before, `QB_SESSION_TTL_SECONDS=28800  # PLACEHOLDER` reached the app verbatim and failed validation.
 - `.env.example` is now a working local template: comments on their own lines, dummy `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
-  for the moto stand-in (boto3 refuses to sign requests without credentials), `QB_RAW_STORAGE_DIR=.devstore`, `QB_FRONTEND_DIR=frontend`,
+  for the moto stand-in (boto3 refuses to sign requests without credentials), `QB_RAW_STORAGE_DIR=.devstore`, `QB_FRONTEND_DIR=web/dist`,
   and the models by Hugging Face id (`BAAI/bge-m3`, `BAAI/bge-reranker-v2-m3`) instead of a `.models/` folder that only the bash script creates.
 - `requirements-dev.txt` installs `moto[server]` (needed by `dev_up.py`'s `moto.server`).
 - `Start Quixotic AI.bat` uses the project's `.venv` Python when present and stops with a message when Docker is not running.

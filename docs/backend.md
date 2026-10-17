@@ -101,11 +101,18 @@ Tests: `python -m pytest` (unit, no services needed). With the database up, also
 Sales-memory import needs a `ConversationParser` and `MemoryExtractor` (the PRD defines neither). Pass them to
 `build_services(settings, parser=..., extractor=...)`; until then the import job fails with an explanatory error.
 
-## Front-end (`frontend/`)
+## Front-end (`web/`)
 
-Plain HTML + CSS + JS, no build step, **no mock data**: every screen reads from or writes to the API and shows an empty state when there is
-nothing yet. Set `QB_FRONTEND_DIR=frontend` and the API serves it at `/` (same origin). To host it elsewhere (stack: Vercel), serve the three
-files, set `window.QB_API` (or `?api=`) to the API URL, and set `QB_CORS_ORIGINS` on the API.
+React + TypeScript + Tailwind on Vite (PRD §11), **no mock data**: every screen reads from or writes to the API and shows an empty state
+when there is nothing yet. The desktop layout follows the two PRD §4 reference screenshots in `UI images/reference/`.
+
+```bash
+cd web && npm ci && npm run build      # -> web/dist
+```
+
+Set `QB_FRONTEND_DIR=web/dist` and the API serves it at `/` (same origin); `scripts/dev_up.py` builds it first if `web/dist` is missing.
+For live editing run `npm run dev` in `web/` (port 5173, API calls forwarded to :8000). To host it elsewhere, serve `web/dist`, set
+`window.QB_API` (or `?api=`) to the API URL, and set `QB_CORS_ORIGINS` on the API.
 
 | Role | Sees |
 |---|---|

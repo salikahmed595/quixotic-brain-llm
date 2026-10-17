@@ -1,10 +1,13 @@
 """LLM generation layer — PRD §28. The rest of the system calls only `generate_answer(context, question)`."""
 from __future__ import annotations
 
+import logging
 from typing import Protocol
 
 from ..config import Settings
 from ..models import AnswerContext
+
+log = logging.getLogger(__name__)
 
 
 class GenerationProvider(Protocol):
@@ -24,7 +27,13 @@ class LazyGenerator:
                 self._inner = self._factory()
             except Exception as exc:
                 raise RuntimeError(f"The answer model is not configured: {exc}") from exc
-        return self._inner.generate_answer(context, question)
+        try:
+            return self._inner.generate_answer(context, question)
+        except Exception as exc:
+            # PRD §6 FR-CHAT-07 "unavailable service": a provider outage or a rejected key becomes a clear 503, never a 500.
+            # The provider's own message stays in the server log only (it can name the key or account).
+            log.exception("answer model call failed")
+            raise RuntimeError("The answer service is unavailable right now. Please try again in a moment.") from exc
 
     def interpret_query(self, question: str, history=()) -> str:
         """Optional English restatement of an Urdu / Roman Urdu question. Any failure just means 'no interpretation'."""

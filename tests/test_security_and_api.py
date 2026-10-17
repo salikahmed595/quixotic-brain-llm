@@ -202,3 +202,13 @@ def test_unconfigured_answer_model_is_a_clear_503_not_a_crash():
     svc.ask.generator = LazyGenerator(boom)
     r = c.post("/v1/ask", headers=bearer(svc), json={"question": "q"})
     assert r.status_code == 503 and "not configured" in r.json()["detail"]
+
+
+def test_answer_model_failure_is_a_503_without_provider_details():               # PRD §6 FR-CHAT-07
+    from backend.generation.base import LazyGenerator
+    c, svc, *_ = make_client()
+    class Rejected:
+        def generate_answer(self, context, question): raise PermissionError("Incorrect API key provided: sk-proj-***STQA")
+    svc.ask.generator = LazyGenerator(lambda: Rejected())
+    r = c.post("/v1/ask", headers=bearer(svc), json={"question": "q"})
+    assert r.status_code == 503 and "unavailable" in r.json()["detail"] and "sk-" not in r.json()["detail"]

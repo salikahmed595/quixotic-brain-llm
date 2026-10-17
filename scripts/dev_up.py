@@ -19,6 +19,16 @@ for line in (ROOT / ".env").read_text(encoding="utf-8").splitlines():     # .env
         k, v = line.split("=", 1)
         v = re.sub(r"\s+#.*$", "", v).strip().strip("'\"")                # drop trailing "  # comment", like python-dotenv
         env.setdefault(k.strip(), v)
+# PRD §11 front-end (web/): build it once if there is no build yet (needs Node.js; skipped with a note otherwise).
+if not (ROOT / "web" / "dist" / "index.html").is_file():
+    import shutil
+    npm = shutil.which("npm")
+    if npm:
+        print("Building the web app (first run)...")
+        subprocess.run([npm, "ci"], cwd=ROOT / "web", check=True)
+        subprocess.run([npm, "run", "build"], cwd=ROOT / "web", check=True)
+    else:
+        print("Node.js is not installed, so the web app was not built. Install Node.js, then run: cd web && npm ci && npm run build")
 procs = []
 def start(*args): p = subprocess.Popen([sys.executable, *args], env=env, cwd=ROOT); procs.append(p); return p
 try:

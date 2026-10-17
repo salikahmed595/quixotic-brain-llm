@@ -73,7 +73,7 @@ answered; work that does not depend on them goes first.
 - Strictly own chats only; admin analytics aggregate (§6 FR-CHAT-09).
 - **Tests:** user A can never read, search, rename or delete user B's chats.
 
-## M6 — Frontend rebuild with screenshot parity
+## M6 — Frontend rebuild with screenshot parity — ✅ built 2026-10-17 (visual regression test still to add)
 
 - Vite + React + TypeScript + Tailwind (§11), replacing `frontend/app.js`; same backend contract.
 - Shared home screen per §4.1 (sidebar, hero, mascot, wave lines, pills, 960 px composer, four example cards, profile card); employee sidebar per §4.2; admin sidebar exact order per §4.3.

@@ -5,3 +5,5 @@ __pycache__/
 .models/
 .devstore/
 .venv/
+web/node_modules/
+web/dist/
