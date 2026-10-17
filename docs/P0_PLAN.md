@@ -100,7 +100,7 @@ these stays in place but is not extended until its phase.
 
 ## After M3 — Hermes + Telegram knowledge updates (PRD §9; owner decisions in PRD_GAPS §0.7)
 
-Starts once M3 is done; must not delay the §16 Phase 1 release.
+Starts once M3 is done; must not delay the §16 Phase 1 release. Full research and steps H0–H6: `docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md`.
 
 - Hermes Agent as a Docker Compose service on the EC2 server; only backend tools via signed `POST /integrations/hermes/knowledge-proposals` (§11, §15).
 - Telegram gateway: allowlisted IDs mapped to verified Founder/CEO / Knowledge Admin users (§9 step 1).

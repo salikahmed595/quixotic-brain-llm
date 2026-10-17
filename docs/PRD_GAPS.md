@@ -135,9 +135,15 @@ PRD §9 describes the flow; §14 puts it in P2 / Phase 3 and §16 says it must n
 | Hermes permissions | §15 no open-ended filesystem/shell; §11 signed `POST /integrations/hermes/knowledge-proposals` | Hermes gets only the backend tools (search approved docs, create proposal, get proposal status) through the signed endpoint; no shell, no file access, no direct vault writes |
 | Senders | §9 step 1 allowlist + verified identity mapping | Allowlisted Telegram user IDs mapped to company users with Founder/CEO or Knowledge Admin authority |
 
+**Research and step-by-step plan: `docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md`.** Design choices from it (veto if needed):
+**two bots**, so Hermes chats and a backend-owned "Approvals" bot takes the Approve taps (Telegram ID checked by the backend, never by
+the AI); Hermes's self-written **skills and memory are disabled** (they conflict with §15); the CEO's Obsidian vault pushes over SSH
+to a `proposals/ceo` branch only, and `main` is written only by the backend after approval.
+
 Still open ❓ (asked when the milestone starts): the Telegram bot token and allowlisted IDs (stored only in AWS Secrets Manager /
 server env, §10); the retention period for original messages and audio (§9 step 2); Discord now or later; the exact
-Hermes Agent version (pinned, listed under implementation necessities).
+Hermes Agent version (pinned, listed under implementation necessities); what happens to a rejected Obsidian edit (proposed:
+reverted on the CEO's branch with an explanation in Telegram).
 
 ### 0.4 What already works and is reused
 
