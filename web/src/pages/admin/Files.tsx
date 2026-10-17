@@ -18,12 +18,17 @@ export function DocumentsPage() {
   });
   const { departments } = useApp();
   const importVault = () => openModal('Import Obsidian notes', close => <ObsidianImport me={me} departments={departments} close={close} done={reload} />, { wide: true });
+  const unclassified = (data || []).filter(d => d.sensitivity === 'unclassified');
+  const classify = () => openModal('Classify documents', close => <Classify docs={unclassified} close={close} done={reload} />, { wide: true });
   return (
     <div className="page">
       <PageHead title="Documents" sub="Every document, its version, who may see it, and whether it is ready to answer questions.">
         <div className="flex gap-2.5"><button className="btn" onClick={importVault}><Icon name="book" size={17} /> Import Obsidian notes</button>
           <a className="btn primary" href="#/add"><Icon name="cloud" size={17} /> Upload document</a></div>
       </PageHead>
+      {unclassified.length > 0 && (me.can_publish || me.role === 'founder_ceo') && <Banner kind="err" className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="flex-1"><b>{unclassified.length} document{unclassified.length === 1 ? ' has' : 's have'} no access level yet</b> and {unclassified.length === 1 ? 'is' : 'are'} not used in answers until classified.</span>
+        <button className="btn sm primary" onClick={classify}>Classify now</button></Banner>}
       {error ? <Banner kind="err">{error}</Banner> : !data ? <Loading /> : data.length ? (
         <div className="table-wrap"><table><thead><tr><th>Document</th><th>Departments</th><th>Access</th><th>Status</th><th>Search index</th><th>Updated</th><th /></tr></thead>
           <tbody>{data.map(d => { const [pl, pc] = PROC[d.processing_status || ''] || ['Text', ''];
@@ -120,4 +125,26 @@ export function SalesPage() {
       ) : <Empty icon="msg" title="No chats imported yet" text="Upload a JSON file of past sales chats and choose the department it belongs to." />}
     </div>
   );
+}
+
+
+/* PRD §8 / §10: documents from before access levels existed are hidden from answers until a publisher classifies them. */
+function Classify({ docs, close, done }: { docs: DocRow[]; close: () => void; done: () => void }) {
+  const [sel, setSel] = useState<Set<string>>(new Set(docs.map(d => d.item_id))); const [level, setLevel] = useState('');
+  const levels = useLoad(() => api<{ sensitivity_levels: string[] }>('/v1/knowledge/documents?limit=1').then(r => r.sensitivity_levels));
+  const a = useAction();
+  const toggle = (id: string, on: boolean) => { const s = new Set(sel); if (on) s.add(id); else s.delete(id); setSel(s); };
+  return (<>
+    <p className="text-ink-2 mb-3">Choose who may see these documents. They start being used in answers right away for the people allowed.</p>
+    <div className="field mb-3"><label htmlFor="cl-l">Access level</label><select id="cl-l" className="select" value={level} onChange={e => setLevel(e.target.value)}>
+      <option value="" disabled>Choose…</option>{(levels.data || []).map(l => <option key={l}>{l}</option>)}</select></div>
+    <div className="max-h-[300px] overflow-auto border border-line rounded-[14px] p-2 mb-3">
+      <label className="check font-semibold"><input type="checkbox" checked={sel.size === docs.length} onChange={e => setSel(e.target.checked ? new Set(docs.map(d => d.item_id)) : new Set())} /> All ({docs.length})</label>
+      {docs.map(d => <label key={d.item_id} className="check"><input type="checkbox" checked={sel.has(d.item_id)} onChange={e => toggle(d.item_id, e.target.checked)} /> {d.title} <span className="hint">· {d.departments.join(', ')}</span></label>)}</div>
+    {a.error && <Banner kind="err" className="mb-3">{a.error}</Banner>}
+    <div className="flex justify-end gap-3"><button className="btn" onClick={close}>Cancel</button>
+      <button className="btn primary" disabled={a.busy || !level || !sel.size} onClick={() => a.run(async () => {
+        const r = await api<{ classified: number }>('/v1/admin/documents/classify', { method: 'POST', body: { item_ids: [...sel], sensitivity: level } });
+        close(); toast(`${r.classified} document${r.classified === 1 ? '' : 's'} classified as ${level}`); done(); })}>Classify {sel.size}</button></div>
+  </>);
 }

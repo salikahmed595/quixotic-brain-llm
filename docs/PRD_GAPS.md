@@ -153,6 +153,15 @@ P0 will do. ❓ = needs your decision before that milestone starts.
   re-importing the same note is ignored (duplicate key).
 - **Uploads:** PDF/DOCX/TXT/MD; the extracted text is stored on the version so reviewers can read and diff it and the vault holds it.
 - **Deleting:** only never-published documents can be deleted; published ones are archived (history kept).
+- **First classification:** documents from before M3 can be given their first access level in bulk by a publisher
+  (Documents → "Classify now"); recorded as a permission change. After that, access changes go through reviewed proposals.
+- **Dashboard / Insights / System (§7):** the listed figures are computed from stored data (aggregate only). "Potential duplicates"
+  and "conflicting policies" have no PRD rule, so they stay empty and reviewers see related documents per change instead.
+  "Published over 6 months ago" is shown as information only (no PRD review interval). System shows models and RAG settings
+  read-only (they live in server configuration), integration health, last backup, the vault commit, an **incident switch** that
+  pauses all answers with a message (search keeps working), and an audited CSV export of the audit log (§10).
+- **Measured on the owner's laptop (CPU, real models):** answer p95 15 s and search p95 4 s over 27 questions, above the §2
+  targets (8 s / 2 s). Production sizing and the AT-09 load test (M7) must bring this under target (see docs/backend.md).
 
 ### 0.7 Hermes, Telegram and Obsidian (owner, 2026-10-17)
 

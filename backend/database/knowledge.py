@@ -139,6 +139,17 @@ class KnowledgeStore:
             rows = c.execute(f"SELECT * FROM ({sql}) d ORDER BY d.title LIMIT %(limit)s OFFSET %(offset)s", params).fetchall()
         return rows
 
+    def classify_unclassified(self, item_ids: Sequence[UUID], sensitivity: str) -> int:
+        """Give documents that were never classified (created before M3) their first access level. Only 'unclassified' rows
+        change; chunk ACL snapshots follow."""
+        with self.pool.connection() as c, c.transaction():
+            ids = [r["id"] for r in c.execute("UPDATE knowledge_items SET sensitivity=%s WHERE tenant_id=%s AND id = ANY(%s) "
+                                             "AND sensitivity='unclassified' RETURNING id", (sensitivity, self.tenant, list(item_ids)))]
+            if ids:
+                c.execute("UPDATE chunks SET metadata = metadata || jsonb_build_object('sensitivity', %s::text) "
+                          "FROM knowledge_versions v WHERE chunks.version_id=v.id AND v.item_id = ANY(%s)", (sensitivity, ids))
+        return len(ids)
+
     def categories(self) -> list[str]:
         with self.pool.connection() as c:
             return [r["category"] for r in c.execute("SELECT DISTINCT category FROM knowledge_items WHERE tenant_id=%s AND category IS NOT NULL "

@@ -1,33 +1,41 @@
 import { useEffect, useState } from 'react';
 import { api, session } from '../../api';
 import { Icon } from '../../icons';
-import { go, useApp } from '../../state';
+import { go } from '../../state';
 import type { Department } from '../../types';
 import { Banner, confirmModal, DeptChecks, Empty, fmtDate, Loading, openModal, PageHead, toast, useAction, useLoad, usePoll } from '../../ui';
 
 const prefillAdd = (title: string) => { session.set('qb_prefill', JSON.stringify({ title })); go('add'); };
 const Stat = ({ n, l, sub }: { n: React.ReactNode; l: string; sub?: string }) => <div className="card stat"><span className="n">{n}</span><span className="l">{l}</span>{sub && <span className="hint">{sub}</span>}</div>;
 
-/* PRD §7 Dashboard */
+/* PRD §7 Dashboard: approved users (target 160), pending accounts, active chats, answer volume, knowledge health, index status,
+   unresolved gaps, queue counts. Aggregate only (§6 FR-CHAT-09). */
 export function DashboardPage() {
-  const { rank } = useApp();
   const { data: d, error } = useLoad(() => api('/v1/dashboard'));
   const list = (arr: any[], empty: string, fn: (x: any, k: number) => React.ReactNode) => arr.length ? arr.map(fn) : <p className="hint py-2.5">{empty}</p>;
   return (
     <div className="page">
-      <PageHead title="Dashboard" sub={rank >= 3 ? 'Company-wide activity.' : 'Activity in the departments you manage.'} />
+      <PageHead title="Dashboard" sub="How Quixotic AI is being used, and what needs attention." />
       {error ? <Banner kind="err">{error}</Banner> : !d ? <Loading /> : (<>
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
-          <Stat n={d.knowledge_chunks} l="Knowledge sections" /><Stat n={d.departments} l="Departments" /><Stat n={d.questions_this_week} l="Questions this week" />
-          <Stat n={d.retrieval_success == null ? '—' : Math.round(d.retrieval_success * 100) + '%'} l="Answers found" /><Stat n={d.pending_approvals} l="Pending approvals" />
+        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(170px,1fr))]">
+          <Stat n={<>{d.approved_users}<span className="text-muted text-lg"> / {d.target_users}</span></>} l="Approved users" sub="Target from the plan" />
+          <a href="#/requests" className="no-underline"><Stat n={d.pending_accounts} l="Pending accounts" sub={d.pending_accounts ? 'Waiting for approval' : undefined} /></a>
+          <Stat n={d.signed_in_now} l="Signed in now" sub="Active in the last 15 min" /><Stat n={d.active_chats} l="Active chats" sub="Last 24 hours" />
+          <Stat n={d.answers_today} l="Questions today" sub={`${d.questions_this_week} this week`} />
+          <Stat n={d.answered_rate == null ? '—' : Math.round(d.answered_rate * 100) + '%'} l="Answered from knowledge" sub="Last 7 days" />
+        </div>
+        <div className="grid gap-4 mt-4 grid-cols-[repeat(auto-fit,minmax(170px,1fr))]">
+          <Stat n={d.published_documents} l="Published documents" sub={`${d.knowledge_chunks} searchable passages`} />
+          <a href="#/approvals" className="no-underline"><Stat n={d.pending_approvals} l="Changes to review" sub={d.failed_publications ? `${d.failed_publications} failed publication(s)` : undefined} /></a>
+          <a href="#/knowledge" className="no-underline"><Stat n={d.unresolved_gaps} l="Unanswered questions" sub="Missing knowledge" /></a>
+          <Stat n={d.index_not_current} l="Index not current" sub={d.index_not_current ? 'Reindex from Documents' : 'All published text indexed'} />
+          <Stat n={d.unclassified_documents} l="Need classification" sub={d.unclassified_documents ? 'Hidden from answers until classified' : undefined} />
+          <Stat n={`${d.jobs.queued + d.jobs.running}`} l="Jobs in queue" sub={`${d.jobs.done_24h} done · ${d.jobs.failed_24h} failed (24 h)`} />
         </div>
         <div className="grid gap-4 mt-4 grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
-          <div className="card"><b>Recent questions</b><div className="mt-2">{list(d.recent_questions, 'No questions yet.', (q, k) => (
-            <div key={k} className="flex items-center gap-3 py-2.5 border-t border-line"><span className="flex-1">{q.original_query}</span>
-              <span className={`chip ${q.knowledge_found ? 'green' : 'red'}`}>{q.knowledge_found ? 'Answered' : 'Not found'}</span><span className="hint">{fmtDate(q.created_at)}</span></div>))}</div></div>
-          <div className="card"><b>Recently updated knowledge</b><div className="mt-2">{list(d.recently_updated_knowledge, 'Nothing active yet.', (k2, k) => (
+          <div className="card"><b>Recently published</b><div className="mt-2">{list(d.recently_updated_knowledge, 'Nothing published yet.', (k2, k) => (
             <div key={k} className="flex items-center gap-3 py-2.5 border-t border-line"><span className="flex-1">{k2.title} <span className="hint">v{k2.version}</span></span><span className="hint">{fmtDate(k2.updated_at)}</span></div>))}</div></div>
-          <div className="card"><b>Most used sources</b><div className="mt-2">{list(d.most_used_sources, 'Sources appear once questions are answered.', (s, k) => (
+          <div className="card"><b>Most used sources (30 days)</b><div className="mt-2">{list(d.most_used_sources, 'Sources appear once questions are answered.', (s, k) => (
             <div key={k} className="flex items-center gap-3 py-2.5 border-t border-line"><span className="flex-1">{s.title}</span><span className="chip">{s.uses} uses</span></div>))}</div></div>
         </div>
       </>)}
@@ -35,32 +43,58 @@ export function DashboardPage() {
   );
 }
 
-/* PRD §7 Insights: zero-result questions, knowledge health, answer quality (aggregate only, §6 FR-CHAT-09). */
+/* PRD §7 Insights: top questions, zero-result queries, feedback, department usage, document coverage, response latency.
+   Aggregate and permission-aware: question texts and counts, never who asked (§6 FR-CHAT-09). */
 export function InsightsPage() {
   const [tab, setTab] = useState(0);
   return (
     <div className="page">
-      <PageHead title="Insights" sub="Find the gaps in your knowledge." />
-      <div className="tabs" role="tablist">{['Failed questions', 'Knowledge health', 'Answer quality'].map((t, k) => <button key={t} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{t}</button>)}</div>
-      {tab === 0 ? <Failed /> : tab === 1 ? <Health /> : <Quality />}
+      <PageHead title="Insights" sub="What people ask, where answers are missing, and how well the assistant performs." />
+      <div className="tabs" role="tablist">{['Questions', 'Knowledge health', 'Answer quality'].map((t, k) => <button key={t} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{t}</button>)}</div>
+      {tab === 0 ? <Overview /> : tab === 1 ? <Health /> : <Quality />}
     </div>
   );
 }
-function Failed() {
-  const { data, error } = useLoad(() => api('/v1/failed-questions').then(r => r.failed_questions as any[]));
-  if (error) return <Banner kind="err">{error}</Banner>; if (!data) return <Loading />;
-  return data.length ? (
-    <div className="table-wrap"><table><thead><tr><th>Question</th><th>Language</th><th>Confidence</th><th>Asked</th><th /></tr></thead>
-      <tbody>{data.map((q, k) => (<tr key={k}><td><b>{q.original_query}</b></td><td>{(q.language || '').replace('_', ' ')}</td><td><span className="chip red">{q.confidence || 'low'}</span></td><td>{fmtDate(q.created_at)}</td>
-        <td><div className="flex gap-2"><button className="btn sm" onClick={() => prefillAdd(q.original_query)}>Add missing knowledge</button><button className="btn sm" onClick={() => teachModal(q.original_query)}>Teach a word</button></div></td></tr>))}</tbody></table></div>
-  ) : <Empty icon="check" title="No failed questions" text="Every question so far found an answer." />;
+function Overview() {
+  const [days, setDays] = useState(30);
+  const { data: d, error } = useLoad(() => api(`/v1/insights?days=${days}`), [days]);
+  if (error) return <Banner kind="err">{error}</Banner>; if (!d) return <Loading />;
+  const sec = (ms: number | null) => ms == null ? '—' : (ms / 1000).toFixed(1) + ' s';
+  const lat = d.latency_ms;
+  return (<>
+    <div className="flex justify-end mb-3"><select className="select !w-40" value={days} onChange={e => setDays(+e.target.value)} aria-label="Period">
+      {[7, 30, 90].map(n => <option key={n} value={n}>Last {n} days</option>)}</select></div>
+    <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(170px,1fr))]">
+      <Stat n={sec(lat.answer_p95)} l="Answer time (p95)" sub={`Target under ${lat.targets.answer_p95 / 1000} s · median ${sec(lat.answer_p50)}`} />
+      <Stat n={sec(lat.search_p95)} l="Document search (p95)" sub={`Target under ${lat.targets.retrieval_p95 / 1000} s`} />
+      <Stat n={lat.answers} l="Answers" /><Stat n={`${d.feedback.up} 👍 · ${d.feedback.down} 👎`} l="Feedback" />
+    </div>
+    <div className="grid gap-4 mt-4 grid-cols-[repeat(auto-fit,minmax(340px,1fr))]">
+      <div className="card"><b>Top questions</b>{d.top_questions.length ? <table className="w-full mt-2 text-sm"><thead><tr className="text-left text-muted"><th className="py-1.5">Question</th><th>Asked</th><th>Unanswered</th></tr></thead>
+        <tbody>{d.top_questions.map((q: any, k: number) => <tr key={k} className="border-t border-line"><td className="py-2 pr-2">{q.question}</td><td>{q.asked}</td><td>{q.unanswered ? <span className="chip red">{q.unanswered}</span> : '—'}</td></tr>)}</tbody></table>
+        : <p className="hint mt-2">No questions yet.</p>}</div>
+      <div className="card"><b>Questions without an approved answer</b>{d.zero_result.length ? <div className="mt-2">{d.zero_result.map((g: any, k: number) => (
+        <div key={k} className="py-2 border-t border-line"><div>{g.question}</div><div className="hint">{g.occurrences}× asked · {g.reports} reports · {g.department || 'no department'}</div>
+          <button className="btn sm mt-1.5" onClick={() => prefillAdd(g.question)}>Add missing knowledge</button> <button className="btn sm mt-1.5" onClick={() => teachModal(g.question)}>Teach a word</button></div>))}</div>
+        : <p className="hint mt-2">None. Every question found approved knowledge.</p>}</div>
+    </div>
+    <div className="grid gap-4 mt-4 grid-cols-[repeat(auto-fit,minmax(340px,1fr))]">
+      <div className="card"><b>Department usage</b>{d.department_usage.length ? <table className="w-full mt-2 text-sm"><thead><tr className="text-left text-muted"><th className="py-1.5">Scope</th><th>Questions</th><th>Answered</th></tr></thead>
+        <tbody>{d.department_usage.map((u: any, k: number) => <tr key={k} className="border-t border-line"><td className="py-2">{u.department}</td><td>{u.questions}</td><td>{u.questions ? Math.round(100 * u.answered / u.questions) + '%' : '—'}</td></tr>)}</tbody></table>
+        : <p className="hint mt-2">No questions yet.</p>}</div>
+      <div className="card"><b>Document coverage</b><table className="w-full mt-2 text-sm"><thead><tr className="text-left text-muted"><th className="py-1.5">Department</th><th>Published documents</th></tr></thead>
+        <tbody>{d.coverage.map((c: any, k: number) => <tr key={k} className="border-t border-line"><td className="py-2">{c.department}</td><td>{c.published ? c.published : <span className="chip red">none</span>}</td></tr>)}</tbody></table></div>
+    </div>
+  </>);
 }
 function Health() {
   const { data: h, error } = useLoad(() => api('/v1/knowledge-health'));
   if (error) return <Banner kind="err">{error}</Banner>; if (!h) return <Loading />;
-  const rows: [string, number | null][] = [['Active documents', h.active_documents], ['Outdated (expired)', h.outdated_documents], ['Not reviewed in 6 months', h.not_reviewed_over_6_months],
-    ['No owner assigned', h.no_owner_assigned], ['Potential duplicates', h.potential_duplicates], ['Conflicting policies', h.conflicting_policies]];
-  return <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">{rows.map(r => <Stat key={r[0]} n={r[1] == null ? '—' : r[1]} l={r[0]} sub={r[1] == null ? 'Not tracked yet' : undefined} />)}</div>;
+  const rows: [string, number | null][] = [['Published documents', h.active_documents], ['Expired but still marked published', h.outdated_documents], ['Expiring in 30 days', h.expiring_in_30_days],
+    ['Published over 6 months ago', h.not_reviewed_over_6_months], ['No owner assigned', h.no_owner_assigned], ['Need classification', h.unclassified],
+    ['Potential duplicates', h.potential_duplicates], ['Conflicting policies', h.conflicting_policies]];
+  return (<><div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">{rows.map(r => <Stat key={r[0]} n={r[1] == null ? '—' : r[1]} l={r[0]} sub={r[1] == null ? 'Checked per change in Approvals' : undefined} />)}</div>
+    <p className="hint mt-3">Expired documents are never used in answers, even before someone archives them.</p></>);
 }
 function Quality() {
   const { data: q, error, reload } = useLoad(() => api('/v1/answer-quality?days=30'));
@@ -176,20 +210,46 @@ function NewKey({ depts, close, done }: { depts: Department[]; close: () => void
   );
 }
 
-/* PRD §7 System: background jobs and the audit trail. */
+/* PRD §7 System: models, RAG settings, indexing jobs, integration health, backups, incident controls, audit export. */
 const EVENTS = ['user_login', 'failed_authentication', 'document_upload', 'knowledge_submission', 'approval', 'rejection', 'archive_event', 'permission_change', 'api_key_creation', 'model_change', 'admin_action', 'sensitive_access_event'];
 const JOBS: Record<string, [string, string]> = { queued: ['Queued', 'amber'], running: ['Running', 'blue'], succeeded: ['Done', 'green'], failed: ['Failed', 'red'] };
+const KV = ({ rows }: { rows: [string, React.ReactNode][] }) => <dl className="kv mt-2.5 text-[13.5px]">{rows.map(([k, v]) => <><dt key={k + 'k'}>{k}</dt><dd key={k}>{v}</dd></>)}</dl>;
 export function SystemPage() {
   const [healthy, setHealthy] = useState<boolean | null>(null); const [ev, setEv] = useState('');
   useEffect(() => { api('/v1/health').then(() => setHealthy(true)).catch(() => setHealthy(false)); }, []);
+  const sys = useLoad(() => api('/v1/admin/system'));
   const jobs = useLoad(() => api('/v1/admin/jobs').then(r => r.jobs as any[]));
   usePoll(!!jobs.data?.some(x => x.status === 'queued' || x.status === 'running'), jobs.reload);
   const audit = useLoad(() => api('/v1/audit-logs?limit=100' + (ev ? '&event=' + ev : '')).then(r => r.audit_logs as any[]), [ev]);
+  const s = sys.data;
+  const pause = () => openModal(s?.incident?.answers_paused ? 'Resume answers?' : 'Pause all answers?', close => <IncidentForm paused={!!s?.incident?.answers_paused} close={close} done={sys.reload} />);
+  const reindexAll = () => confirmModal('Rebuild the whole search index?', 'Every published document is read and indexed again in the background. Answers keep working meanwhile.', 'Rebuild', async () => {
+    await api('/v1/admin/reindex', { method: 'POST' }); toast('Reindex started'); jobs.reload(); }, false);
   return (
     <div className="page">
-      <PageHead title="System" sub="Background work and the audit trail.">
+      <PageHead title="System" sub="Models, search settings, integrations, backups and the audit trail. Keys and secrets stay on the server.">
         {healthy != null && <span className={`chip dot ${healthy ? 'green' : 'red'}`}>{healthy ? 'Service healthy' : 'Service unreachable'}</span>}
       </PageHead>
+      {sys.error ? <Banner kind="err">{sys.error}</Banner> : !s ? <Loading /> : (<>
+        {s.incident?.answers_paused && <Banner kind="err" className="mb-4">Answers are paused for everyone. Employees see: “{s.incident.message || 'Answers are paused by an administrator. Please try again later.'}”</Banner>}
+        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(320px,1fr))] mb-4">
+          <div className="card"><b>Answer model and search</b><KV rows={[['Answer model', `${s.models.answer_provider} · ${s.models.answer_model}`], ['Embeddings', s.models.embeddings], ['Reranker', s.models.reranker],
+            ['Passages', `${s.retrieval.candidates} searched → ${s.retrieval.final_passages} used`], ['Chunk size', `${s.retrieval.chunk_size} (overlap ${s.retrieval.chunk_overlap})`],
+            ['Web Search', <span key="w" className="hint">Off — {s.web_search.reason}</span>]]} />
+            <p className="hint mt-2.5">Change these in the server configuration (.env / secret manager); they are never edited from the browser.</p>
+            <button className="btn sm mt-2" onClick={reindexAll}>Rebuild search index</button></div>
+          <div className="card"><b>Security</b><KV rows={[['Admin two-step sign-in', s.security.admin_mfa_required ? 'Required' : <span className="chip red">Off (development)</span>],
+            ['Secure cookies (HTTPS)', s.security.secure_cookies ? 'Yes' : <span className="chip amber">No (http)</span>], ['Session length', `${s.security.session_hours} h`],
+            ['Email', s.security.mail_backend === 'smtp' ? 'SMTP' : <span className="chip amber">Console (development)</span>],
+            ['Access levels', Object.entries(s.retrieval.sensitivity_levels).map(([k, v]) => `${k}: ${(v as string[]).length} roles`).join(' · ')]]} /></div>
+          <div className="card"><b>Knowledge vault and backups</b><KV rows={[['Vault (Git)', s.vault.path], ['Last commit', s.vault.head ? s.vault.head.slice(0, 10) : 'none yet'],
+            ['Last backup', s.backups ? `${fmtDate(s.backups.at)} · ${s.backups.status}` : <span className="chip amber">No backup recorded</span>]]} /></div>
+          <div className="card"><b>Integrations</b>{Object.keys(s.integrations || {}).length ? <KV rows={Object.entries(s.integrations).map(([k, v]: [string, any]) => [k, <span key={k} className={`chip dot ${v.ok ? 'green' : 'red'}`}>{v.ok ? 'OK' : 'Problem'} · {fmtDate(v.at)}</span>])} />
+            : <p className="hint mt-2">No integrations connected yet (Telegram via Hermes reports here once set up).</p>}</div>
+          <div className="card"><b>Incident controls</b><p className="hint mt-1.5">Stop all answers at once, e.g. if wrong information was published or the AI provider misbehaves. Document search keeps working.</p>
+            <button className={`btn mt-2.5 ${s.incident?.answers_paused ? 'good' : 'bad'}`} onClick={pause}>{s.incident?.answers_paused ? 'Resume answers' : 'Pause answers'}</button></div>
+        </div>
+      </>)}
       <div className="card mb-4"><b>Background jobs</b><div className="mt-2.5">
         {jobs.error ? <Banner kind="err">{jobs.error}</Banner> : !jobs.data ? <Loading /> : jobs.data.length ? (
           <div className="table-wrap !border-0"><table><thead><tr><th>Job</th><th>Status</th><th className="w-60">Progress</th><th>Started</th></tr></thead>
@@ -199,6 +259,7 @@ export function SystemPage() {
         ) : <p className="hint">No background jobs yet.</p>}</div></div>
       <div className="card">
         <div className="flex flex-wrap items-center gap-3 mb-2.5"><b className="flex-1">Audit log</b>
+          <a className="btn sm" href={`${(window as unknown as { QB_API?: string }).QB_API || ''}/v1/admin/system/audit-export`} download>Export CSV</a>
           <select className="select !w-[220px] !h-[38px]" value={ev} onChange={e => setEv(e.target.value)} aria-label="Event"><option value="">All events</option>{EVENTS.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}</select></div>
         {audit.error ? <Banner kind="err">{audit.error}</Banner> : !audit.data ? <Loading /> : audit.data.length ? (
           <div className="table-wrap !border-0"><table><thead><tr><th>When</th><th>Who</th><th>Event</th><th>Detail</th></tr></thead>
@@ -208,4 +269,16 @@ export function SystemPage() {
       </div>
     </div>
   );
+}
+
+function IncidentForm({ paused, close, done }: { paused: boolean; close: () => void; done: () => void }) {
+  const [msg, setMsg] = useState(''); const a = useAction();
+  return (<>
+    {!paused && <div className="field mb-4"><label htmlFor="inc-m">Message employees see <span className="hint">(optional)</span></label>
+      <input id="inc-m" className="input" maxLength={300} value={msg} onChange={e => setMsg(e.target.value)} placeholder="Answers are paused while we fix a document. Please try again later." /></div>}
+    {a.error && <Banner kind="err" className="mb-3">{a.error}</Banner>}
+    <div className="flex justify-end gap-3"><button className="btn" onClick={close}>Cancel</button>
+      <button className={`btn ${paused ? 'good' : 'bad'}`} disabled={a.busy} onClick={() => a.run(async () => {
+        await api('/v1/admin/system/incident', { method: 'POST', body: { answers_paused: !paused, message: msg.trim() || null } }); close(); toast(paused ? 'Answers resumed' : 'Answers paused'); done(); })}>{paused ? 'Resume answers' : 'Pause answers'}</button></div>
+  </>);
 }

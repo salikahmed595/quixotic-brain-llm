@@ -14,6 +14,7 @@ from ..deps import Caller, api_caller, get_services, resolve_caller
 from ..services import Services
 from .auth import clean_preferences, learned_hints
 from .gaps import record_gap
+from .system import answers_paused
 
 router = APIRouter(prefix="/v1", tags=["ask"])
 
@@ -140,6 +141,9 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
     caller = resolve_caller(caller, body.user_id, svc)
     if not can(caller.principal.role, P.ASK):
         raise HTTPException(403, "your role cannot ask questions")
+    paused = answers_paused(svc)                      # §7 System incident control
+    if paused:
+        raise HTTPException(503, paused)
     scope, requested = _scope(svc, caller, body.department)
     _check_chat(svc, caller, body.conversation_id)
     started = time.monotonic()

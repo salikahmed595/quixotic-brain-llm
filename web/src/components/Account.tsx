@@ -43,9 +43,13 @@ function Profile({ app, close }: { app: App; close: () => void }) {
         </div>
       </div>
       <div className="field"><label htmlFor="pf-name">Full name</label><input id="pf-name" className="input" required maxLength={80} value={name} onChange={e => setName(e.target.value)} /></div>
+      {/* PRD §5 FR-AUTH-07: name, department(s), effective access scope, account settings and status */}
       <dl className="kv">
-        <dt>Email</dt><dd>{m.email}</dd><dt>Employee ID</dt><dd>{m.employee_id}</dd><dt>Role</dt><dd>{ROLE_LABEL[m.role]}</dd>
-        <dt>Access</dt><dd>{m.departments.length ? m.departments.map(d => <span key={d.id} className="chip m-0.5">{d.name}</span>) : <span className="hint">None yet — ask an administrator</span>}</dd>
+        <dt>Email</dt><dd>{m.email}{m.email_verified ? '' : <span className="chip amber ml-2">not verified</span>}</dd><dt>Username</dt><dd>{m.employee_id}</dd>
+        <dt>Role</dt><dd>{ROLE_LABEL[m.role]}{m.can_publish ? ' · can publish' : ''}</dd>
+        <dt>Departments</dt><dd>{m.departments.length ? m.departments.map(d => <span key={d.id} className="chip m-0.5">{d.name}</span>) : <span className="hint">None yet — ask an administrator</span>}</dd>
+        <dt>Answers use</dt><dd>{m.company_wide ? <span className="chip orange">Company Wide</span> : m.scope.length ? m.scope.map(d => <span key={d.id} className="chip m-0.5">{d.name}</span>) : <span className="hint">Nothing yet</span>}</dd>
+        <dt>Account</dt><dd><span className="chip dot green">Active</span>{m.mfa_enabled ? <span className="hint ml-2">two-step sign-in on</span> : null} <StatusHistory /></dd>
       </dl>
       <p className="hint">Your role and access are set by an administrator. They decide which company knowledge your answers can use.</p>
       {a.error && <Banner kind="err">{a.error}</Banner>}
@@ -136,4 +140,11 @@ function Settings({ app, close, onChatsGone }: { app: App; close: () => void; on
       </div>
     </div>
   );
+}
+
+
+function StatusHistory() {
+  const [rows, setRows] = useState<{ to_status: string; at: string; note?: string | null }[] | null>(null);
+  if (!rows) return <button type="button" className="text-orange text-xs font-semibold ml-2" onClick={() => api('/v1/auth/status-history').then(r => setRows(r.history)).catch(() => setRows([]))}>History</button>;
+  return <ul className="mt-1.5 grid gap-0.5 text-[12.5px] text-ink-2">{rows.map((h, i) => <li key={i}>{h.to_status} · {new Date(h.at).toLocaleDateString()}{h.note ? ` — ${h.note}` : ''}</li>)}</ul>;
 }

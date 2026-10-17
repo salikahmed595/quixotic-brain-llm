@@ -161,3 +161,19 @@ def test_browse_scope_and_sensitivity(stack):
     drain(svc)
     rel = lambda h: [r["title"] for r in client.get(f"/v1/knowledge/proposals/{near['proposal_id']}", headers=h).json()["related"]]
     assert "Board notes" not in rel(rev) and "Board notes" in rel(admin)
+
+
+def test_documents_from_before_access_levels_are_hidden_until_a_publisher_classifies_them(stack):
+    svc, client, sales, hr, ka = _setup(stack)
+    admin, kah, emp = login(client, "k_admin"), login(client, "k_ka"), login(client, "k_emp")
+    item = publish_doc(svc, client, admin, "Legacy leave", LEAVE, sales)["item_id"]
+    with svc.pool.connection() as c:                                   # what migration 010 does to older documents
+        c.execute("UPDATE knowledge_items SET sensitivity='unclassified' WHERE id=%s", (item,))
+    q = lambda: [r["source"] for r in client.post("/v1/search", headers=emp, json={"question": "annual leave fresh sellers"}).json()["results"]]
+    assert "Legacy leave" not in q()                                    # fail closed
+    body = {"item_ids": [item], "sensitivity": "internal"}
+    assert client.post("/v1/admin/documents/classify", headers=kah, json=body).status_code == 403     # not a publisher
+    assert client.post("/v1/admin/documents/classify", headers=admin, json={**body, "sensitivity": "nope"}).status_code == 422
+    assert client.post("/v1/admin/documents/classify", headers=admin, json=body).json() == {"classified": 1}
+    assert "Legacy leave" in q()
+    assert client.post("/v1/admin/documents/classify", headers=admin, json={**body, "sensitivity": "confidential"}).json() == {"classified": 0}   # only once

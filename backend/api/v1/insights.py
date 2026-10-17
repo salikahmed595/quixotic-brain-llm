@@ -1,4 +1,4 @@
-"""Dashboard (§34), failed questions (§35), knowledge health (§36), audit logs (§53), health (§37)."""
+"""Health, Dashboard and Insights (PRD §7, aggregate only per §6 FR-CHAT-09), audit log (§10)."""
 from __future__ import annotations
 
 from typing import Optional
@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 
 from ...analytics import audit
 from ...permissions.access import Principal
-from ...permissions.roles import P, Role, can
+from ...permissions.roles import P
 from ..deps import current_principal, get_services, require
 from ..services import Services
 
@@ -25,9 +25,15 @@ def health(svc: Services = Depends(get_services)):
 
 @router.get("/dashboard")
 def dashboard(actor: Principal = Depends(require(P.VIEW_DASHBOARD)), svc: Services = Depends(get_services)):
-    """§9.4 administrators see all analytics; §9.3 managers see their department."""
-    scope: Optional[frozenset] = None if can(actor.role, P.VIEW_INSIGHTS) else actor.managed_department_ids
+    """§7 Dashboard. Everyone who opens it governs every department (Knowledge Admin, System Admin, Founder/CEO)."""
+    scope: Optional[frozenset] = None if actor.all_departments else frozenset(actor.managed_department_ids)
     return svc.analytics.dashboard(scope)
+
+
+@router.get("/insights")
+def insights(days: int = 30, _: Principal = Depends(require(P.VIEW_INSIGHTS)), svc: Services = Depends(get_services)):
+    """§7 Insights: top questions, zero-result queries, feedback, department usage, document coverage, response latency."""
+    return svc.analytics.insights(max(1, min(days, 365)))
 
 
 @router.get("/failed-questions")

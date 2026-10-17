@@ -353,6 +353,26 @@ def restore_version(item_id: UUID, body: RestoreIn, p: Principal = Depends(requi
         _err(e)
 
 
+class ClassifyIn(BaseModel):
+    item_ids: list[UUID] = Field(min_length=1, max_length=2000)
+    sensitivity: str
+
+
+@admin.post("/documents/classify")
+def classify_documents(body: ClassifyIn, p: Principal = Depends(require(P.MANAGE_DOCUMENTS)), svc: Services = Depends(get_services)):
+    """First classification of documents that existed before access levels did (PRD §8, §10). Unclassified documents are never
+    used in answers; a publisher decides their level here (a person's decision, recorded as a permission change). Already
+    classified documents are changed only through a reviewed proposal."""
+    if not is_publisher(p):
+        raise HTTPException(403, "only a publisher can classify documents")
+    if body.sensitivity not in svc.settings.sensitivity_levels:
+        raise HTTPException(422, f"sensitivity must be one of {sorted(svc.settings.sensitivity_levels)}")
+    n = svc.knowledge.classify_unclassified(body.item_ids, body.sensitivity)
+    audit.record(svc.ops, audit.PERMISSION_CHANGE, p.user_id, p.employee_id, action="classify_documents", sensitivity=body.sensitivity,
+                 documents=n)
+    return {"classified": n}
+
+
 @admin.post("/documents/{item_id}/reindex", status_code=202)
 def reindex_document(item_id: UUID, p: Principal = Depends(require(P.MANAGE_DOCUMENTS)), svc: Services = Depends(get_services)):
     pub = svc.knowledge.published_version(item_id)

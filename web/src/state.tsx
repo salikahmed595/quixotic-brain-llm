@@ -19,7 +19,6 @@ export const replaceRoute = (path: string) => { history.replaceState(null, '', '
 interface AppState {
   me: Me;
   setMe: (m: Me) => void;
-  rank: number;
   /** departments this person may search/choose (PRD §6 FR-CHAT-06: only permitted scopes) */
   departments: Department[];
   /** every active department (for labels and admin pickers) */
@@ -39,8 +38,6 @@ export function AppProvider({ me: initialMe, onLogout, children }: { me: Me; onL
   const [activeDepartments, setActive] = useState<Department[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [counts, setCountsState] = useState({ requests: 0, pending: 0 });
-  // Interim ordering for older admin pages; page access itself follows me.permissions (PRD §3, §7).
-  const rank = { employee: 0, department_reviewer: 1, knowledge_admin: 2, founder_ceo: 2, system_admin: 3 }[me.role] ?? 0;
 
   const reloadChats = useCallback(() => {
     api<{ chats: Chat[] }>('/v1/chats').then(r => setChats(r.chats)).catch(() => {});
@@ -57,7 +54,7 @@ export function AppProvider({ me: initialMe, onLogout, children }: { me: Me; onL
 
   const departments = me.scope;
   const value: AppState = {
-    me, setMe, rank, departments, activeDepartments, chats, setChats, reloadChats, counts,
+    me, setMe, departments, activeDepartments, chats, setChats, reloadChats, counts,
     setCounts: c => setCountsState(old => ({ ...old, ...c })), logout: onLogout,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
