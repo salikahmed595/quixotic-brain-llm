@@ -4,7 +4,7 @@
           -> reranker -> best 5–8 chunks
 
 Permissions/department filtering happens inside the store queries BEFORE ranking (§42, §51);
-status = active is the default filter (§15).
+status = published, unexpired, permitted (PRD §8, §10).
 """
 from __future__ import annotations
 
@@ -21,8 +21,7 @@ from .embeddings import Embedder
 from .language import LanguageService, NormalizedQuery
 
 FOLLOW_UP_MAX_WORDS = 8         # a question this short is treated as a follow-up when the chat has a previous question
-ACTIVE_ONLY = ("active",)
-WITH_ARCHIVED = ("active", "archived")      # §15: archived only "when explicitly requested"
+PUBLISHED_ONLY = ("published",)            # PRD §8: retrieval uses only approved, published, unexpired content
 
 
 class RetrievalStore(Protocol):
@@ -81,11 +80,12 @@ class SearchService:
         self.language, self.settings = language, settings
         self.feedback_signals = feedback_signals       # callable(chunk_ids) -> {chunk_id: boost}; learned from 👍/👎, see learning/feedback.py
 
-    def search(self, question: str, department_ids: frozenset[UUID], include_archived: bool = False,
+    def search(self, question: str, department_ids: frozenset[UUID], levels: frozenset[str] = frozenset(),
                previous_question: Optional[str] = None, extra_search_text: str = "") -> SearchOutcome:
+        """`department_ids` and `levels` (sensitivity) are the caller's permitted scope; both filter before ranking."""
         q = self.language.process(question)
         s = self.settings
-        if not department_ids:                                  # nothing authorized -> nothing to search
+        if not department_ids or not levels:                    # nothing authorized -> nothing to search
             return SearchOutcome(q, None, [], None, "low")
         text = q.search_text
         if previous_question and len(question.split()) <= FOLLOW_UP_MAX_WORDS:
@@ -98,10 +98,9 @@ class SearchService:
         t0 = time.perf_counter()
         emb = self.embedder.embed(text)
         t1 = time.perf_counter()
-        statuses = WITH_ARCHIVED if include_archived else ACTIVE_ONLY
-        vec = self.store.vector_search(emb, self.embedder.name, department_ids, statuses, s.candidate_count)
-        kw = self.store.keyword_search(self.language.keyword_terms(text), self.embedder.name, department_ids, statuses,
-                                       s.candidate_count)
+        vec = self.store.vector_search(emb, self.embedder.name, department_ids, PUBLISHED_ONLY, s.candidate_count, levels=levels)
+        kw = self.store.keyword_search(self.language.keyword_terms(text), self.embedder.name, department_ids, PUBLISHED_ONLY,
+                                       s.candidate_count, levels=levels)
         t2 = time.perf_counter()
         candidates = interleave_merge(vec, kw, s.candidate_count)
         if self.feedback_signals and len(candidates) > 1:

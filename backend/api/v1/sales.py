@@ -13,7 +13,6 @@ from ...permissions.access import Principal
 from ...permissions.roles import P
 from ...sales_memory.schema import SalesMemoryRecord
 from ..deps import get_services, require
-from ..flow import KnowledgeFlow
 from ..services import Services
 
 router = APIRouter(prefix="/v1/sales-memory", tags=["sales-memory"])

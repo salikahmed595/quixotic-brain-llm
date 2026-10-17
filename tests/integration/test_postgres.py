@@ -33,12 +33,17 @@ def setup(stores, settings):
     return sales, hr, admin, emb, lang, IngestionService(k, storage, emb, lang, settings)
 
 
-def publish(stores, ing, admin, depts, title, body, doc_type="policy"):
+LV = frozenset({"internal"})
+
+
+def publish(stores, ing, admin, depts, title, body, doc_type="policy", item=None, sensitivity="internal"):
+    """Store-level publication (the reviewed flow is tested in test_knowledge.py): index, then the atomic switch (§8)."""
     k = stores["knowledge"]
-    item, vid = k.create_item_with_first_version(title, "Pricing", doc_type, depts, body, None, "Sales + Managers", None, admin)
+    if item is None:
+        item = k.create_document(title, "Pricing", depts, sensitivity, None, "test", admin, document_type=doc_type)
+    vid = k.create_version(item, body, None, admin, checksum="c", status="under_review")
     ing.process_version(vid)
-    for s in ("submitted", "pending_review", "approved", "active"):
-        k.transition(vid, s, admin)
+    k.switch_published(item, vid, admin, {}, None, None, admin)
     return item, vid
 
 
@@ -51,8 +56,8 @@ def test_full_brain_flow(stores):
 
     with stores["pool"].connection() as c:                         # chunk metadata follows PRD §14
         meta = c.execute("SELECT metadata, embedding_model FROM chunks WHERE version_id=%s", (v1,)).fetchone()
-    assert set(meta["metadata"]) == {"company", "department", "document_type", "category", "access_level", "status",
-                                     "version", "language", "created_at", "updated_at"}
+    assert set(meta["metadata"]) == {"company", "department", "department_ids", "sensitivity", "document_type", "category",
+                                     "status", "version", "language", "created_at", "updated_at"}
     assert meta["metadata"]["company"] == "quixotic" and meta["metadata"]["department"] == ["Sales"]
     assert meta["embedding_model"] == emb.name
 
@@ -63,34 +68,39 @@ def test_full_brain_flow(stores):
     sales_user = Principal(uuid4(), "e1", Role.EMPLOYEE, frozenset({sales}))
     all_ids = stores["users"].all_department_ids()
     scope = resolve_department_scope(sales_user, all_ids)
-    assert all(c.title != "HR Leave Policy" for c in search.search("annual leave for employees", scope).candidates)
+    assert all(c.title != "HR Leave Policy" for c in search.search("annual leave for employees", scope, LV).candidates)
     admin_scope = resolve_department_scope(Principal(admin, "a", Role.SYSTEM_ADMIN, frozenset()), all_ids)
-    assert any(c.title == "HR Leave Policy" for c in search.search("annual leave for employees", admin_scope).candidates)
+    assert any(c.title == "HR Leave Policy" for c in search.search("annual leave for employees", admin_scope, LV).candidates)
 
     # hybrid retrieval finds the policy and returns section/version for sources (§30)
-    top = search.search("can we give 20% discount for artworks", scope).candidates[0]
+    top = search.search("can we give 20% discount for artworks", scope, LV).candidates[0]
     assert top.title == "Sales Pricing Policy" and top.section == "Discount Approval" and top.version == 1
     assert top.vector_score is not None
 
-    # §15: a new version replaces the old one once active; the old one is archived and no longer retrieved
-    v2 = stores["knowledge"].create_new_version(item, "# Discount Approval\nMaximum discount is 5% after manager approval.",
-                                                None, None, None, admin)
-    ing.process_version(v2)
-    for st in ("submitted", "pending_review", "approved", "active"):
-        stores["knowledge"].transition(v2, st, admin)
+    # §8: a new version replaces the old one on publication; the old one is archived and never retrieved again
+    _, v2 = publish(stores, ing, admin, [sales], "Sales Pricing Policy",
+                    "# Discount Approval\nMaximum discount is 5% after manager approval.", item=item)
     assert stores["knowledge"].get_version(v1)["status"] == "archived"
-    assert stores["knowledge"].get_version(v2)["status"] == "active"
-    assert {c.version for c in search.search("maximum discount artworks", scope).candidates} == {2}
-    assert {c.version for c in search.search("maximum discount artworks", scope, include_archived=True).candidates} == {1, 2}
+    assert stores["knowledge"].get_version(v2)["status"] == "published"
+    assert {c.version for c in search.search("maximum discount artworks", scope, LV).candidates} == {2}
 
-    # draft knowledge is invisible to retrieval (status = active default)
-    _, draft = stores["knowledge"].create_item_with_first_version("Secret Draft", None, "policy", [sales],
-                                                                  "zebra unicorn", None, None, None, admin)
+    # indexed drafts / proposals are invisible to retrieval (§8, §10)
+    secret = stores["knowledge"].create_document("Secret Draft", None, [sales], "internal", None, None, admin)
+    draft = stores["knowledge"].create_version(secret, "zebra unicorn", None, admin, status="under_review")
     ing.process_version(draft)
-    found = search.search("zebra unicorn", scope)
+    found = search.search("zebra unicorn", scope, LV)
     assert all(c.title != "Secret Draft" for c in found.candidates) and found.confidence == "low"   # nearest neighbours are unrelated -> low
 
-    res = ask.ask("can we give 20% discount?", scope)               # grounded answer with sources
+    # §10 confidentiality filter and §8 expiry, both before retrieval
+    conf_item, _ = publish(stores, ing, admin, [sales], "Margin Sheet", "# Margins\nOur artwork margin is 62 percent.",
+                           sensitivity="confidential")
+    assert all(c.title != "Margin Sheet" for c in search.search("artwork margin percent", scope, LV).candidates)
+    assert any(c.title == "Margin Sheet" for c in search.search("artwork margin percent", scope, LV | {"confidential"}).candidates)
+    with stores["pool"].connection() as c:
+        c.execute("UPDATE knowledge_versions SET expires_at = now() - interval '1 day' WHERE item_id=%s", (conf_item,))
+    assert all(c.title != "Margin Sheet" for c in search.search("artwork margin percent", scope, LV | {"confidential"}).candidates)
+
+    res = ask.ask("can we give 20% discount?", scope, levels=LV)    # grounded answer with sources
     assert res.found is True and res.sources[0]["title"] == "Sales Pricing Policy"
 
 
@@ -99,10 +109,10 @@ def test_one_active_version_constraint_and_history(stores):
     sales, _, admin, emb, lang, ing = setup(stores, s)
     k = stores["knowledge"]
     item, v1 = publish(stores, ing, admin, [sales], "Constraint Policy", POLICY)
-    v2 = k.create_new_version(item, "new", None, None, None, admin)
+    v2 = k.create_version(item, "new", None, admin)
     with pytest.raises(psycopg.errors.UniqueViolation), stores["pool"].connection() as c:
-        c.execute("UPDATE knowledge_versions SET status='active' WHERE id=%s", (v2,))   # bypassing transition(): the DB still protects §15
-    assert [h["to_status"] for h in k.history(v1)] == ["draft", "submitted", "pending_review", "approved", "active"]
+        c.execute("UPDATE knowledge_versions SET status='published' WHERE id=%s", (v2,))   # bypassing the service: the DB still allows one
+    assert [h["to_status"] for h in k.history(v1)] == ["under_review", "published"]
 
 
 def test_ops_stores_keys_jobs_logs_feedback_dashboard(stores):

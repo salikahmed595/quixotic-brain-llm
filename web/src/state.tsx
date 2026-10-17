@@ -51,7 +51,7 @@ export function AppProvider({ me: initialMe, onLogout, children }: { me: Me; onL
     if (me.permissions.includes('manage_users'))
       api<{ requests: unknown[] }>('/v1/admin/access-requests').then(r => setCountsState(c => ({ ...c, requests: r.requests.length }))).catch(() => {});
     if (me.permissions.includes('review_proposals')) {
-      api<{ items: unknown[] }>('/v1/knowledge?status=pending_review&limit=100').then(r => setCountsState(c => ({ ...c, pending: r.items.length }))).catch(() => {});
+      api<{ proposals: { can_review: boolean }[] }>('/v1/knowledge/proposals?status=open').then(r => setCountsState(c => ({ ...c, pending: r.proposals.filter(p => p.can_review).length }))).catch(() => {});
     }
   }, [me.permissions, reloadChats]);
 

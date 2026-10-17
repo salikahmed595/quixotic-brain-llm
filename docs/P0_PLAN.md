@@ -46,7 +46,7 @@ answered; work that does not depend on them goes first.
 - Admin: Users (search/add/invite/edit/suspend/deactivate, last login, state, audit history), Departments (create/edit/disable, members, reviewers, document owners), Access requests (approve/reject with note, role + scope, timestamps) (§7).
 - **Tests:** AT-05 permission suite across search, citations, chat, direct API calls, tampered dropdown values — no titles, counts or metadata leak.
 
-## M3 — Document model, statuses and the Markdown vault
+## M3 — Document model, statuses and the Markdown vault — ✅ built 2026-10-17 (proposals, approvals, Git vault, Obsidian import)
 
 - Statuses Draft / Under Review / Approved / Published / Archived (§8). No migration of old knowledge rows — the owner starts fresh with new Obsidian knowledge (PRD_GAPS §0.4b).
 - Fields per §8: category, department(s), sensitivity/access scope, owner, approving user, provenance, effective date, version ID, indexing checksum; `document_permissions` and ACL metadata on every chunk (§8, §12).

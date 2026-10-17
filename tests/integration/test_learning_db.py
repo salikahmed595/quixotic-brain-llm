@@ -5,7 +5,7 @@ from backend.auth.security import hash_password
 from backend.database.conversations import ConversationStore
 from backend.learning.feedback import make_signal_source
 from backend.permissions.roles import Role
-from tests.integration.test_e2e import login, stack  # noqa: F401  (fixture)
+from tests.integration.test_e2e import login, publish_doc, stack  # noqa: F401  (fixture)
 from workers.worker import run_once
 
 SHORT_LIST = "- Ask about the concern\n- Explain the value\n- Offer payment options"
@@ -62,23 +62,20 @@ def test_votes_count_latest_rating_per_person_top_positions_only_and_reset(stack
 def test_ratings_move_a_passage_in_the_real_search_order_and_it_can_be_switched_off(stack):
     svc, client, sales, users = _setup(stack, 6)
     admin = login(client, "lr_admin")
-    client.post("/v1/documents", headers=admin, files={"file": ("pricing.md", DOC, "text/markdown")},
-                data={"department_ids": str(sales), "title": "Pricing Policy", "status": "active"})
-    while run_once(svc, wait_seconds=0):
-        pass
-    scope = frozenset({sales})
-    before = svc.search.search("price discount refund", scope).candidates
+    publish_doc(svc, client, admin, "Pricing Policy", DOC, sales, filename="pricing.md")
+    scope, lv = frozenset({sales}), frozenset({"internal"})
+    before = svc.search.search("price discount refund", scope, lv).candidates
     top = before[0]
     assert len(before) >= 3
     svc.search.feedback_signals = make_signal_source(svc.ops, svc.settings)
     for u in users:                                                              # six different people rate answers whose first passage was `top`
         qid = _log(svc, u, [top.chunk_id] + [c.chunk_id for c in before[1:3]])
         svc.ops.add_feedback(qid, u, False, None, None, None)
-    after = [c.chunk_id for c in svc.search.search("price discount refund", scope).candidates]
+    after = [c.chunk_id for c in svc.search.search("price discount refund", scope, lv).candidates]
     assert after.index(top.chunk_id) >= 1 and after.index(top.chunk_id) <= 4     # slipped, but still there (never hidden)
     assert set(after) >= {c.chunk_id for c in before[:3]}
     object.__setattr__(svc.settings, "feedback_learning", False)                 # the switch
-    assert [c.chunk_id for c in svc.search.search("price discount refund", scope).candidates][0] == top.chunk_id
+    assert [c.chunk_id for c in svc.search.search("price discount refund", scope, lv).candidates][0] == top.chunk_id
 
 
 def test_personal_style_is_learned_shown_and_forgotten(stack):
@@ -106,9 +103,7 @@ def test_a_rejected_answer_is_marked_in_the_next_question_of_the_same_chat(stack
     svc, client, sales, users = _setup(stack, 1)
     svc.conversations = ConversationStore(svc.pool, svc.settings.tenant_id)
     admin = login(client, "lr_admin")
-    client.post("/v1/documents", headers=admin, files={"file": ("pricing.md", DOC, "text/markdown")}, data={"department_ids": str(sales), "title": "Pricing Policy", "status": "active"})
-    while run_once(svc, wait_seconds=0):
-        pass
+    publish_doc(svc, client, admin, "Pricing Policy", DOC, sales, filename="pricing.md")
     h = login(client, "lr_u0")
     a1 = client.post("/v1/ask", headers=h, json={"question": "what are the price discount rules?"}).json()
     cid = a1["conversation_id"]

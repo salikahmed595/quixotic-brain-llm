@@ -129,9 +129,11 @@ export function PageHead({ title, sub, children }: { title: string; sub: string;
   return <div className="page-head"><div><h1>{title}</h1><p>{sub}</p></div>{children}</div>;
 }
 
+/* PRD §8 document statuses, then proposal states (§7 Approvals). */
 export const STATUS: Record<string, [string, string]> = {
-  draft: ['Draft', ''], submitted: ['Submitted', 'blue'], pending_review: ['Pending review', 'amber'], approved: ['Approved', 'blue'],
-  active: ['Active', 'green'], rejected: ['Rejected', 'red'], archived: ['Archived', ''], expired: ['Expired', ''],
+  draft: ['Draft', ''], under_review: ['Under review', 'amber'], approved: ['Approved', 'blue'], published: ['Published', 'green'], archived: ['Archived', ''],
+  open: ['Waiting for review', 'amber'], changes_requested: ['Changes requested', 'amber'], publishing: ['Publishing…', 'blue'],
+  rejected: ['Rejected', 'red'], withdrawn: ['Withdrawn', ''], failed: ['Publication failed', 'red'],
 };
 export const StatusChip = ({ s }: { s: string }) => { const [l, c] = STATUS[s] || [s, '']; return <span className={`chip dot ${c}`}>{l}</span>; };
 

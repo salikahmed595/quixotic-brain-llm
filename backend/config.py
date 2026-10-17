@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     smtp_password: Optional[str] = None
     smtp_starttls: bool = True
 
+    # ---- knowledge model (PRD §8) — values the PRD does not give are required ------------------------------------
+    vault_dir: str                         # §8/§11 versioned Markdown vault: a Git repository on the server (created if missing)
+    # §8 "sensitivity/access scope" without levels: JSON {level: [roles allowed to see it]}, e.g.
+    # {"internal": ["employee", ...], "confidential": ["knowledge_admin", "system_admin"]}. Retrieval filters on it (§10).
+    sensitivity_levels_json: str
+
     # ---- ingestion (PRD §13) — PRD gives no sizes ------------------------------------
     max_upload_bytes: int                  # PRD §51 "Upload size limits" without a number
     chunk_size: int                        # PRD §13.3 "Chunk Content" without a strategy
@@ -126,6 +132,32 @@ class Settings(BaseSettings):
         if v not in ("smtp", "console"):
             raise ValueError("mail_backend must be 'smtp' or 'console'")
         return v
+
+    @field_validator("sensitivity_levels_json")
+    @classmethod
+    def _levels(cls, v: str) -> str:
+        from .permissions.roles import Role
+        try:
+            data = json.loads(v)
+        except ValueError:
+            raise ValueError("sensitivity_levels_json must be JSON: {level: [role, ...]}")
+        roles = {r.value for r in Role}
+        if not isinstance(data, dict) or not data:
+            raise ValueError("sensitivity_levels_json needs at least one level")
+        for level, allowed in data.items():
+            if not isinstance(allowed, list) or not allowed or not set(allowed) <= roles:
+                raise ValueError(f"sensitivity level {level!r}: list one or more of {sorted(roles)}")
+            if level == "unclassified":
+                raise ValueError("'unclassified' is reserved for documents nobody has classified yet (never retrievable)")
+        return v
+
+    @property
+    def sensitivity_levels(self) -> dict[str, frozenset[str]]:
+        return {k: frozenset(v) for k, v in json.loads(self.sensitivity_levels_json).items()}
+
+    def levels_for(self, role: str) -> frozenset[str]:
+        """Sensitivity levels this role may retrieve (PRD §10: confidentiality filters apply before retrieval)."""
+        return frozenset(level for level, roles in self.sensitivity_levels.items() if role in roles)
 
     @property
     def secure_cookies(self) -> bool:

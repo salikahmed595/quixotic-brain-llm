@@ -35,7 +35,6 @@ class AskRequest(_Question):
     user_id: Optional[str] = None            # PRD §38: employee id, used when an internal app calls with an API key
     department: Optional[str] = None         # PRD §38 (e.g. "sales")
     mode: Literal["general", "sales_coach"] = "general"      # PRD §11.4 (Search Only = /v1/search, Department Brain = `department`)
-    include_archived: bool = False           # PRD §15: archived only "when explicitly requested"
     conversation_id: Optional[UUID] = None   # continue a saved chat; omit to start a new one (signed-in users only)
 
 
@@ -43,7 +42,6 @@ class SearchRequest(_Question):
     debug: bool = False                      # administrators only: also return the raw scores (used to calibrate confidence)
     user_id: Optional[str] = None
     department: Optional[str] = None
-    include_archived: bool = False
     conversation_id: Optional[UUID] = None
 
 
@@ -146,7 +144,7 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
     asker, prefs = _asker(svc, caller)
     try:
         res = svc.ask.ask(body.question, scope, include_sales_history=body.mode == "sales_coach",
-                          sales_department_ids=scope, include_archived=body.include_archived,
+                          sales_department_ids=scope, levels=svc.settings.levels_for(caller.principal.role.value),
                           history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs)
     except RuntimeError as e:                    # e.g. no answer-model API key configured yet
         raise HTTPException(503, str(e))
@@ -175,7 +173,8 @@ def search(body: SearchRequest, caller: Caller = Depends(api_caller("search")), 
     _check_chat(svc, caller, body.conversation_id)
     started = time.monotonic()
     history = _history(svc, caller, body.conversation_id)
-    out = svc.search.search(body.question, scope, body.include_archived, previous_question=history[-1][0] if history else None)
+    out = svc.search.search(body.question, scope, svc.settings.levels_for(caller.principal.role.value),
+                            previous_question=history[-1][0] if history else None)
 
     class _R:                                              # reuse the logging helper
         query, retrieved, confidence, confidence_score = out.query, out.candidates, out.confidence, out.confidence_score

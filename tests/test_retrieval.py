@@ -8,6 +8,7 @@ from backend.retrieval.ask import (AskService, LOW_CONFIDENCE_ACTIONS, LOW_CONFI
 from backend.retrieval.language import LanguageService
 from backend.retrieval.search import SearchService, confidence_label, interleave_merge
 from tests.conftest import make_settings
+LV = frozenset({"internal"})        # a permitted sensitivity level (PRD §10 filter)
 from tests.fakes import FakeEmbedder, FakeGenerator, FakeStore, cand, sales_case
 
 
@@ -83,17 +84,17 @@ def test_confidence_uses_two_signals_and_the_better_one_counts():
 def test_search_uses_configured_candidate_and_final_counts_and_filters_first():
     store = FakeStore(vec=[cand(text=f"v{i}") for i in range(40)], kw=[cand(text=f"k{i}") for i in range(40)])
     _, search, _ = build(store, candidate_count=25, final_chunk_count=6)
-    out = search.search("customer is asking for refund", DEPT)
+    out = search.search("customer is asking for refund", DEPT, LV)
     assert len(out.candidates) == 6
     assert {c[3] for c in store.calls} == {25} and {c[1] for c in store.calls} == {DEPT}
-    assert all(c[2] == ("active",) for c in store.calls)                    # PRD §15 default: status = active only
+    assert all(c[2] == ("published",) for c in store.calls)                 # PRD §8: published content only
 
 
-def test_archived_only_when_explicitly_requested():
+def test_no_permitted_sensitivity_level_means_no_retrieval_at_all():     # PRD §10: confidentiality filter before retrieval
     store = FakeStore(vec=[cand()])
     _, search, _ = build(store)
-    search.search("q", DEPT, include_archived=True)
-    assert store.calls[0][2] == ("active", "archived")
+    out = search.search("q", DEPT, frozenset())
+    assert out.candidates == [] and store.calls == []
 
 
 def test_no_authorized_department_means_no_retrieval_at_all():       # PRD §42: permissions before retrieval
@@ -105,7 +106,7 @@ def test_no_authorized_department_means_no_retrieval_at_all():       # PRD §42:
 
 def test_original_and_normalized_query_kept():
     _, search, _ = build(FakeStore(vec=[cand()]))
-    q = search.search("customer paisay wapis mang rha hy", DEPT).query
+    q = search.search("customer paisay wapis mang rha hy", DEPT, LV).query
     assert q.original.endswith("rha hy") and q.normalized == "customer paise wapas mang raha hai"
 
 
@@ -116,13 +117,13 @@ def test_confidence_labels_thresholds():                                  # PRD 
 # ---- ask behaviour (PRD §29, §30, §32) ----
 def test_no_evidence_returns_prd_not_found_text_and_never_calls_llm():
     ask, _, gen = build(FakeStore())
-    r = ask.ask("can we give 20% discount?", DEPT)
+    r = ask.ask("can we give 20% discount?", DEPT, levels=LV)
     assert r.answer == NOT_FOUND_TEXT and not r.found and gen.calls == [] and r.actions == LOW_CONFIDENCE_ACTIONS
 
 
 def test_low_confidence_returns_prd_text_and_actions_without_llm():
     ask, _, gen = build(FakeStore(vec=[cand(score=0.2)]))
-    r = ask.ask("q", DEPT)
+    r = ask.ask("q", DEPT, levels=LV)
     assert r.answer == LOW_CONFIDENCE_TEXT and r.confidence == "low" and not r.found and gen.calls == []
     assert r.actions == ["ask_manager", "report_missing_knowledge", "search_documents"]
 
@@ -130,7 +131,7 @@ def test_low_confidence_returns_prd_text_and_actions_without_llm():
 def test_grounded_answer_has_sources_with_section_version_updated():
     v = uuid4()
     ask, _, gen = build(FakeStore(vec=[cand(version_id=v, score=.95), cand(version_id=v, score=.9)]))
-    r = ask.ask("can we give 20% discount?", DEPT)
+    r = ask.ask("can we give 20% discount?", DEPT, levels=LV)
     assert r.found and r.confidence == "high" and len(gen.calls) == 1
     assert r.sources == [{"title": "Sales Pricing Policy", "section": "4.2 Discount Approval", "version": 3,
                           "updated": "2026-09-01T00:00:00+00:00"}]          # duplicates collapsed
@@ -139,8 +140,8 @@ def test_grounded_answer_has_sources_with_section_version_updated():
 def test_historical_cases_counts_and_only_when_requested():
     store = FakeStore(vec=[cand(score=.95)], sales=[sales_case("closed")] * 3 + [sales_case("lost")] * 2)
     ask, _, gen = build(store, sales_history_enabled=True)
-    assert ask.ask("q", DEPT).historical_cases is None
-    r = ask.ask("q", DEPT, include_sales_history=True, sales_department_ids=DEPT)
+    assert ask.ask("q", DEPT, levels=LV).historical_cases is None
+    r = ask.ask("q", DEPT, levels=LV, include_sales_history=True, sales_department_ids=DEPT)
     assert r.historical_cases == {"similar": 5, "successful": 3}              # PRD §30 example shape
     assert len(gen.calls[-1][0].sales_cases) == 5
 
@@ -180,7 +181,7 @@ def test_search_embeds_the_expanded_text_but_the_audit_trail_keeps_the_original(
     class St(FakeStore):
         def keyword_search(self, query, *a, **k): seen["keyword"] = query; return super().keyword_search(query, *a, **k)
     svc = SearchService(St(vec=[cand()]), Emb(), None, LanguageService(.5), make_settings())
-    out = svc.search("customer paisay wapis mang rha hy", DEPT)
+    out = svc.search("customer paisay wapis mang rha hy", DEPT, LV)
     assert seen["embedded"].endswith("refund") and "refund" in seen["keyword"] and "customer" in seen["keyword"]
     assert out.query.original == "customer paisay wapis mang rha hy" and out.query.normalized == "customer paise wapas mang raha hai"
 
@@ -207,17 +208,17 @@ def _ask_with(gen, **cfg):
 
 def test_interpretation_is_off_by_default_and_english_never_calls_the_model():
     gen = _Interp(); ask, seen = _ask_with(gen)
-    ask.ask("refund kitne din mein milta hai", DEPT)
+    ask.ask("refund kitne din mein milta hai", DEPT, levels=LV)
     assert gen.asked == [] and seen["embedded"] == "refund kitne din mein milta hai"          # flag off: nothing changes
     gen = _Interp(); ask, seen = _ask_with(gen, query_interpretation=True)
-    ask.ask("What is our refund policy?", DEPT)
+    ask.ask("What is our refund policy?", DEPT, levels=LV)
     assert gen.asked == []                                                                       # English: no extra call, no extra latency
 
 
 def test_roman_urdu_urdu_and_mixed_questions_get_an_english_search_restatement():
     for q in ("refund kitne din mein milta hai", "ریفنڈ کتنے دن میں ملتا ہے؟", "customer is asking for refund kya karun?"):
         gen = _Interp(); ask, seen = _ask_with(gen, query_interpretation=True)
-        res = ask.ask(q, DEPT)
+        res = ask.ask(q, DEPT, levels=LV)
         assert gen.asked and gen.asked[0][0] == q
         assert seen["embedded"].endswith("how many days does a refund take") and q in seen["embedded"]   # original words kept, English added
         assert res.query.original == q                                                            # audit trail untouched (PRD §23)
@@ -230,7 +231,7 @@ def test_interpretation_failure_never_blocks_an_answer_and_follow_ups_pass_the_p
     lazy = LazyGenerator(lambda: Boom())
     assert lazy.interpret_query("refund kitne din") == ""                                         # swallowed
     gen = _Interp(); ask, _ = _ask_with(gen, query_interpretation=True)
-    ask.ask("aur bank transfer se?", DEPT, history=[("refund kitne din mein milta hai", "7 se 10 din")])
+    ask.ask("aur bank transfer se?", DEPT, levels=LV, history=[("refund kitne din mein milta hai", "7 se 10 din")])
     assert gen.asked[0][1] == [("refund kitne din mein milta hai", "7 se 10 din")]
 
 
@@ -242,7 +243,7 @@ def test_reranker_is_skipped_only_when_retrieval_is_decisive():
         calls.clear()
         store = FakeStore(vec=[cand(text="a", score=top_two[0]), cand(text="b", score=top_two[1]), cand(text="c", score=0.3)])
         s = make_settings(rerank_skip_margin=margin, confidence_vector_high=0.7, confidence_vector_medium=0.5)
-        out = SearchService(store, FakeEmbedder(), Rr(), LanguageService(.5), s).search("q", DEPT)
+        out = SearchService(store, FakeEmbedder(), Rr(), LanguageService(.5), s).search("q", DEPT, LV)
         return bool(calls), out
     assert run((0.80, 0.60), 0.04)[0] is False         # clear winner -> no reranker (saves ~0.5 s per candidate)
     assert run((0.62, 0.60), 0.04)[0] is True          # close call -> rerank
@@ -259,7 +260,7 @@ def test_a_clear_lead_with_a_weak_vector_score_still_gets_reranked():
         def score(self, q, texts): calls.append(len(texts)); return [0.9] * len(texts)
     store = FakeStore(vec=[cand(text="a", score=0.52), cand(text="b", score=0.42), cand(text="c", score=0.3)])
     s = make_settings(rerank_skip_margin=0.04, confidence_vector_high=0.9, confidence_vector_medium=0.55)
-    out = SearchService(store, FakeEmbedder(), Rr(), LanguageService(.5), s).search("q", DEPT)
+    out = SearchService(store, FakeEmbedder(), Rr(), LanguageService(.5), s).search("q", DEPT, LV)
     assert calls and out.confidence == "high"
 
 
@@ -292,9 +293,9 @@ def test_prompt_carries_asker_and_preferences_but_users_cannot_break_out_of_thei
 
 def test_english_follow_up_in_a_chat_is_restated_but_a_first_english_question_is_not():
     gen = _Interp("how to respond when a customer refuses after a price objection"); ask, seen = _ask_with(gen, query_interpretation=True)
-    ask.ask("What should I say to Ali if he still refuses?", DEPT)
+    ask.ask("What should I say to Ali if he still refuses?", DEPT, levels=LV)
     assert gen.asked == []                                                        # first question: no extra call
-    ask.ask("What should I say to Ali if he still refuses?", DEPT, history=[("My customer Ali says the price is too high", "Ask about his concern")])
+    ask.ask("What should I say to Ali if he still refuses?", DEPT, levels=LV, history=[("My customer Ali says the price is too high", "Ask about his concern")])
     assert gen.asked and gen.asked[0][1] == [("My customer Ali says the price is too high", "Ask about his concern")]
     assert "refuses after a price objection" in seen["embedded"]
 
@@ -308,7 +309,7 @@ def test_history_only_answer_is_labelled_and_still_logged_as_a_gap():
     from backend.retrieval.ask import HISTORY_ONLY_LABEL
     ask, _, gen = build(FakeStore(sales=[_case(0.8), _case(0.4, "lost")]), sales_history_min_similarity=0.6, sales_history_enabled=True,
                         confidence_vector_high=0.75, confidence_vector_medium=0.6)
-    res = ask.ask("customer says it is too expensive", DEPT, sales_department_ids=DEPT)
+    res = ask.ask("customer says it is too expensive", DEPT, levels=LV, sales_department_ids=DEPT)
     assert res.answer.startswith(HISTORY_ONLY_LABEL) and not res.actions and res.found is False
     ctx = gen.calls[0][0]
     assert ctx.knowledge == [] and [c.similarity for c in ctx.sales_cases] == [0.8]   # weak past chat filtered out
@@ -317,14 +318,14 @@ def test_history_only_answer_is_labelled_and_still_logged_as_a_gap():
 
 def test_without_the_setting_or_close_chats_the_prd_not_found_answer_stays():
     ask, _, gen = build(FakeStore(sales=[_case(0.9)]))                    # setting unset -> PRD behaviour
-    assert ask.ask("q", DEPT, sales_department_ids=DEPT).answer == NOT_FOUND_TEXT and not gen.calls
+    assert ask.ask("q", DEPT, levels=LV, sales_department_ids=DEPT).answer == NOT_FOUND_TEXT and not gen.calls
     ask, _, gen = build(FakeStore(sales=[_case(0.3)]), sales_history_min_similarity=0.6, sales_history_enabled=True)
-    assert ask.ask("q", DEPT, sales_department_ids=DEPT).answer == NOT_FOUND_TEXT and not gen.calls
+    assert ask.ask("q", DEPT, levels=LV, sales_department_ids=DEPT).answer == NOT_FOUND_TEXT and not gen.calls
 
 
 def test_with_the_setting_general_mode_also_gets_past_chats_next_to_knowledge():
     ask, _, gen = build(FakeStore(vec=[cand(score=0.9)], sales=[_case(0.7), _case(0.2)]), sales_history_min_similarity=0.5, sales_history_enabled=True)
-    res = ask.ask("discount?", DEPT, sales_department_ids=DEPT)                # include_sales_history False (general mode)
+    res = ask.ask("discount?", DEPT, levels=LV, sales_department_ids=DEPT)                # include_sales_history False (general mode)
     assert res.found and [c.similarity for c in gen.calls[0][0].sales_cases] == [0.7]
 
 
@@ -340,11 +341,11 @@ def test_prompt_allows_history_only_answers_but_never_as_policy():
 def test_off_topic_past_chats_fall_back_to_the_prd_answer():                  # "hello" matches greeting chats at 0.97
     ask, _, gen = build(FakeStore(sales=[_case(0.95)]), sales_history_min_similarity=0.55, sales_history_enabled=True)
     gen.generate_answer = lambda ctx, q: "NO_RELEVANT_HISTORY"
-    res = ask.ask("hello", DEPT, sales_department_ids=DEPT)
+    res = ask.ask("hello", DEPT, levels=LV, sales_department_ids=DEPT)
     assert res.answer == NOT_FOUND_TEXT and res.actions == LOW_CONFIDENCE_ACTIONS
 
 
 def test_owner_decision_past_sales_chats_are_off_by_default():         # owner (2026-10-17): OFF in every mode
     ask, _, gen = build(FakeStore(sales=[_case(0.95)]), sales_history_min_similarity=0.5)
-    res = ask.ask("customer says it is too expensive", DEPT, include_sales_history=True, sales_department_ids=DEPT)
+    res = ask.ask("customer says it is too expensive", DEPT, levels=LV, include_sales_history=True, sales_department_ids=DEPT)
     assert res.answer == NOT_FOUND_TEXT and not gen.calls and res.historical_cases is None

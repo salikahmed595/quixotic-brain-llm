@@ -12,6 +12,8 @@ BASE = dict(
     generation_provider="bedrock",
     public_url="http://testserver", one_time_link_ttl_seconds=3600, admin_mfa_required=False,
     field_encryption_key="test-field-key-test-field-key-123456", mail_backend="console",
+    vault_dir=".pytest-vault", sensitivity_levels_json='{"internal": ["employee", "department_reviewer", "knowledge_admin", '
+    '"system_admin", "founder_ceo"], "confidential": ["knowledge_admin", "system_admin", "founder_ceo"]}',
 )
 
 

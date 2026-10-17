@@ -79,14 +79,14 @@ class AskService:
         return self.generator.interpret_query(question, list(history)[-1:]) or ""
 
     def ask(self, question: str, department_ids: frozenset[UUID], include_sales_history: bool = False,
-            sales_department_ids: frozenset[UUID] = frozenset(), include_archived: bool = False,
+            sales_department_ids: frozenset[UUID] = frozenset(), levels: frozenset[str] = frozenset(),
             history: Sequence[tuple[str, str]] = (), asker: Optional[dict] = None,
             preferences: Optional[dict] = None) -> AskResult:
         """`history`: earlier (question, answer) pairs of the same chat, oldest first. Used only to understand what a short
         follow-up refers to, never as a source of facts."""
         previous = history[-1][0] if history else None
         interpretation = self._interpret(question, history)
-        out = self.search.search(question, department_ids, include_archived, previous_question=previous,
+        out = self.search.search(question, department_ids, levels, previous_question=previous,
                                  extra_search_text=interpretation)
         base = dict(confidence=out.confidence, confidence_score=out.confidence_score, query=out.query,
                     retrieved=out.candidates)

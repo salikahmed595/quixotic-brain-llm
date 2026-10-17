@@ -14,6 +14,7 @@ pyotp>=2.10                 # PRD §5 FR-AUTH-06: admin MFA (TOTP authenticator 
 segno>=1.6                  # QR code for MFA enrolment
 cryptography>=45            # encrypts MFA secrets at rest (PRD §10)
 redis>=6.4                  # PRD §11 Redis + worker queue
+pyyaml>=6.0                 # Obsidian front matter (PRD §8 vault)
 pypdf>=6.0
 python-docx>=1.2
 httpx>=0.28

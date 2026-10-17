@@ -6,7 +6,7 @@ import pytest
 from backend.auth.security import hash_password
 from backend.database.conversations import ConversationStore
 from backend.permissions.roles import Role
-from tests.integration.test_e2e import login, stack  # noqa: F401  (fixture)
+from tests.integration.test_e2e import login, publish_doc, stack  # noqa: F401  (fixture)
 
 PNG = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 64).decode()
 
@@ -45,7 +45,6 @@ def test_preferences_are_cleaned_and_reach_the_answer_model_with_the_role(stack)
     assert client.get("/v1/auth/me", headers=h).json()["preferences"]["language"] == "roman_urdu"
 
     admin = login(client, "ac_admin")
-    client.post("/v1/knowledge", headers=admin, json={"title": "Refund rules", "department_ids": [str(sales)], "information": "Refunds take 7 days."})
     gen = svc.ask.generator
     # ask through the service directly with the same wiring the API uses
     from backend.api.v1.ask import _asker

@@ -1,6 +1,7 @@
 """Background worker (PRD §47): consumes Amazon SQS messages, runs on ECS.
 
-Job types: document.process, knowledge.index (§13.3), discord.import (§17.2), reindex (§24.2).
+Job types: knowledge.process (parse + index a version, PRD §7 Documents), knowledge.publish (§8 controlled publication),
+knowledge.approve_after_index (approved Obsidian import), discord.import (sales chat import), reindex (all versions).
 Progress is written to the `jobs` table so the frontend can show it (§47).
 Run: python -m workers.worker
 """
@@ -17,8 +18,22 @@ log = logging.getLogger("worker")
 
 def handle(svc: Services, job_type: str, job: dict) -> None:
     payload = job["payload"]
-    if job_type in ("document.process", "knowledge.index"):
+    if job_type in ("knowledge.process", "document.process", "knowledge.index"):
+        from backend.knowledge.service import KnowledgeService
         svc.ingestion.process_version(UUID(payload["version_id"]))
+        KnowledgeService(svc).after_indexing(UUID(payload["version_id"]))
+    elif job_type == "knowledge.publish":
+        from backend.knowledge.service import KnowledgeService
+        KnowledgeService(svc).publish(UUID(payload["proposal_id"]), payload.get("approved_by"))
+    elif job_type == "knowledge.approve_after_index":
+        from backend.knowledge.service import KnowledgeService
+        ks = KnowledgeService(svc)
+        prop = svc.knowledge.get_proposal(UUID(payload["proposal_id"]))
+        if prop and prop["indexed_checksum"] != prop["checksum"]:
+            svc.ingestion.process_version(prop["version_id"])
+        user = svc.users.get(UUID(payload["user_id"]))
+        if prop and user and user["account_status"] == "active":
+            ks.decide(svc.users.principal(user), prop["id"], "approve", "approved at Obsidian import")   # queues publication when complete
     elif job_type == "discord.import":
         raw = svc.storage.get(payload["s3_key"])
         svc.importer.run(raw, UUID(payload["department_id"]), job["id"],

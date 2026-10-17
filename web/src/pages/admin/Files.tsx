@@ -2,32 +2,68 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { Icon } from '../../icons';
 import { useApp } from '../../state';
-import { Banner, confirmModal, Empty, fmtDate, Loading, PageHead, StatusChip, toast, useAction, useLoad, usePoll } from '../../ui';
+import { Banner, can, confirmModal, DeptChecks, Empty, fmtDate, Loading, openModal, PageHead, StatusChip, toast, useAction, useLoad, usePoll } from '../../ui';
+import { DocRow, openDocument } from './Knowledge';
+import type { Me } from '../../types';
 
-/* PRD §7 Documents: uploaded files, processing state, delete. */
-const PROC: Record<string, [string, string]> = { pending: ['Waiting', 'amber'], processing: ['Processing', 'blue'], ready: ['Ready', 'green'], failed: ['Failed', 'red'] };
-type Doc = { id: string; title: string; filename: string; departments: string[]; status: string; processing_status: string; processing_error?: string; size_bytes?: number; updated_at: string };
+/* PRD §7 Documents: upload, parse status, permissions, versions, archive, reindex; Obsidian import (§14 P0). */
+const PROC: Record<string, [string, string]> = { pending: ['Waiting', 'amber'], processing: ['Reading', 'blue'], ready: ['Read', 'green'], failed: ['Unreadable', 'red'] };
 
 export function DocumentsPage() {
-  const { rank } = useApp();
-  const { data, error, reload } = useLoad(() => api<{ documents: Doc[] }>('/v1/documents?limit=200').then(r => r.documents));
-  usePoll(!!data?.some(d => d.processing_status === 'pending' || d.processing_status === 'processing'), reload);
-  const del = (d: Doc) => confirmModal('Delete this document?', 'The file, its text and its place in answers are removed. This cannot be undone.', 'Delete', async () => {
-    await api(`/v1/documents/${d.id}`, { method: 'DELETE' }); toast('Deleted'); reload();
+  const { me } = useApp();
+  const { data, error, reload } = useLoad(() => api<{ documents: DocRow[] }>('/v1/knowledge/documents?limit=500').then(r => r.documents));
+  usePoll(!!data?.some(d => d.processing_status === 'pending' || d.processing_status === 'processing' || d.open_proposals > 0), reload, 5000);
+  const del = (d: DocRow) => confirmModal('Delete this unpublished document?', 'It was never published, so nothing else depends on it. This cannot be undone.', 'Delete', async () => {
+    await api(`/v1/admin/documents/${d.item_id}`, { method: 'DELETE' }); toast('Deleted'); reload();
   });
+  const { departments } = useApp();
+  const importVault = () => openModal('Import Obsidian notes', close => <ObsidianImport me={me} departments={departments} close={close} done={reload} />, { wide: true });
   return (
     <div className="page">
-      <PageHead title="Documents" sub="Uploaded files and whether they are ready to answer questions."><a className="btn primary" href="#/add"><Icon name="cloud" size={17} /> Upload document</a></PageHead>
+      <PageHead title="Documents" sub="Every document, its version, who may see it, and whether it is ready to answer questions.">
+        <div className="flex gap-2.5"><button className="btn" onClick={importVault}><Icon name="book" size={17} /> Import Obsidian notes</button>
+          <a className="btn primary" href="#/add"><Icon name="cloud" size={17} /> Upload document</a></div>
+      </PageHead>
       {error ? <Banner kind="err">{error}</Banner> : !data ? <Loading /> : data.length ? (
-        <div className="table-wrap"><table><thead><tr><th>File</th><th>Departments</th><th>Status</th><th>Processing</th><th>Size</th><th>Updated</th>{rank >= 3 && <th />}</tr></thead>
-          <tbody>{data.map(d => { const [pl, pc] = PROC[d.processing_status] || [d.processing_status, '']; return (
-            <tr key={d.id}><td><b>{d.title}</b><div className="hint">{d.filename}</div></td><td>{d.departments.join(', ')}</td><td><StatusChip s={d.status} /></td>
-              <td><span className={`chip dot ${pc}`}>{pl}</span>{d.processing_error && <div className="hint !text-bad">{d.processing_error}</div>}</td>
-              <td>{d.size_bytes ? (d.size_bytes / 1048576).toFixed(1) + ' MB' : '—'}</td><td>{fmtDate(d.updated_at)}</td>
-              {rank >= 3 && <td><button className="btn ghost sm" title="Delete" aria-label={`Delete ${d.title}`} onClick={() => del(d)}><Icon name="trash" size={16} /></button></td>}</tr>); })}</tbody></table></div>
-      ) : <Empty icon="doc" title="No documents yet" text="Upload a PDF, Word, text, Markdown, JSON or CSV file." action={<a className="btn primary" href="#/add">Upload document</a>} />}
+        <div className="table-wrap"><table><thead><tr><th>Document</th><th>Departments</th><th>Access</th><th>Status</th><th>Search index</th><th>Updated</th><th /></tr></thead>
+          <tbody>{data.map(d => { const [pl, pc] = PROC[d.processing_status || ''] || ['Text', ''];
+            return (<tr key={d.item_id} className="click" onClick={() => openDocument(d.item_id, reload, me)}>
+              <td><b>{d.title}</b><div className="hint">{d.filename || 'Written in the app'} · v{d.version}</div></td><td>{d.departments.join(', ')}</td>
+              <td><span className={`chip ${d.sensitivity === 'unclassified' ? 'red' : ''}`}>{d.sensitivity === 'unclassified' ? 'Needs classification' : d.sensitivity}</span></td>
+              <td><StatusChip s={d.status} />{d.open_proposals > 0 && <div className="hint mt-1">change waiting</div>}</td>
+              <td>{d.filename && d.processing_status !== 'ready' ? <span className={`chip dot ${pc}`}>{pl}</span> : d.indexed ? <span className="chip dot green">Indexed</span> : <span className="chip dot amber">Not indexed</span>}</td>
+              <td>{fmtDate(d.updated_at)}</td>
+              <td onClick={e => e.stopPropagation()}>{can(me, 'manage_documents') && d.status !== 'published' && d.status !== 'archived' && !d.published_at &&
+                <button className="btn ghost sm" title="Delete" aria-label={`Delete ${d.title}`} onClick={() => del(d)}><Icon name="trash" size={16} /></button>}</td></tr>); })}</tbody></table></div>
+      ) : <Empty icon="doc" title="No documents yet" text="Upload a PDF, Word, text or Markdown file, or import your Obsidian notes." action={<a className="btn primary" href="#/add">Upload document</a>} />}
     </div>
   );
+}
+
+function ObsidianImport({ me, departments, close, done }: { me: Me; departments: { id: string; name: string }[]; close: () => void; done: () => void }) {
+  const [files, setFiles] = useState<FileList | null>(null); const [dept, setDept] = useState<string[]>([]); const [level, setLevel] = useState('');
+  const [approve, setApprove] = useState(false); const [res, setRes] = useState<{ note: string; ok: boolean; error?: string; duplicate?: boolean }[] | null>(null);
+  const levels = useLoad(() => api<{ sensitivity_levels: string[] }>('/v1/knowledge/documents?limit=1').then(r => r.sensitivity_levels));
+  const a = useAction();
+  const submit = () => a.run(async () => {
+    if (!files?.length) throw new Error('Choose .md notes or a .zip of your vault.');
+    const fd = new FormData(); Array.from(files).forEach(f => fd.append('files', f)); fd.append('department_ids', dept.join(','));
+    if (level) fd.append('sensitivity', level); fd.append('approve', String(approve));
+    const r = await api<{ results: typeof res }>('/v1/admin/documents/import-obsidian', { method: 'POST', form: fd }); setRes(r.results); done();
+  });
+  return (<>
+    <p className="text-ink-2 mb-4">Each note becomes a document change for review. Front matter (<code>title</code>, <code>departments</code>, <code>sensitivity</code>, <code>category</code>,
+      <code> source</code>, <code>effective_date</code>, <code>expires</code>) fills the details; the choices below are used when a note has none.</p>
+    <div className="grid gap-4">
+      <div className="field"><label>Notes</label><input type="file" multiple accept=".md,.zip" onChange={e => setFiles(e.target.files)} className="input !h-auto py-2" /></div>
+      <div className="field"><label>Departments for notes without any</label><DeptChecks depts={departments} value={dept} onChange={setDept} /></div>
+      <div className="field"><label htmlFor="ob-l">Access level for notes without one</label><select id="ob-l" className="select" value={level} onChange={e => setLevel(e.target.value)}><option value="">From the note only</option>{(levels.data || []).map(l => <option key={l}>{l}</option>)}</select></div>
+      {(me.can_publish || me.role === 'founder_ceo') && <label className="check"><input type="checkbox" checked={approve} onChange={e => setApprove(e.target.checked)} /> These notes are already approved: record my approval (high-impact notes still need a second approver)</label>}
+    </div>
+    {a.error && <Banner kind="err" className="mt-3">{a.error}</Banner>}
+    {res && <div className="mt-4 max-h-[220px] overflow-auto"><ul className="grid gap-1 text-[13.5px]">{res.map(r => <li key={r.note}>{r.ok ? (r.duplicate ? '↺' : '✓') : '✗'} {r.note}{r.error && <span className="text-bad"> — {r.error}</span>}{r.duplicate && <span className="hint"> — already imported</span>}</li>)}</ul></div>}
+    <div className="flex justify-end gap-3 mt-5"><button className="btn" onClick={close}>{res ? 'Close' : 'Cancel'}</button>{!res && <button className="btn primary" disabled={a.busy} onClick={submit}>Import</button>}</div>
+  </>);
 }
 
 /* PRD §7 Sales memory. Answers from past chats are OFF (owner, 2026-10-17); imports stay available for later review. */

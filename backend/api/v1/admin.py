@@ -18,7 +18,7 @@ from ...permissions.access import Principal
 from ...permissions.roles import P, Role
 from ...database.users import ACCOUNT_STATES, ACTIVE, ADMIN_STATE_EDGES
 from ..deps import KEY_PERMISSIONS, get_services, require
-from ..flow import KnowledgeFlow
+from ..jobs import enqueue
 from ..services import Services
 from .auth import EMAIL_RE, USERNAME_RE
 
@@ -368,4 +368,4 @@ def reindex(actor: Principal = Depends(require(P.MANAGE_SYSTEM)), svc: Services 
     """Rebuild every chunk, e.g. after changing the embedding model."""
     audit.record(svc.ops, audit.MODEL_CHANGE, actor.user_id, actor.employee_id, action="reindex",
                  embedding_model=svc.embedder.name)
-    return {"job_id": str(KnowledgeFlow(svc).enqueue("reindex", {}, actor.user_id))}
+    return {"job_id": str(enqueue(svc, "reindex", {}, actor.user_id))}

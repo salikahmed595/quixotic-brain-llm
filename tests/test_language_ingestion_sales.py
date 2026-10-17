@@ -156,6 +156,8 @@ def test_unreadable_file_is_failed_not_ready():
         def version_bundle(self, v): now = datetime.now(timezone.utc); return {"source_file_id": uuid4(), "extension": "pdf", "s3_key": "k", "body": None, "language": None, "departments": [], "status": "active", "version": 1, "created_at": now, "updated_at": now}
         def replace_chunks(self, v, rows): raise AssertionError("nothing may be stored")
         def set_file_status(self, f, s, e=None): self.status.append((s, e))
+        def set_text(self, v, body, checksum): pass
+        def mark_indexed(self, v, c): pass
     buf = io.BytesIO(); w = PdfWriter(); w.add_blank_page(100, 100); w.write(buf)
     class Mem:
         def get(self, k): return buf.getvalue()
@@ -193,6 +195,7 @@ def test_chunks_are_embedded_with_their_title_and_section_but_stored_plain():
             return {"source_file_id": None, "title": "Refund Policy", "body": "# Refunds\n## 2. Timeline\nApproved refunds take 7 days.", "language": None, "departments": [], "status": "active", "version": 1, "created_at": now, "updated_at": now}
         def replace_chunks(self, v, rows): seen["rows"] = rows
         def set_file_status(self, *a): pass
+        def mark_indexed(self, v, c): pass
     class Rec(_Emb):
         def embed_many(self, ts): seen["embedded"] = list(ts); return super().embed_many(ts)
     IngestionService(St(), None, Rec(), lang, make_settings()).process_version(uuid4())

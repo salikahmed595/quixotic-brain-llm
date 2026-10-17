@@ -1,3 +1,4 @@
+LV = frozenset({"internal"})
 """API keys (expiry, revocation, 'all departments', acting as the creator) and ChatGPT-style chat history."""
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -143,9 +144,9 @@ def test_short_followup_is_searched_together_with_the_previous_question():
         def embed(self, t): seen.append(t); return super().embed(t)
     svc = SearchService(FakeStore(vec=[cand()]), Emb(), None, LanguageService(.5), make_settings())
     dept = frozenset({uuid4()})
-    svc.search("and how long does it take?", dept, previous_question="What is our refund policy?")
-    svc.search("What is the process for escalating a customer complaint to the support manager today?", dept, previous_question="What is our refund policy?")
-    svc.search("and how long?", dept)
+    svc.search("and how long does it take?", dept, LV, previous_question="What is our refund policy?")
+    svc.search("What is the process for escalating a customer complaint to the support manager today?", dept, LV, previous_question="What is our refund policy?")
+    svc.search("and how long?", dept, LV)
     assert seen[0] == "What is our refund policy? and how long does it take?"      # short follow-up: previous question in front
     assert seen[1].startswith("What is the process for escalating")                  # a full question stands on its own
     assert seen[2] == "and how long?"                                                # nothing to attach

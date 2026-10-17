@@ -8,7 +8,7 @@ import pyotp
 from backend.api.v1 import auth as auth_api
 from backend.auth.security import hash_password
 from backend.permissions.roles import Role
-from tests.integration.test_e2e import login, stack  # noqa: F401  (fixture)
+from tests.integration.test_e2e import login, publish_doc, stack  # noqa: F401  (fixture)
 from workers.worker import run_once
 
 SIGNUP = {"full_name": "Nadia Khan", "username": "nadia.khan", "email": "nadia@q.ai", "password": "Secret-123"}
@@ -163,10 +163,8 @@ def test_admin_mfa_setup_and_verify(stack):
     assert client.get("/v1/auth/me", headers=login(client, "sg_emp")).status_code == 200
 
 
-def _publish(client, admin, title, text, dept_id):
-    r = client.post("/v1/documents", headers=admin, files={"file": (f"{title}.md", text.encode(), "text/markdown")},
-                    data={"department_ids": str(dept_id), "title": title, "status": "active"})
-    assert r.status_code == 202, r.text
+def _publish(svc, client, admin, title, text, dept_id):
+    publish_doc(svc, client, admin, title, text, dept_id)
 
 
 def test_finance_and_employee_knowledge_never_cross(stack):
@@ -175,8 +173,8 @@ def test_finance_and_employee_knowledge_never_cross(stack):
     client.post("/v1/admin/departments", headers=admin, json={"name": "Employees"})
     emp_dept = svc.users.department_by_name("Employees")["id"]
     fin = d("Finance")
-    _publish(client, admin, "Payroll and salary run", "# Payroll\nEmployee salaries and payroll are processed by Finance on the 25th of each month. Bonus tax rules apply.", fin)
-    _publish(client, admin, "Employee leave guide", "# Leave\nEvery employee gets 20 days of annual leave. Request leave from your team lead.", emp_dept)
+    _publish(svc, client, admin, "Payroll and salary run", "# Payroll\nEmployee salaries and payroll are processed by Finance on the 25th of each month. Bonus tax rules apply.", fin)
+    _publish(svc, client, admin, "Employee leave guide", "# Leave\nEvery employee gets 20 days of annual leave. Request leave from your team lead.", emp_dept)
     while run_once(svc, wait_seconds=0):
         pass
     svc.users.create_user("fin_user", "fin@q.ai", "Fiona Finance", hash_password("pw12345"), Role.EMPLOYEE, [fin])

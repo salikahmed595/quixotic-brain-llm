@@ -5,7 +5,7 @@ from uuid import uuid4
 from backend.config import Settings
 from backend.permissions.access import PermissionDenied, Principal, resolve_department_scope
 from backend.permissions.roles import P, Role, can
-from backend.permissions.workflow import LEGAL_EDGES, check_transition
+from backend.knowledge.service import is_high_impact, is_publisher, may_review
 from tests.conftest import BASE, make_settings
 
 
@@ -84,26 +84,19 @@ def test_admin_sees_all_and_api_key_intersects():
         resolve_department_scope(admin, frozenset({a, b}), requested_department_id=b, key_allowed_department_ids=frozenset({a}))
 
 
-# ---- approval workflow (PRD §12.3) ----
-def test_workflow_chain_edges_exist_and_nothing_skips():
-    assert "submitted" in LEGAL_EDGES["draft"] and "pending_review" in LEGAL_EDGES["submitted"]
-    assert {"approved", "rejected"} <= LEGAL_EDGES["pending_review"] and "active" in LEGAL_EDGES["approved"]
-    assert "active" not in LEGAL_EDGES["draft"] and "active" not in LEGAL_EDGES["pending_review"]
-    assert "expired" not in {t for s in LEGAL_EDGES.values() for t in s}      # no PRD-defined path to expiry
-
-
-def test_manager_reviews_only_managed_departments_and_only_admin_archives():
+# ---- review rules (PRD §3, §7 Approvals, §9 step 5) ----
+def test_reviewers_decide_only_for_their_departments_publishers_everywhere():
     mine, other = uuid4(), uuid4()
-    m = _user(Role.DEPARTMENT_REVIEWER, [mine, other], managed=[mine])
-    check_transition(m, "pending_review", "approved", [mine], None)
-    check_transition(m, "approved", "active", [mine], None)
-    with pytest.raises(PermissionDenied):
-        check_transition(m, "pending_review", "approved", [other], None)
-    with pytest.raises(PermissionDenied):
-        check_transition(m, "active", "archived", [mine], None)
-    check_transition(_user(Role.SYSTEM_ADMIN, can_publish=True), "active", "archived", [mine], None)
+    reviewer = _user(Role.DEPARTMENT_REVIEWER, [mine, other], managed=[mine])
+    assert may_review(reviewer, [mine]) and not may_review(reviewer, [other]) and not is_publisher(reviewer)
+    ka = _user(Role.KNOWLEDGE_ADMIN)
+    assert not may_review(ka, [mine])                                      # curates, but publishes only with the grant
+    assert may_review(_user(Role.KNOWLEDGE_ADMIN, can_publish=True), [other])
+    assert is_publisher(_user(Role.FOUNDER_CEO)) and may_review(_user(Role.FOUNDER_CEO), [other])
+    assert not may_review(_user(Role.EMPLOYEE, [mine], managed=[mine]), [mine])   # employees never review
 
 
-def test_illegal_edge_rejected():
-    with pytest.raises(PermissionDenied):
-        check_transition(_user(Role.SYSTEM_ADMIN, can_publish=True), "draft", "active", [], None)
+def test_high_impact_topics_follow_prd_9():
+    for t in ("Refund policy", "Discounts for repeat buyers", "HR leave rules", "Customer payments by card", "Security of laptops", "Pay scale"):
+        assert is_high_impact(t), t
+    assert not is_high_impact("Booking script", "Fresh seller handoff", None)

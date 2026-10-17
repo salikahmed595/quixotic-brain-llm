@@ -26,9 +26,9 @@ class AnalyticsStore:
         with self.pool.connection() as c:
             one = lambda sql: c.execute(sql, p).fetchone()["n"]
             chunks = one("SELECT count(*) AS n FROM chunks ch JOIN knowledge_versions v ON v.id=ch.version_id "
-                         "JOIN knowledge_items i ON i.id=v.item_id WHERE ch.tenant_id=%(t)s AND v.status='active'" + scope_items)
+                         "JOIN knowledge_items i ON i.id=v.item_id WHERE ch.tenant_id=%(t)s AND v.status='published'" + scope_items)
             pending = one("SELECT count(*) AS n FROM knowledge_versions v JOIN knowledge_items i ON i.id=v.item_id "
-                          "WHERE i.tenant_id=%(t)s AND v.status='pending_review'" + scope_items)
+                          "WHERE i.tenant_id=%(t)s AND v.status='under_review'" + scope_items)
             memories = one("SELECT count(*) AS n FROM sales_memories WHERE tenant_id=%(t)s" +
                            ("" if dept_ids is None else " AND department_id = ANY(%(scope)s)"))
             depts = one("SELECT count(*) AS n FROM departments WHERE tenant_id=%(t)s AND status='active'")
@@ -37,7 +37,7 @@ class AnalyticsStore:
             recent = c.execute("SELECT id, original_query, knowledge_found, confidence, created_at FROM query_log "
                                "WHERE tenant_id=%(t)s ORDER BY created_at DESC LIMIT 10", p).fetchall()
             updated = c.execute("SELECT i.title, v.version, v.updated_at FROM knowledge_versions v "
-                                "JOIN knowledge_items i ON i.id=v.item_id WHERE i.tenant_id=%(t)s AND v.status='active'" +
+                                "JOIN knowledge_items i ON i.id=v.item_id WHERE i.tenant_id=%(t)s AND v.status='published'" +
                                 scope_items + " ORDER BY v.updated_at DESC LIMIT 10", p).fetchall()
             sources = c.execute("SELECT s->>'title' AS title, count(*) AS uses FROM query_log q, "
                                 "jsonb_array_elements(q.retrieved) s WHERE q.tenant_id=%(t)s GROUP BY 1 "
@@ -56,9 +56,9 @@ class AnalyticsStore:
         p = {"t": self.tenant}
         with self.pool.connection() as c:
             active = c.execute("SELECT count(*) AS n FROM knowledge_versions v JOIN knowledge_items i ON i.id=v.item_id "
-                               "WHERE i.tenant_id=%(t)s AND v.status='active'", p).fetchone()["n"]
+                               "WHERE i.tenant_id=%(t)s AND v.status='published'", p).fetchone()["n"]
             stale = c.execute("SELECT count(*) AS n FROM knowledge_versions v JOIN knowledge_items i ON i.id=v.item_id "
-                              "WHERE i.tenant_id=%(t)s AND v.status='active' "
+                              "WHERE i.tenant_id=%(t)s AND v.status='published' "
                               "AND COALESCE(v.reviewed_at, v.created_at) < now() - interval '6 months'", p).fetchone()["n"]
             expired = c.execute("SELECT count(*) AS n FROM knowledge_versions v JOIN knowledge_items i ON i.id=v.item_id "
                                 "WHERE i.tenant_id=%(t)s AND v.status='expired'", p).fetchone()["n"]

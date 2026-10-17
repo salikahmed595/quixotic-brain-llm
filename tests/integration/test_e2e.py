@@ -5,6 +5,7 @@ Mocked: S3/SQS (moto), the answer model (no LLM key available) and - unless the 
 Set QB_TEST_DATABASE_URL to run. Put the models in .models/ (scripts/download_models.sh) to use BGE-M3 and the reranker."""
 import os
 from pathlib import Path
+from uuid import UUID
 
 import boto3
 import pytest
@@ -54,7 +55,7 @@ Refunds are reviewed against order status and delivery date before approval.
 
 
 @pytest.fixture
-def stack(db, monkeypatch):
+def stack(db, monkeypatch, tmp_path):
     for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
         monkeypatch.setenv(k, "test")
     with mock_aws():
@@ -64,7 +65,7 @@ def stack(db, monkeypatch):
                           chunk_size=400, chunk_overlap=40, candidate_count=20, final_chunk_count=5,
                           confidence_high=0.01 if REAL_MODELS else 0.3, confidence_medium=0.001 if REAL_MODELS else 0.1,   # BGE reranker probabilities are small for short chunks
                           reranker_provider="cross-encoder" if REAL_MODELS else None,
-                          reranker_model=str(RR) if REAL_MODELS else None)
+                          reranker_model=str(RR) if REAL_MODELS else None, vault_dir=str(tmp_path / "vault"))
         t = s.tenant_id
         users, knowledge, ops = UserStore(db, t), KnowledgeStore(db, t), OpsStore(db, t)
         emb = BGEM3Embedder(str(M3)) if REAL_MODELS else HashEmbedder()
@@ -90,6 +91,39 @@ def login(client, ident, pw="pw12345"):
     return {"Authorization": "Bearer " + token}
 
 
+def drain(svc) -> int:
+    """Run the background worker until the queue is empty."""
+    n = 0
+    while run_once(svc, wait_seconds=0):
+        n += 1
+    return n
+
+
+def second_approver(svc, client):
+    if not svc.users.get_by_login("second_admin"):
+        svc.users.create_user("second_admin", "second_admin@q.ai", "Second Admin", hash_password("pw12345"), Role.SYSTEM_ADMIN, [])
+    return login(client, "second_admin")
+
+
+def publish_doc(svc, client, admin, title, text, dept_id, sensitivity="internal", filename=None, **form):
+    """The reviewed path every document takes (PRD §7, §8): upload -> parse + index -> approve -> controlled publication."""
+    data = text.encode() if isinstance(text, str) else text
+    r = client.post("/v1/knowledge/proposals/upload", headers=admin, files={"file": (filename or f"{title}.md", data, "text/markdown")},
+                    data={"department_ids": str(dept_id), "title": title, "sensitivity": sensitivity, **form})
+    assert r.status_code == 202, r.text
+    pid = r.json()["proposal_id"]
+    drain(svc)
+    a = client.post(f"/v1/admin/proposals/{pid}/approve", headers=admin, json={})
+    assert a.status_code == 200, a.text
+    if a.json()["status"] == "open":                                   # high-impact topic: a second approver (§9 step 5)
+        b = client.post(f"/v1/admin/proposals/{pid}/approve", headers=second_approver(svc, client), json={})
+        assert b.json()["status"] == "approved", b.text
+    drain(svc)
+    prop = svc.knowledge.get_proposal(UUID(pid))
+    assert prop["status"] == "published", prop["error"]
+    return r.json()
+
+
 def test_upload_process_search_ask(stack):
     svc, client = stack
     sales = svc.users.department_by_name("Sales")["id"]
@@ -99,29 +133,32 @@ def test_upload_process_search_ask(stack):
     admin, rep = login(client, "e2e_admin"), login(client, "e2e_sales@q.ai")           # employee ID or email (§41)
     assert client.post("/v1/auth/login", json={"identifier": "e2e_sales", "password": "bad"}).status_code == 401
 
-    # employee cannot upload (§9.1); admin uploads and publishes directly (§9.4)
+    # employees cannot propose knowledge (§3); unreadable / disallowed files are rejected (§7 Documents)
     files = {"file": ("sales_policy.md", SALES_POLICY, "text/markdown")}
-    assert client.post("/v1/documents", headers=rep, files=files, data={"department_ids": str(sales)}).status_code == 403
-    bad = client.post("/v1/documents", headers=admin, files={"file": ("x.exe", b"MZ", "application/octet-stream")},
-                      data={"department_ids": str(sales)})
+    form = {"department_ids": str(sales), "title": "Sales Pricing Policy", "sensitivity": "internal", "category": "Pricing"}
+    assert client.post("/v1/knowledge/proposals/upload", headers=rep, files=files, data=form).status_code == 403
+    bad = client.post("/v1/knowledge/proposals/upload", headers=admin, files={"file": ("x.exe", b"MZ", "application/octet-stream")}, data=form)
     assert bad.status_code == 422
-    up = client.post("/v1/documents", headers=admin, files=files, data={
-        "department_ids": f"{sales}", "title": "Sales Pricing Policy", "category": "Pricing", "document_type": "policy",
-        "access_level": "Sales + Managers", "status": "active"})
+    up = client.post("/v1/knowledge/proposals/upload", headers=admin, files=files, data=form)
     assert up.status_code == 202, up.text
-    doc_id = up.json()["document_id"]
-
-    # upload returned immediately; the background worker processes it (§47, §56)
-    listed = client.get("/v1/documents", headers=admin).json()["documents"]
-    assert listed[0]["processing_status"] == "pending"
-    handled = 0
-    while run_once(svc, wait_seconds=0):
-        handled += 1
-    assert handled >= 1
-    done = client.get("/v1/documents", headers=admin).json()["documents"][0]
-    assert done["processing_status"] == "ready" and done["status"] == "active"
+    pid, item_id = up.json()["proposal_id"], up.json()["item_id"]
+    # accepted immediately, parsed and indexed in the background; still invisible to employees while under review (§8, §10)
+    assert drain(svc) >= 1
+    assert svc.knowledge.get_proposal(UUID(pid))["high_impact"] is True     # the parsed text mentions discounts/refunds (§9 step 5)
+    assert client.post("/v1/search", headers=rep, json={"question": "can we give 20% discount?"}).json()["results"] == []
+    prop = client.get(f"/v1/knowledge/proposals/{pid}", headers=admin).json()
+    assert prop["indexed"] and any("10% discount" in line for line in prop["diff"]["unified"]) and prop["can_review"]
+    # high impact: one approval is not enough, the same person cannot approve twice, a second person completes it
+    assert client.post(f"/v1/admin/proposals/{pid}/approve", headers=admin, json={}).json()["status"] == "open"
+    assert client.post(f"/v1/admin/proposals/{pid}/approve", headers=admin, json={}).status_code == 409
+    assert client.post(f"/v1/admin/proposals/{pid}/approve", headers=rep, json={}).status_code == 403
+    assert client.post(f"/v1/admin/proposals/{pid}/approve", headers=second_approver(svc, client), json={}).json()["status"] == "approved"
+    drain(svc)
+    doc = client.get(f"/v1/knowledge/documents/{item_id}", headers=admin).json()
+    assert doc["published"]["version"] == 1 and doc["published"]["vault_commit"] and doc["item"]["vault_path"].startswith("Sales/")
+    assert (Path(svc.settings.vault_dir) / doc["item"]["vault_path"]).read_text(encoding="utf-8").startswith("---" + chr(10) + "id:")
     jobs = client.get("/v1/admin/jobs", headers=admin).json()["jobs"]
-    assert all(j["status"] == "succeeded" for j in jobs)
+    assert all(j["status"] == "succeeded" for j in jobs), [j for j in jobs if j["status"] != "succeeded"]
 
     # raw original stored in S3 under /raw/documents/ (§46)
     keys = [o["Key"] for o in boto3.client("s3", region_name="us-east-1").list_objects_v2(Bucket="qb-e2e-bucket")["Contents"]]
@@ -157,8 +194,13 @@ def test_upload_process_search_ask(stack):
     events = {e["event"] for e in client.get("/v1/audit-logs", headers=admin).json()["audit_logs"]}
     assert {"user_login", "failed_authentication", "document_upload"} <= events
 
-    # archive via workflow removes it from answers (§15) — only administrators may archive (§9.4)
-    assert client.post(f"/v1/knowledge/{doc_id}/transitions", headers=rep, json={"to": "archived"}).status_code in (403, 404)
-    assert client.post(f"/v1/knowledge/{doc_id}/transitions", headers=admin, json={"to": "archived"}).status_code == 200
+    # archive is a reviewed change too; once published it disappears from answers (§8) and stays recoverable
+    assert client.post(f"/v1/admin/documents/{item_id}/archive", headers=rep, json={}).status_code == 403
+    arch = client.post(f"/v1/admin/documents/{item_id}/archive", headers=admin, json={"note": "replaced"}).json()["proposal_id"]
+    client.post(f"/v1/admin/proposals/{arch}/approve", headers=admin, json={})
+    client.post(f"/v1/admin/proposals/{arch}/approve", headers=second_approver(svc, client), json={})
+    drain(svc)
     after = client.post("/v1/search", headers=rep, json={"question": "can we give 20% discount?"}).json()["results"]
     assert all(x["source"] != "Sales Pricing Policy" for x in after)
+    versions = client.get(f"/v1/knowledge/documents/{item_id}", headers=admin).json()["versions"]
+    assert [v["status"] for v in versions] == ["archived"]

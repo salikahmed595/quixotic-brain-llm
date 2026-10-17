@@ -26,13 +26,13 @@ class FakeStore:
         self.vec, self.kw, self.sales = list(vec), list(kw), list(sales)
         self.calls = []
 
-    def vector_search(self, embedding, model, department_ids, statuses, limit):
+    def vector_search(self, embedding, model, department_ids, statuses, limit, levels=frozenset()):
         self.calls.append(("vector", frozenset(department_ids), tuple(statuses), limit))
-        return self.vec[:limit] if department_ids else []
+        return self.vec[:limit] if department_ids and levels else []
 
-    def keyword_search(self, query, model, department_ids, statuses, limit):
+    def keyword_search(self, query, model, department_ids, statuses, limit, levels=frozenset()):
         self.calls.append(("keyword", frozenset(department_ids), tuple(statuses), limit))
-        return self.kw[:limit] if department_ids else []
+        return self.kw[:limit] if department_ids and levels else []
 
     def sales_search(self, embedding, model, department_ids, limit):
         self.calls.append(("sales", frozenset(department_ids), limit))

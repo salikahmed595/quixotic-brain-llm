@@ -2,190 +2,277 @@ import { useState } from 'react';
 import { api, session } from '../../api';
 import { Icon } from '../../icons';
 import { useApp } from '../../state';
-import { Banner, DeptChecks, Empty, fmtDate, Loading, openDrawer, openModal, PageHead, STATUS, StatusChip, toast, useAction, useLoad } from '../../ui';
+import type { Me } from '../../types';
+import { Banner, can, confirmModal, DeptChecks, Empty, fmtDate, Loading, openDrawer, PageHead, StatusChip, toast, useAction, useLoad, usePoll } from '../../ui';
 
-/* PRD §7 Knowledge / Add information / Approvals (P1 in §14; ported unchanged so nothing that works is lost). */
-type Version = { id: string; item_id: string; title: string; status: string; version: number; departments: string[]; category?: string; document_type?: string;
-  access_level?: string; information?: string; created_by?: string; created_at?: string; updated_at?: string; reviewed_at?: string; history?: { to_status: string; note?: string; at: string }[] };
+/* PRD §7 Knowledge, Add information, Approvals; §8 statuses, versions and controlled publication. */
+export type DocRow = { item_id: string; version_id: string; title: string; category?: string | null; sensitivity: string; departments: string[];
+  department_ids: string[]; version: number; status: string; effective_date?: string | null; expires_at?: string | null; published_at?: string | null;
+  updated_at: string; indexed: boolean; filename?: string | null; processing_status?: string | null; owner_name?: string | null; open_proposals: number };
+type Listing = { documents: DocRow[]; categories: string[]; sensitivity_levels: string[] };
+export type Proposal = { id: string; kind: string; title: string; summary?: string | null; status: string; source: string; submitted_by_name?: string | null;
+  submitted_at: string; high_impact: boolean; required_approvals: number; item_id: string; version: number; version_status: string; filename?: string | null;
+  processing_status?: string | null; processing_error?: string | null; indexed: boolean; departments: string[]; error?: string | null; mine?: boolean; can_review?: boolean };
+type ProposalDetail = Proposal & { meta: Record<string, unknown>; diff: { unified: string[]; metadata_changes: { field: string; from: string | null; to: string | null }[];
+  before: { version: number; text: string } | null; after: { version: number; text: string } };
+  related: { item_id: string; title: string; version: number; similarity: number }[];
+  decisions: { full_name: string; decision: string; note?: string | null; at: string; via: string }[] };
 
-async function transition(id: string, to: string) {
-  const step = (s: string) => api(`/v1/knowledge/${id}/transitions`, { method: 'POST', body: { to: s } });
-  if (to === 'submit') return step('submitted');
-  if (to === 'approve') { await step('approved'); return step('active'); }
-  return step(to);
-}
+const KIND: Record<string, string> = { create: 'New document', update: 'Change', archive: 'Archive', restore: 'Restore earlier version' };
+const listing = (q = '') => api<Listing>('/v1/knowledge/documents?limit=500' + q);
+const expired = (d: { expires_at?: string | null }) => !!d.expires_at && new Date(d.expires_at) < new Date();
 
-function actionsFor(v: Version, rank: number, myId: string) {
-  const a: [string, string, string][] = [], mine = v.created_by === myId;
-  if (v.status === 'draft' && (mine || rank >= 3)) a.push(['Submit for review', 'submit', 'primary']);
-  if (v.status === 'pending_review' && rank >= 2) { a.push(['Approve', 'approve', 'good']); a.push(['Reject', 'rejected', 'bad']); }
-  if (v.status === 'approved' && rank >= 2) a.push(['Activate', 'active', 'good']);
-  if (rank >= 1 && v.status !== 'draft') a.push(['New version', 'newversion', '']);
-  if (v.status !== 'archived' && rank >= 3) a.push(['Archive', 'archived', '']);
-  return a;
-}
-
-export async function openKnowledge(id: string, rank: number, myId: string, refresh: () => void) {
-  const v = await api<Version>(`/v1/knowledge/${id}`);
-  openDrawer(close => <KnowledgeDetail v={v} actions={actionsFor(v, rank, myId)} close={close} refresh={refresh} />);
-}
-function KnowledgeDetail({ v, actions, close, refresh }: { v: Version; actions: [string, string, string][]; close: () => void; refresh: () => void }) {
-  const a = useAction();
-  return (<div>
-    <div className="flex items-start">
-      <div><h2 className="text-[21px] font-extrabold tracking-[-.01em]">{v.title}</h2>
-        <div className="flex flex-wrap gap-1.5 mt-2"><StatusChip s={v.status} />{v.departments.map(d => <span key={d} className="chip">{d}</span>)}</div></div>
-      <span className="flex-1" /><button className="btn ghost sm" onClick={close} aria-label="Close"><Icon name="x" size={18} /></button>
-    </div>
-    <h4 className="mt-5.5 mb-2 text-sm font-bold">Information</h4>
-    <div className="whitespace-pre-wrap bg-canvas border border-line rounded-[14px] p-3.5 max-h-[260px] overflow-auto text-ink-2">{v.information || <span className="hint">This item is an uploaded document.</span>}</div>
-    <h4 className="mt-5.5 mb-2 text-sm font-bold">Details</h4>
-    <dl className="kv"><dt>Version</dt><dd>{v.version}</dd><dt>Category</dt><dd>{v.category || '—'}</dd><dt>Type</dt><dd>{v.document_type || '—'}</dd>
-      <dt>Access</dt><dd>{v.access_level || '—'}</dd><dt>Created</dt><dd>{fmtDate(v.created_at)}</dd><dt>Last updated</dt><dd>{fmtDate(v.updated_at)}</dd><dt>Reviewed</dt><dd>{fmtDate(v.reviewed_at)}</dd></dl>
-    <h4 className="mt-5.5 mb-2 text-sm font-bold">History</h4>
-    <div className="timeline">{(v.history || []).map((h, k) => <div key={k} className="tl"><i /><div><b>{(STATUS[h.to_status] || [h.to_status])[0]}</b>{h.note && <> — {h.note}</>}<small>{fmtDate(h.at)}</small></div></div>)}</div>
-    {actions.length > 0 && <div className="flex flex-wrap gap-3 mt-6.5">{actions.map(([label, act, cls]) => (
-      <button key={act} className={`btn ${cls}`} disabled={a.busy} onClick={() => {
-        if (act === 'newversion') { close(); newVersionModal(v, refresh); return; }
-        a.run(() => transition(v.id, act)).then(ok => { if (ok) { toast('Done'); close(); refresh(); } });
-      }}>{label}</button>))}</div>}
-    {a.error && <Banner kind="err" className="mt-3">{a.error}</Banner>}
-  </div>);
-}
-
-function newVersionModal(v: Version, refresh: () => void) {
-  openModal(`New version of “${v.title}”`, close => <NewVersion v={v} close={close} refresh={refresh} />);
-}
-function NewVersion({ v, close, refresh }: { v: Version; close: () => void; refresh: () => void }) {
-  const [text, setText] = useState(v.information || ''); const a = useAction();
-  return (<>
-    <div className="field"><label>Updated information</label><textarea className="textarea min-h-[200px]" value={text} onChange={e => setText(e.target.value)} /></div>
-    <p className="hint mt-2 mb-4">It starts as a draft. When it becomes active, the current version is archived automatically.</p>
-    {a.error && <Banner kind="err" className="mb-3">{a.error}</Banner>}
-    <div className="flex justify-end gap-3"><button className="btn" onClick={close}>Cancel</button>
-      <button className="btn primary" disabled={a.busy} onClick={() => a.run(() => api(`/v1/knowledge/items/${v.item_id}/versions`, { method: 'POST', body: { information: text, access_level: v.access_level } }))
-        .then(ok => { if (ok) { toast('Draft created'); close(); refresh(); } })}>Create draft</button></div>
-  </>);
-}
-
+/* ---------------- Knowledge (browse approved knowledge, versions, citations) ---------------- */
 export function KnowledgePage() {
-  const { rank, me } = useApp();
-  const [status, setStatus] = useState(''); const [q, setQ] = useState('');
-  const { data, error, reload } = useLoad(() => api<{ items: Version[] }>('/v1/knowledge?limit=200' + (status ? '&status=' + status : '')).then(r => r.items), [status]);
-  const rows = (data || []).filter(i => !q || i.title.toLowerCase().includes(q.toLowerCase()));
+  const { me } = useApp();
+  const [q, setQ] = useState(''); const [status, setStatus] = useState('published'); const [cat, setCat] = useState(''); const [dept, setDept] = useState('');
+  const { data, error, reload } = useLoad(() => listing(status ? '&status=' + status : ''), [status]);
+  const rows = (data?.documents || []).filter(d => (!q || d.title.toLowerCase().includes(q.toLowerCase())) && (!cat || d.category === cat)
+    && (!dept || d.departments.includes(dept)));
+  const depts = [...new Set((data?.documents || []).flatMap(d => d.departments))].sort();
   return (
     <div className="page">
-      <PageHead title="Knowledge" sub="Approved and in-progress company knowledge.">
-        {rank >= 1 && <a className="btn primary" href="#/add"><Icon name="plus" size={17} /> Add information</a>}
+      <PageHead title="Knowledge" sub="Approved company knowledge employees get answers from. Every change goes through review.">
+        {can(me, 'propose_knowledge') && <a className="btn primary" href="#/add"><Icon name="plus" size={17} /> Add information</a>}
       </PageHead>
       <div className="flex flex-wrap gap-3 mb-3.5">
-        <div className="relative flex-1 min-w-[220px]"><input className="input !pl-10" placeholder="Search by title…" value={q} onChange={e => setQ(e.target.value)} aria-label="Search by title" />
+        <div className="relative flex-1 min-w-[220px]"><input className="input !pl-10" placeholder="Search titles and text…" value={q} onChange={e => setQ(e.target.value)} aria-label="Search knowledge" />
           <span className="absolute left-3.5 top-3 text-muted"><Icon name="search" /></span></div>
-        <select className="select !w-[190px]" value={status} onChange={e => setStatus(e.target.value)} aria-label="Status">
-          <option value="">All statuses</option>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}</select>
+        <select className="select !w-44" value={status} onChange={e => setStatus(e.target.value)} aria-label="Status">
+          <option value="published">Published</option><option value="under_review">Under review</option><option value="draft">Draft</option><option value="archived">Archived</option><option value="">All</option></select>
+        <select className="select !w-44" value={dept} onChange={e => setDept(e.target.value)} aria-label="Department"><option value="">All departments</option>{depts.map(d => <option key={d}>{d}</option>)}</select>
+        <select className="select !w-40" value={cat} onChange={e => setCat(e.target.value)} aria-label="Category"><option value="">All categories</option>{(data?.categories || []).map(c => <option key={c}>{c}</option>)}</select>
       </div>
       {error ? <Banner kind="err">{error}</Banner> : !data ? <Loading /> : rows.length ? (
-        <div className="table-wrap"><table><thead><tr><th>Title</th><th>Departments</th><th>Category</th><th>Status</th><th>Version</th><th>Updated</th></tr></thead>
-          <tbody>{rows.map(i => (
-            <tr key={i.id} className="click" tabIndex={0} onClick={() => openKnowledge(i.id, rank, me.user_id, reload).catch(e => toast(e.message))}
-              onKeyDown={e => e.key === 'Enter' && openKnowledge(i.id, rank, me.user_id, reload).catch(err => toast(err.message))}>
-              <td><b>{i.title}</b></td><td>{i.departments.join(', ') || '—'}</td><td>{i.category || '—'}</td><td><StatusChip s={i.status} /></td><td>v{i.version}</td><td>{fmtDate(i.updated_at)}</td>
+        <div className="table-wrap"><table><thead><tr><th>Title</th><th>Departments</th><th>Category</th><th>Access</th><th>Status</th><th>Effective</th><th>Version</th></tr></thead>
+          <tbody>{rows.map(d => (
+            <tr key={d.item_id} className="click" tabIndex={0} onClick={() => openDocument(d.item_id, reload, me)} onKeyDown={e => e.key === 'Enter' && openDocument(d.item_id, reload, me)}>
+              <td><b>{d.title}</b>{d.open_proposals > 0 && <span className="chip amber ml-2">Change waiting</span>}</td>
+              <td>{d.departments.join(', ') || '—'}</td><td>{d.category || '—'}</td>
+              <td><span className={`chip ${d.sensitivity === 'unclassified' ? 'red' : ''}`}>{d.sensitivity === 'unclassified' ? 'Needs classification' : d.sensitivity}</span></td>
+              <td>{expired(d) ? <span className="chip dot red">Expired</span> : <StatusChip s={d.status} />}</td>
+              <td className="whitespace-nowrap">{d.effective_date ? fmtDate(d.effective_date) : fmtDate(d.published_at)}</td><td>v{d.version}</td>
             </tr>))}</tbody></table></div>
-      ) : <Empty icon="book" title={data.length ? 'No matches' : 'No knowledge yet'} text={data.length ? 'Try a different search or status.' : 'Add the first piece of knowledge to get started.'}
-        action={rank >= 1 && !data.length ? <a className="btn primary" href="#/add">Add information</a> : undefined} />}
+      ) : <Empty icon="book" title={data.documents.length ? 'No matches' : 'No knowledge here yet'} text={data.documents.length ? 'Try a different search or filter.' : 'Add the first approved document to get started.'}
+        action={can(me, 'propose_knowledge') && !data.documents.length ? <a className="btn primary" href="#/add">Add information</a> : undefined} />}
     </div>
   );
 }
 
+type DocDetail = { item: { id: string; title: string; category?: string | null; sensitivity: string; departments: string[]; owner_name?: string | null; provenance?: string | null; vault_path?: string | null };
+  published: { id: string; version: number; text?: string | null; effective_date?: string | null; expires_at?: string | null; published_at?: string | null; vault_commit?: string | null; filename?: string | null } | null;
+  versions: { id: string; version: number; status: string; created_at: string; published_at?: string | null; change_note?: string | null; approved_by_name?: string | null }[];
+  proposals: Proposal[] };
+
+/* Drawers render outside the app provider, so the signed-in person is passed in. */
+export async function openDocument(itemId: string, refresh: () => void, me: Me) {
+  try {
+    const d = await api<DocDetail>(`/v1/knowledge/documents/${itemId}`);
+    openDrawer(close => <DocumentDrawer d={d} me={me} close={close} refresh={refresh} />);
+  } catch (e) { toast((e as Error).message); }
+}
+
+function DocumentDrawer({ d, me, close, refresh }: { d: DocDetail; me: Me; close: () => void; refresh: () => void }) {
+  const manage = can(me, 'manage_documents'); const [viewing, setViewing] = useState<{ version: number; text: string } | null>(null);
+  const after = (msg: string) => { toast(msg); close(); refresh(); };
+  const archive = () => confirmModal('Archive this document?', 'It stops being used in answers once a reviewer approves. Earlier versions stay recoverable.', 'Propose archive',
+    async () => { await api(`/v1/admin/documents/${d.item.id}/archive`, { method: 'POST', body: {} }); after('Archive sent for review'); }, false);
+  const restore = (v: { id: string; version: number }) => confirmModal(`Publish version ${v.version} again?`, 'This creates a change for review. When approved, this version replaces the current one.', 'Propose restore',
+    async () => { await api(`/v1/admin/documents/${d.item.id}/restore`, { method: 'POST', body: { version_id: v.id } }); after('Restore sent for review'); }, false);
+  const reindex = async () => { try { await api(`/v1/admin/documents/${d.item.id}/reindex`, { method: 'POST' }); toast('Reindexing in the background'); } catch (e) { toast((e as Error).message); } };
+  const show = async (id: string, version: number) => { try { const v = await api<{ text: string }>(`/v1/knowledge/documents/${d.item.id}/versions/${id}`); setViewing({ version, text: v.text || '' }); } catch (e) { toast((e as Error).message); } };
+  const pub = d.published;
+  return (<div>
+    <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><h2 className="text-[21px] font-extrabold tracking-[-.01em]">{d.item.title}</h2>
+      <div className="flex flex-wrap gap-1.5 mt-2">{pub ? <StatusChip s="published" /> : <StatusChip s={d.versions[0]?.status || 'draft'} />}{d.item.departments.map(x => <span key={x} className="chip">{x}</span>)}<span className="chip orange">{d.item.sensitivity}</span></div></div>
+      <button className="btn ghost sm" onClick={close} aria-label="Close"><Icon name="x" size={18} /></button></div>
+    <dl className="kv mt-5 text-[13.5px]">
+      <dt>Category</dt><dd>{d.item.category || '—'}</dd><dt>Owner</dt><dd>{d.item.owner_name || '—'}</dd><dt>Source</dt><dd>{d.item.provenance || '—'}</dd>
+      {pub && <><dt>Published</dt><dd>v{pub.version} · {fmtDate(pub.published_at)}</dd><dt>Effective</dt><dd>{pub.effective_date ? fmtDate(pub.effective_date) : 'Now'}{pub.expires_at && <> · expires {fmtDate(pub.expires_at)}</>}</dd>
+        <dt>Vault</dt><dd className="break-all">{d.item.vault_path}{pub.vault_commit && <span className="hint"> · {pub.vault_commit.slice(0, 8)}</span>}</dd></>}
+    </dl>
+    <h4 className="mt-5.5 mb-2 text-sm font-bold">{viewing ? `Version ${viewing.version}` : pub ? 'Published text' : 'Text'}{viewing && <button className="text-orange text-xs font-semibold ml-2" onClick={() => setViewing(null)}>Back to published</button>}</h4>
+    <div className="whitespace-pre-wrap bg-canvas border border-line rounded-[14px] p-3.5 max-h-[300px] overflow-auto text-ink-2 text-[13.5px]">{(viewing ? viewing.text : pub?.text) || <span className="hint">No text.</span>}</div>
+    <h4 className="mt-5.5 mb-2 text-sm font-bold">Versions</h4>
+    <ol className="grid gap-2">{d.versions.map(v => (
+      <li key={v.id} className="flex flex-wrap items-center gap-2 text-[13.5px]"><b>v{v.version}</b><StatusChip s={v.status} /><span className="hint">{fmtDate(v.published_at || v.created_at)}{v.approved_by_name ? ` · approved by ${v.approved_by_name}` : ''}</span>
+        {v.change_note && <span className="text-ink-2">— {v.change_note}</span>}<span className="flex-1" />
+        <button className="btn ghost sm" onClick={() => show(v.id, v.version)}>Read</button>
+        {manage && v.status === 'archived' && <button className="btn sm" onClick={() => restore(v)}>Restore</button>}</li>))}</ol>
+    {d.proposals.length > 0 && <><h4 className="mt-5.5 mb-2 text-sm font-bold">Changes</h4>
+      <ol className="grid gap-1.5">{d.proposals.map(p => <li key={p.id} className="text-[13.5px] flex gap-2 items-center"><StatusChip s={p.status} />{KIND[p.kind]}<span className="hint">{fmtDate(p.submitted_at)} · {p.submitted_by_name}</span></li>)}</ol></>}
+    <div className="flex flex-wrap gap-3 mt-6">
+      {can(me, 'propose_knowledge') && <button className="btn primary" onClick={() => { close(); session.set('qb_update', JSON.stringify({ item_id: d.item.id })); location.hash = '#/add'; }}><Icon name="pen" size={15} /> Propose a change</button>}
+      {manage && pub && <button className="btn" onClick={reindex}>Reindex</button>}
+      {manage && pub && <button className="btn ghost" onClick={archive}>Archive</button>}
+    </div>
+  </div>);
+}
+
+/* ---------------- Add information (text or upload -> proposal -> review) ---------------- */
+type Form = { title: string; category: string; sensitivity: string; provenance: string; info: string; effective: string; expires: string; note: string; high: boolean };
+
 export function AddPage() {
-  const { rank, departments } = useApp(); const isAdmin = rank >= 3;
-  const [prefill] = useState(() => { try { const p = JSON.parse(session.get('qb_prefill') || 'null'); session.set('qb_prefill', null); return p; } catch { return null; } });
+  const { departments } = useApp();
+  const [prefill] = useState(() => {
+    try {
+      const update = JSON.parse(session.get('qb_update') || 'null'); session.set('qb_update', null);
+      const p = JSON.parse(session.get('qb_prefill') || 'null'); session.set('qb_prefill', null);
+      return { update, title: p?.title as string | undefined };
+    } catch { return { update: null, title: undefined }; }
+  });
+  const updating: string | null = prefill.update?.item_id || null;
+  const meta = useLoad(() => listing('&status=published'));
+  const existing = useLoad(() => updating ? api<DocDetail>(`/v1/knowledge/documents/${updating}`) : Promise.resolve(null), [updating]);
   const [tab, setTab] = useState(0);
-  const blank = { title: prefill?.title || '', category: '', document_type: '', access: '', info: '', status: 'draft' };
-  const [f, setF] = useState(blank); const [dept, setDept] = useState<string[]>([]);
+  const blank: Form = { title: prefill.title || '', category: '', sensitivity: '', provenance: '', info: '', effective: '', expires: '', note: '', high: false };
+  const [f, setF] = useState<Form>(blank); const [dept, setDept] = useState<string[]>([]); const [loaded, setLoaded] = useState(false);
   const [file, setFile] = useState<File | null>(null); const [ok, setOk] = useState<React.ReactNode>(null); const a = useAction();
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
-  const submit = (mode: string) => async (e?: React.FormEvent) => {
-    e?.preventDefault(); setOk(null);
+  if (existing.data && !loaded) {
+    const d = existing.data; setLoaded(true);
+    setF({ ...blank, title: d.item.title, category: d.item.category || '', sensitivity: d.item.sensitivity === 'unclassified' ? '' : d.item.sensitivity, provenance: d.item.provenance || '', info: d.published?.text || '' });
+    setDept(departments.filter(x => d.item.departments.includes(x.name)).map(x => x.id));
+  }
+  const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setOk(null);
     if (!dept.length) { a.setError('Pick at least one department.'); return; }
-    if (!f.title.trim()) { a.setError('Enter a title.'); return; }
+    if (!f.sensitivity) { a.setError('Choose who may see it (access level).'); return; }
     await a.run(async () => {
+      let r: { proposal_id: string; high_impact: boolean };
       if (tab === 1) {
         if (!file) throw new Error('Choose a file to upload.');
-        const fd = new FormData(); fd.append('file', file); fd.append('department_ids', dept.join(',')); fd.append('title', f.title);
-        if (f.category) fd.append('category', f.category); if (f.document_type) fd.append('document_type', f.document_type); if (f.access) fd.append('access_level', f.access);
-        fd.append('status', isAdmin ? f.status : 'draft');
-        await api('/v1/documents', { method: 'POST', form: fd });
-        setOk(<>Uploaded. It is being processed in the background — see <a className="underline" href="#/documents">Documents</a>.</>); setF(blank); setFile(null);
+        const fd = new FormData(); fd.append('file', file); fd.append('department_ids', dept.join(',')); fd.append('sensitivity', f.sensitivity);
+        if (f.title) fd.append('title', f.title); if (f.category) fd.append('category', f.category); if (f.provenance) fd.append('provenance', f.provenance);
+        if (f.effective) fd.append('effective_date', f.effective); if (f.expires) fd.append('expires_at', f.expires + 'T00:00:00Z'); if (f.note) fd.append('change_note', f.note);
+        if (updating) fd.append('item_id', updating); fd.append('high_impact', String(f.high));
+        r = await api('/v1/knowledge/proposals/upload', { method: 'POST', form: fd });
       } else {
         if (!f.info.trim()) throw new Error('Write the information first.');
-        const r = await api('/v1/knowledge', { method: 'POST', body: { title: f.title, department_ids: dept, category: f.category || null, document_type: f.document_type || null, access_level: f.access || null, information: f.info } });
-        const step = (s: string) => api(`/v1/knowledge/${r.version_id}/transitions`, { method: 'POST', body: { to: s } });
-        if (mode !== 'draft') await step('submitted');
-        if (mode === 'publish') { await step('approved'); await step('active'); }
-        setOk(<>{mode === 'draft' ? 'Saved as a draft.' : mode === 'publish' ? 'Published.' : 'Submitted for review.'} <a className="underline" href="#/knowledge">View in Knowledge</a></>); setF(blank);
+        r = await api('/v1/knowledge/proposals', { method: 'POST', body: { item_id: updating, title: f.title, body: f.info, department_ids: dept, sensitivity: f.sensitivity,
+          category: f.category || null, provenance: f.provenance || null, effective_date: f.effective || null, expires_at: f.expires ? f.expires + 'T00:00:00Z' : null,
+          change_note: f.note || null, high_impact: f.high } });
       }
+      setOk(<>Sent for review{r.high_impact ? ' — this is a high-impact topic, so two people must approve it' : ''}. <a className="underline" href="#/approvals">Follow it in Approvals</a></>);
+      if (!updating) { setF(blank); setDept([]); } setFile(null);
     });
   };
+  const levels = meta.data?.sensitivity_levels || [];
   return (
-    <div className="page max-w-[820px]">
-      <PageHead title="Add information" sub={isAdmin ? 'Add knowledge directly, or send it through review.' : 'Your submission is reviewed before it becomes official.'} />
+    <div className="page max-w-[860px]">
+      <PageHead title={updating ? 'Propose a change' : 'Add information'} sub="Write it or upload a document. Reviewers check it before employees can get answers from it." />
       <div className="tabs" role="tablist">{['Write', 'Upload document'].map((t, k) => <button key={t} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); a.setError(null); setOk(null); }}>{t}</button>)}</div>
-      <form className="card grid gap-4.5" onSubmit={submit(tab === 1 ? 'upload' : 'submit')}>
-        <div className="field"><label htmlFor="ad-t">Title</label><input id="ad-t" className="input" required value={f.title} onChange={set('title')} placeholder="e.g. Refund policy" /></div>
-        <div className="field"><label>Department</label><DeptChecks depts={departments} value={dept} onChange={setDept} /></div>
+      <form className="card grid gap-4.5" onSubmit={submit}>
+        {updating && existing.data && <Banner kind="ok" className="!bg-orange-50 !text-ink">Changing <b>{existing.data.item.title}</b> (published v{existing.data.published?.version ?? '—'}). Reviewers will see exactly what changed.</Banner>}
+        <div className="field"><label htmlFor="ad-t">Title</label><input id="ad-t" className="input" required={tab === 0} value={f.title} onChange={set('title')} placeholder={tab === 1 ? 'Defaults to the file name' : 'e.g. Refund policy'} /></div>
+        <div className="field"><label>Departments that may use it</label><DeptChecks depts={departments} value={dept} onChange={setDept} /></div>
         <div className="grid grid-cols-2 gap-3.5 max-sm:grid-cols-1">
-          <div className="field"><label htmlFor="ad-c">Category</label><input id="ad-c" className="input" value={f.category} onChange={set('category')} placeholder="e.g. Pricing" /></div>
-          <div className="field"><label htmlFor="ad-y">Type <span className="hint">(optional)</span></label><input id="ad-y" className="input" value={f.document_type} onChange={set('document_type')} placeholder="e.g. policy, sop, script" /></div>
+          <div className="field"><label htmlFor="ad-s">Access level</label>
+            <select id="ad-s" className="select" required value={f.sensitivity} onChange={set('sensitivity')}><option value="" disabled>Choose…</option>{levels.map(l => <option key={l}>{l}</option>)}</select>
+            <span className="hint">Confidential levels are only seen by the roles allowed for them.</span></div>
+          <div className="field"><label htmlFor="ad-c">Category</label><input id="ad-c" className="input" list="ad-cats" value={f.category} onChange={set('category')} placeholder="e.g. Pricing, Scripts, SOPs" />
+            <datalist id="ad-cats">{(meta.data?.categories || []).map(c => <option key={c} value={c} />)}</datalist></div>
         </div>
-        <div className="field"><label htmlFor="ad-a">Access</label><input id="ad-a" className="input" value={f.access} onChange={set('access')} placeholder="e.g. Sales + Managers" />
-          <span className="hint">Who this is meant for. Visibility follows the departments you pick.</span></div>
+        <div className="field"><label htmlFor="ad-p">Source <span className="hint">(where this comes from)</span></label><input id="ad-p" className="input" value={f.provenance} onChange={set('provenance')} placeholder="e.g. HR handbook 2026, CEO decision 12 Oct" /></div>
         {tab === 0 ? (
-          <div className="field"><label htmlFor="ad-i">Information</label><textarea id="ad-i" className="textarea min-h-[220px]" value={f.info} onChange={set('info')} placeholder="Write the knowledge here…" /></div>
+          <div className="field"><label htmlFor="ad-i">Information <span className="hint">(Markdown: # headings make good sections)</span></label><textarea id="ad-i" className="textarea min-h-[240px]" value={f.info} onChange={set('info')} placeholder="Write the knowledge here…" /></div>
         ) : (
           <div className="field"><label>File</label>
-            <label className="block text-center rounded-2xl border-2 border-dashed border-orange bg-orange-50 p-5 cursor-pointer"
+            <label className="block text-center rounded-2xl border-2 border-dashed border-orange bg-orange-50 p-5 cursor-pointer min-h-11"
               onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); setFile(e.dataTransfer.files[0] || null); }}>
               <div className="text-orange flex justify-center"><Icon name="cloud" size={34} /></div>
-              <b>{file ? file.name : 'Choose a file or drop it here'}</b><div className="hint">PDF, DOCX, TXT, Markdown, JSON or CSV</div>
-              <input type="file" hidden accept=".pdf,.docx,.txt,.md,.markdown,.json,.csv" onChange={e => setFile(e.target.files?.[0] || null)} />
+              <b>{file ? file.name : 'Choose a file or drop it here'}</b><div className="hint">PDF, DOCX, TXT or Markdown. Scanned PDFs without text are rejected.</div>
+              <input type="file" hidden accept=".pdf,.docx,.txt,.md,.markdown" onChange={e => setFile(e.target.files?.[0] || null)} />
             </label></div>
         )}
-        {isAdmin && tab === 1 && <div className="field"><label htmlFor="ad-s">Status</label><select id="ad-s" className="select" value={f.status} onChange={set('status')}><option value="draft">Send for review</option><option value="active">Publish now</option></select></div>}
+        <div className="grid grid-cols-2 gap-3.5 max-sm:grid-cols-1">
+          <div className="field"><label htmlFor="ad-e">Effective from <span className="hint">(optional)</span></label><input id="ad-e" className="input" type="date" value={f.effective} onChange={set('effective')} /></div>
+          <div className="field"><label htmlFor="ad-x">Expires on <span className="hint">(optional)</span></label><input id="ad-x" className="input" type="date" value={f.expires} onChange={set('expires')} /></div>
+        </div>
+        <div className="field"><label htmlFor="ad-n">Note for reviewers <span className="hint">(what changed and why)</span></label><input id="ad-n" className="input" maxLength={1000} value={f.note} onChange={set('note')} /></div>
+        <label className="check"><input type="checkbox" checked={f.high} onChange={e => setF({ ...f, high: e.target.checked })} /> High-impact (HR, pay, discounts, refunds, customer payments, security): needs two approvers. Detected automatically too.</label>
         {a.error && <Banner kind="err">{a.error}</Banner>}
         {ok && <Banner kind="ok">{ok}</Banner>}
-        <div className="flex flex-wrap justify-end gap-3">
-          {tab === 0 ? (<>
-            <button type="button" className="btn" disabled={a.busy} onClick={() => submit('draft')()}>Save as draft</button>
-            <button className="btn primary" disabled={a.busy}>{isAdmin ? 'Send for review' : 'Submit for review'}</button>
-            {isAdmin && <button type="button" className="btn good" disabled={a.busy} onClick={() => submit('publish')()}>Publish now</button>}
-          </>) : <button className="btn primary" disabled={a.busy}><Icon name="cloud" size={17} /> Upload</button>}
-        </div>
+        <div className="flex justify-end"><button className="btn primary" disabled={a.busy}>{tab === 1 ? <><Icon name="cloud" size={17} /> Upload for review</> : 'Send for review'}</button></div>
       </form>
     </div>
   );
 }
 
+/* ---------------- Approvals (§7: diffs, references, conflicts, submitter, reviewer) ---------------- */
 export function ApprovalsPage() {
-  const { rank, me, setCounts } = useApp();
-  const { data, error, reload } = useLoad(() => api<{ items: Version[] }>('/v1/knowledge?status=pending_review&limit=200').then(r => { setCounts({ pending: r.items.length }); return r.items; }));
-  const act = async (id: string, to: string, msg: string) => { try { await transition(id, to); toast(msg); reload(); } catch (e) { toast((e as Error).message); } };
+  const { me, setCounts } = useApp();
+  const [view, setView] = useState('open');
+  const { data, error, reload } = useLoad(() => api<{ proposals: Proposal[] }>('/v1/knowledge/proposals' + (view ? '?status=' + view : '')).then(r => {
+    if (view === 'open') setCounts({ pending: r.proposals.filter(p => p.can_review).length }); return r.proposals; }), [view]);
+  usePoll(!!data?.some(p => !p.indexed || p.status === 'approved' || p.status === 'publishing'), reload);
   return (
     <div className="page">
-      <PageHead title="Approvals" sub="Review knowledge before it becomes official." />
+      <PageHead title="Approvals" sub="Changes to company knowledge wait here until the right people approve them. Nothing is published automatically.">
+        <select className="select !w-52" value={view} onChange={e => setView(e.target.value)} aria-label="Show">
+          <option value="open">Waiting for review</option><option value="approved">Approved, publishing</option><option value="published">Published</option>
+          <option value="changes_requested">Changes requested</option><option value="rejected">Rejected</option><option value="failed">Publication failed</option><option value="">Everything</option></select>
+      </PageHead>
       {error ? <Banner kind="err">{error}</Banner> : !data ? <Loading /> : data.length ? (
-        <div className="grid gap-4">{data.map(i => (
-          <div key={i.id} className="card"><div className="flex flex-wrap items-start gap-3">
-            <div className="flex-1 min-w-[220px]"><b className="text-base">{i.title}</b>
-              <div className="flex flex-wrap gap-1.5 my-1.5">{i.departments.map(d => <span key={d} className="chip">{d}</span>)}<span className="hint">v{i.version} · submitted {fmtDate(i.updated_at)}</span></div>
-              <p className="text-ink-2 line-clamp-3">{i.information || 'Uploaded document'}</p></div>
-            <div className="flex gap-2">
-              <button className="btn sm" onClick={() => openKnowledge(i.id, rank, me.user_id, reload).catch(e => toast(e.message))}>View</button>
-              <button className="btn good sm" onClick={() => act(i.id, 'approve', 'Approved and active')}><Icon name="check" size={15} /> Approve</button>
-              <button className="btn bad sm" onClick={() => act(i.id, 'rejected', 'Rejected')}><Icon name="x" size={15} /> Reject</button>
-            </div>
-          </div></div>))}</div>
-      ) : <Empty icon="check" title="All caught up" text="There is nothing waiting for your review." />}
+        <div className="grid gap-3.5">{data.map(p => (
+          <button key={p.id} className="card text-left hover:border-orange transition-colors" onClick={() => openProposal(p.id, reload, me)}>
+            <div className="flex flex-wrap items-center gap-2"><b className="text-base">{p.title}</b><span className="chip">{KIND[p.kind]}</span>
+              {p.high_impact && <span className="chip red">High impact · {p.required_approvals} approvers</span>}<StatusChip s={p.status} />
+              {!p.indexed && p.kind !== 'archive' && <span className="chip blue">Reading the document…</span>}</div>
+            <div className="hint mt-1.5">{p.departments.join(', ')} · v{p.version} · {p.submitted_by_name || 'someone'} · {fmtDate(p.submitted_at)} · via {p.source}{p.filename ? ` · ${p.filename}` : ''}</div>
+            {p.summary && <p className="text-ink-2 mt-1.5 line-clamp-2">{p.summary}</p>}
+            {p.error && <p className="text-bad mt-1.5 text-[13.5px]">{p.error}</p>}
+          </button>))}</div>
+      ) : <Empty icon="check" title="All caught up" text={view === 'open' ? 'There is nothing waiting for your review.' : 'Nothing here.'} />}
     </div>
   );
+}
+
+async function openProposal(id: string, refresh: () => void, me: Me) {
+  try { const p = await api<ProposalDetail>(`/v1/knowledge/proposals/${id}`); openDrawer(close => <ProposalDrawer p={p} me={me} close={close} refresh={refresh} />); }
+  catch (e) { toast((e as Error).message); }
+}
+
+function DiffView({ lines }: { lines: string[] }) {
+  if (!lines.length) return <p className="hint">The text did not change.</p>;
+  return (<pre className="bg-canvas border border-line rounded-[14px] p-3 max-h-[340px] overflow-auto text-[12.5px] leading-[1.55] whitespace-pre-wrap">
+    {lines.slice(2).map((l, i) => <div key={i} className={l.startsWith('+') ? 'bg-good-50 text-good' : l.startsWith('-') ? 'bg-bad-50 text-bad line-through decoration-1' : l.startsWith('@@') ? 'text-muted' : 'text-ink-2'}>{l}</div>)}
+  </pre>);
+}
+
+function ProposalDrawer({ p, me, close, refresh }: { p: ProposalDetail; me: Me; close: () => void; refresh: () => void }) {
+  const [note, setNote] = useState(''); const a = useAction();
+  const decide = (action: 'approve' | 'reject' | 'request-changes') => a.run(async () => {
+    const r = await api<{ status: string; waiting_for?: string[] }>(`/v1/admin/proposals/${p.id}/${action}`, { method: 'POST', body: { note: note.trim() || null } });
+    toast(r.status === 'approved' ? 'Approved — publishing now' : r.status === 'open' ? `Approval recorded. Still needs ${r.waiting_for?.join(' and ')}` : r.status === 'rejected' ? 'Rejected' : 'Sent back for changes');
+    close(); refresh();
+  });
+  const retry = () => a.run(async () => { await api(`/v1/admin/proposals/${p.id}/retry`, { method: 'POST' }); toast('Publishing again'); close(); refresh(); });
+  const withdraw = () => a.run(async () => { await api(`/v1/knowledge/proposals/${p.id}/withdraw`, { method: 'POST' }); toast('Withdrawn'); close(); refresh(); });
+  return (<div>
+    <div className="flex items-start gap-3"><div className="flex-1 min-w-0"><h2 className="text-[21px] font-extrabold tracking-[-.01em]">{p.title}</h2>
+      <div className="flex flex-wrap gap-1.5 mt-2"><span className="chip">{KIND[p.kind]}</span><StatusChip s={p.status} />{p.high_impact && <span className="chip red">High impact</span>}</div></div>
+      <button className="btn ghost sm" onClick={close} aria-label="Close"><Icon name="x" size={18} /></button></div>
+    <p className="hint mt-2">Proposed by {p.submitted_by_name} · {fmtDate(p.submitted_at)} · via {p.source}{p.filename ? ` · ${p.filename}` : ''}</p>
+    {p.summary && <p className="mt-2 text-ink-2">{p.summary}</p>}
+    {p.processing_error && <Banner kind="err" className="mt-3">This file could not be read: {p.processing_error}</Banner>}
+    {p.diff.metadata_changes.length > 0 && <><h4 className="mt-5 mb-2 text-sm font-bold">Settings that change</h4>
+      <dl className="kv text-[13.5px]">{p.diff.metadata_changes.map(c => <><dt key={c.field + 'k'}>{c.field}</dt><dd key={c.field}><span className="line-through text-muted">{c.from || '—'}</span> → <b>{c.to}</b></dd></>)}</dl></>}
+    <h4 className="mt-5 mb-2 text-sm font-bold">{p.kind === 'archive' ? 'Text that will stop being used' : p.diff.before ? `What changes (v${p.diff.before.version} → v${p.diff.after.version})` : 'New text'}</h4>
+    {p.diff.before || p.kind === 'archive' ? <DiffView lines={p.diff.unified} />
+      : <div className="whitespace-pre-wrap bg-canvas border border-line rounded-[14px] p-3.5 max-h-[340px] overflow-auto text-ink-2 text-[13.5px]">{p.diff.after.text || <span className="hint">The document is still being read…</span>}</div>}
+    {p.related.length > 0 && <><h4 className="mt-5 mb-2 text-sm font-bold">Related published knowledge <span className="hint font-normal">— check for conflicts or duplicates</span></h4>
+      <ul className="grid gap-1.5">{p.related.map(r => <li key={r.item_id} className="text-[13.5px]"><button className="text-orange font-semibold" onClick={() => openDocument(r.item_id, () => {}, me)}>{r.title}</button> <span className="hint">v{r.version} · {Math.round(r.similarity * 100)}% similar</span></li>)}</ul></>}
+    {p.decisions.length > 0 && <><h4 className="mt-5 mb-2 text-sm font-bold">Decisions ({p.decisions.filter(d => d.decision === 'approve').length} of {p.required_approvals} approvals)</h4>
+      <ol className="grid gap-1.5">{p.decisions.map((d, i) => <li key={i} className="text-[13.5px]"><b>{d.full_name}</b> {d.decision.replace('_', ' ')}d{d.note && <> — “{d.note}”</>} <span className="hint">{fmtDate(d.at)} · {d.via}</span></li>)}</ol></>}
+    {p.can_review && (<div className="mt-6 grid gap-3">
+      <div className="field"><label htmlFor="pr-n">Note <span className="hint">(required to reject or ask for changes)</span></label><input id="pr-n" className="input" maxLength={1000} value={note} onChange={e => setNote(e.target.value)} /></div>
+      {a.error && <Banner kind="err">{a.error}</Banner>}
+      <div className="flex flex-wrap gap-3"><button className="btn good" disabled={a.busy || !p.indexed && p.kind !== 'archive'} onClick={() => decide('approve')}><Icon name="check" size={15} /> Approve</button>
+        <button className="btn" disabled={a.busy} onClick={() => decide('request-changes')}>Ask for changes</button>
+        <button className="btn bad" disabled={a.busy} onClick={() => decide('reject')}><Icon name="x" size={15} /> Reject</button></div>
+    </div>)}
+    {!p.can_review && p.status === 'failed' && can(me, 'manage_documents') && <div className="mt-6"><button className="btn primary" disabled={a.busy} onClick={retry}>Try publishing again</button></div>}
+    {p.mine && (p.status === 'open' || p.status === 'changes_requested') && <div className="mt-4"><button className="btn ghost" disabled={a.busy} onClick={withdraw}>Withdraw</button></div>}
+  </div>);
 }

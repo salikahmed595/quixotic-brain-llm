@@ -1,10 +1,12 @@
-"""Processing pipeline — PRD §13.3:
-Store original -> Extract text -> Clean text -> Chunk -> Attach metadata -> Embeddings ->
-Keyword index (generated column on `chunks`) -> Store -> Available for retrieval.
+"""Processing pipeline — PRD §7 Documents ("detect file type/size, extract text, review parse ... reindex"), §8, §11:
+Store original -> Extract text -> Chunk -> Attach metadata (with the document ACL, §8) -> Embeddings -> Keyword index -> Store.
 
-Chunks stay invisible to retrieval until the version's status is `active` (§15)."""
+Every version is indexed when it is proposed, so reviewers can see its parsed text and related documents, but its chunks stay
+invisible to retrieval until the version is Published (status filter, §8 / §10). The checksum it was indexed at is recorded
+(§12 "last indexed document version and checksum")."""
 from __future__ import annotations
 
+import hashlib
 from typing import Protocol, Sequence
 from uuid import UUID
 
@@ -26,8 +28,18 @@ class NoReadableText(ValueError):
     """The file was valid but contained no text to index."""
 
 
+def blocks_text(blocks) -> str:
+    """Extracted text as Markdown (section headings kept) — what reviewers read and the vault stores."""
+    parts = []
+    for b in blocks:
+        parts.append((f"## {b.section}\n\n" if b.section else "") + b.text.strip())
+    return "\n\n".join(p for p in parts if p.strip())
+
+
 class IngestionStore(Protocol):
     def version_bundle(self, version_id: UUID) -> dict: ...
+    def set_text(self, version_id: UUID, body: str, checksum: str) -> None: ...
+    def mark_indexed(self, version_id: UUID, checksum: str | None) -> None: ...
     def replace_chunks(self, version_id: UUID, rows: Sequence[dict]) -> None: ...
     def set_file_status(self, file_id: UUID, status: str, error: str | None = None) -> None: ...
 
@@ -50,6 +62,11 @@ class IngestionService:
             if file_id:
                 self.store.set_file_status(file_id, "processing")
                 blocks = extract_blocks(b["extension"], self.storage.get(b["s3_key"]))
+                text = blocks_text(blocks)
+                digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                if text and digest != b.get("checksum"):
+                    self.store.set_text(version_id, text, digest)
+                    b = {**b, "body": text, "checksum": digest}
             else:
                 blocks = markdown_blocks(b.get("body") or "")
             pieces = chunk_blocks(blocks, self.settings.chunk_size, self.settings.chunk_overlap)
@@ -61,9 +78,10 @@ class IngestionService:
             base_meta = {                                                       # PRD §14
                 "company": self.settings.tenant_id,
                 "department": b["departments"],
+                "department_ids": [str(d) for d in b.get("department_ids") or []],
+                "sensitivity": b.get("sensitivity"),
                 "document_type": b.get("document_type"),
                 "category": b.get("category"),
-                "access_level": b.get("access_level"),
                 "status": b["status"],
                 "version": b["version"],
                 "language": doc_language,
@@ -74,6 +92,7 @@ class IngestionService:
                      "embedding": v, "embedding_model": self.embedder.name}
                     for i, (p, v) in enumerate(zip(pieces, vectors))]
             self.store.replace_chunks(version_id, rows)
+            self.store.mark_indexed(version_id, b.get("checksum"))
             if file_id:
                 self.store.set_file_status(file_id, "ready")
             return len(rows)

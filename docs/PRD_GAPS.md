@@ -120,6 +120,40 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 - Implementation necessities: React 18.3, Vite 6.3, Tailwind 4.1, TypeScript 5.8 (exact versions in `web/package.json`); Node 24 build
   stage in the Dockerfile. Test-only: Playwright 1.63, pixelmatch 7.1, pngjs 7.0 (dev dependencies).
 
+### 0.6b Knowledge model (M3, 2026-10-17) — what was built and the choices to veto
+
+- **Statuses (§8):** Draft / Under Review / Approved / Published / Archived; one Published version per document (DB index).
+  Old values were mapped (active → published, submitted/pending review → under review, rejected/expired → archived).
+- **Every change is a proposal (§1, §3, §7 Approvals, §12):** new document, new version, archive and restore are all
+  `knowledge_proposals` with `approval_decisions`. Proposed departments/sensitivity/owner take effect only at publication.
+  Reviewers see a line diff, metadata changes, related published documents (possible conflicts/duplicates; only documents they
+  may see) and earlier decisions. Rejecting or asking for changes needs a note; the version goes back to Draft.
+- **Who decides (choice — veto if needed):** a Department Reviewer decides only for departments they review; a Knowledge Admin
+  only with the publisher grant; System Admins and the Founder/CEO everywhere. Publication needs at least one decision by such a
+  publisher, so a reviewer's approval alone never publishes. ❓ **Approval matrix per department** (§3 "specified approval matrix")
+  — until you give one, this is the rule.
+- **High impact (§9 step 5):** title, category, department or text mentioning HR, pay/payroll/salary, discount, refund,
+  (customer) payment or security needs **two different approvers** (owner decision for Telegram, applied everywhere). Parsed file
+  text can raise this after upload; nothing lowers it.
+- **Controlled publication (§8):** worker job: (re)index if needed → write the note to the Git vault and commit → switch the
+  published version and metadata in one DB transaction → check the first passage comes back from the employee search → on any
+  failure restore the previous version, mark the proposal failed and email System Admins (§9 step 7); admins can retry.
+- **Sensitivity (§8, §10) ❓:** the PRD names "sensitivity/access scope" but no levels. `QB_SENSITIVITY_LEVELS_JSON` (required)
+  maps each level to the roles that may see it; retrieval filters on it before ranking. `.env.example` proposes
+  internal / confidential / restricted — **tell us your real levels**. Documents that existed before M3 are `unclassified` and
+  are **not retrievable until an admin classifies them** (fail closed).
+- **Effective date and expiry (§8 "unexpired"):** content is retrievable only from its effective date and until it expires.
+- **Recheck before answering (§8):** `still_eligible()` re-checks cited versions at answer time (used by M4).
+- **Vault (§8, §11):** Git repository at `QB_VAULT_DIR`; folder = first department ("Sales - Fresh Seller" → `Sales/Fresh-Seller/`),
+  archived notes move to `Archive/`; one commit per publication naming the approver. Front-matter keys (PRD names none, veto if
+  needed): `id, title, category, departments, sensitivity, owner, approved_by, source, effective_date, expires, version, status,
+  checksum, updated`. Implementation necessity: the `git` tool on the server.
+- **Obsidian import (§14 P0):** `.md` notes or a `.zip` vault (skips `.obsidian/` and `Archive/`); front matter fills the fields;
+  each note is a proposal; a publisher may record their own approval at import (high-impact notes still need a second person);
+  re-importing the same note is ignored (duplicate key).
+- **Uploads:** PDF/DOCX/TXT/MD; the extracted text is stored on the version so reviewers can read and diff it and the vault holds it.
+- **Deleting:** only never-published documents can be deleted; published ones are archived (history kept).
+
 ### 0.7 Hermes, Telegram and Obsidian (owner, 2026-10-17)
 
 Status today: **not built.** No Hermes, Telegram or vault code exists in `backend/`, `workers/` or the Docker setup.
