@@ -17,13 +17,13 @@ answered; work that does not depend on them goes first.
 
 | Needed | For | PRD |
 |---|---|---|
-| The two reference screenshots + original mascot/icon/font assets if any | M6, AT-08 | §4 |
+| ~~The two reference screenshots~~ ✅ added (`UI images/reference/`); original mascot/icon/font files still welcome | M6, AT-08 | §4 |
 | Real department list, who belongs where, who reviews what, sensitivity levels | M2, M3, seed data | §3, §8, §16 "Ask for real department rules" |
 | Role mapping (contributor / manager / administrator → new roles) | M2 | §3 |
 | Mail provider + sender address | M1 (verification, reset) | §5 FR-AUTH-02, FR-AUTH-06 |
 | Admin MFA method | M1 | §5 FR-AUTH-06 |
-| LLM provider approval (DeepSeek or other) and retention terms | M4 | §10 |
-| Hosting target (AWS vs plain Docker host) and queue (SQS vs Redis) | M7 | §11 |
+| LLM API key — ✅ owner will provide; still need: which provider it is for | M4 | §10 |
+| ~~Hosting target~~ ✅ AWS; queue = Redis on ElastiCache per §11 unless vetoed; ECS/Fargate vs EC2 still open | M7 | §11 |
 | API path style (`/v1/chats` vs `/chats`) | M5 | §11 |
 | Past-sales-chat answers off for P0? | M4 | §1, §7 |
 

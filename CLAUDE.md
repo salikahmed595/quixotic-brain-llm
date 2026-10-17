@@ -11,7 +11,7 @@
 3. **Implementation necessities are not product decisions.** Things the PRD cannot avoid but does not name (e.g. how a password is hashed, how a token is signed, which SQL driver is used) may be chosen, but each one must be listed in `docs/PRD_GAPS.md` under "Implementation necessities" so the owner can veto it.
 4. **Respect the exclusions (PRD §15)** — no model/SLM training, no autonomous creation of company rules, no employee access to unpublished documents, no open-ended Hermes filesystem/shell permissions, no reading every employee's private chat by default, no automatic customer data scraping, no mandatory n8n, no fake "Company Wide" access. Telegram/Discord/Hermes is Phase 2 (§9, §14) and must not delay P0.
 5. **Cite the PRD.** Code comments and docs that implement a rule reference the section, e.g. `# PRD §5 FR-AUTH-03`, `# PRD §13 AT-05`. Never cite a section for behaviour it does not describe. Citations written before 2026-10-17 refer to the superseded PRD in `docs/archive/PRODUCT_quixotic_brain_v0.md`; re-point them when you touch that code.
-6. **The two §4 reference screenshots are the desktop visual source of truth** (admin `image(20261016-164021).png`, employee `image(20261016-164058).png`). The older mock-ups in `UI images/` are superseded. Where a screenshot and the PRD text disagree, ask the owner.
+6. **The two §4 reference screenshots are the desktop visual source of truth** (in `UI images/reference/`: admin `image(20261016-164021).png`, employee `image(20261016-164058).png`). The older mock-ups in `UI images/` are superseded. Where a screenshot and the PRD text disagree, ask the owner.
 7. **When unsure, ask the owner** instead of choosing.
 
 ## Rule 2 — Hard product invariants (PRD)
