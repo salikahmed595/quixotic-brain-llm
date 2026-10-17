@@ -1,4 +1,4 @@
-"""Gemini, OpenAI and Claude providers (stack decision: "Gemini/OpenAI/Claude initially").
+"""DeepSeek (PRD §8, §11 default answer LLM), OpenAI, Gemini and Claude providers.
 All receive the same PRD-derived system prompt and the same fenced context (see prompt.py).
 
 Every provider offers `generate_answer(context, question)` (PRD §28) and, as an optional extra, `interpret_query(question, history)`:
@@ -52,6 +52,26 @@ class OpenAIGenerator(_Interprets):
             model=self._model,
             messages=[{"role": "system", "content": SYSTEM_PROMPT},
                       {"role": "user", "content": build_user_prompt(context, question)}])
+        return (r.choices[0].message.content or "").strip()
+
+
+class DeepSeekGenerator(OpenAIGenerator):
+    """PRD §8, §11: DeepSeek as the configurable answer LLM. DeepSeek serves an OpenAI-compatible API, so this reuses the
+    OpenAI client pointed at DeepSeek's endpoint (implementation necessity, docs/PRD_GAPS.md). Key: DEEPSEEK_API_KEY."""
+    BASE_URL = "https://api.deepseek.com"
+
+    def __init__(self, model: str) -> None:
+        import os
+        from openai import OpenAI
+        key = os.environ.get("DEEPSEEK_API_KEY")
+        if not key:
+            raise ValueError("DEEPSEEK_API_KEY is not set")
+        self._model, self._client = model, OpenAI(api_key=key, base_url=self.BASE_URL)
+
+    def _complete(self, system: str, user: str, max_tokens: int) -> str:
+        r = self._client.chat.completions.create(                  # DeepSeek takes `max_tokens`, not `max_completion_tokens`
+            model=self._model, max_tokens=max_tokens,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
         return (r.choices[0].message.content or "").strip()
 
 

@@ -18,14 +18,14 @@ answered; work that does not depend on them goes first.
 | Needed | For | PRD |
 |---|---|---|
 | ~~The two reference screenshots~~ ✅ added (`UI images/reference/`); original mascot/icon/font files still welcome | M6, AT-08 | §4 |
-| Real department list, who belongs where, who reviews what, sensitivity levels | M2, M3, seed data | §3, §8, §16 "Ask for real department rules" |
+| ~~Department list~~ ✅ PRD §8 list (`seed-departments`); still needed: who belongs where, who reviews what, sensitivity levels | M2, M3, seed data | §3, §8, §16 "Ask for real department rules" |
 | Role mapping (contributor / manager / administrator → new roles) | M2 | §3 |
 | Mail provider + sender address | M1 (verification, reset) | §5 FR-AUTH-02, FR-AUTH-06 |
 | Admin MFA method | M1 | §5 FR-AUTH-06 |
-| LLM API key — ✅ owner will provide; still need: which provider it is for | M4 | §10 |
-| ~~Hosting target~~ ✅ AWS; queue = Redis on ElastiCache per §11 unless vetoed; ECS/Fargate vs EC2 still open | M7 | §11 |
+| ✅ OpenAI now; DeepSeek key added later (provider ready) | M4 | §10 |
+| ✅ One budget EC2 server: Docker Compose with Postgres + pgvector, Redis, API, worker, HTTPS proxy; S3 for originals | M7 | §11 |
 | API path style (`/v1/chats` vs `/chats`) | M5 | §11 |
-| Past-sales-chat answers off for P0? | M4 | §1, §7 |
+| ✅ Past-sales-chat answers OFF (`QB_SALES_HISTORY_ENABLED=false`) | M4 | §1, §7 |
 
 ## M1 — Accounts, sessions and the five account states
 
@@ -48,7 +48,7 @@ answered; work that does not depend on them goes first.
 
 ## M3 — Document model, statuses and the Markdown vault
 
-- Statuses Draft / Under Review / Approved / Published / Archived (§8); migrate existing rows (mapping in PRD_GAPS §0.2).
+- Statuses Draft / Under Review / Approved / Published / Archived (§8). No migration of old knowledge rows — the owner starts fresh with new Obsidian knowledge (PRD_GAPS §0.4b).
 - Fields per §8: category, department(s), sensitivity/access scope, owner, approving user, provenance, effective date, version ID, indexing checksum; `document_permissions` and ACL metadata on every chunk (§8, §12).
 - Git-backed Obsidian-compatible vault on the server; publication writes the Markdown file and commits (§8). Front-matter keys per owner decision.
 - Import approved Obsidian Markdown files (P0 "Obsidian-compatible approved document import", §14); PDF/DOCX/TXT/MD upload already works — add parse review step and reject unreadable files (§7 Documents).
@@ -63,7 +63,7 @@ answered; work that does not depend on them goes first.
 - Permissions rechecked before returning answer and sources (§8).
 - DeepSeek provider behind `generate_answer`, enabled only once approved (§10, §11); existing providers kept.
 - Answer in the question's language without fabricating translated policy (§6 FR-CHAT-08).
-- Past-sales-chat "history-only" answers disabled for P0 (pending owner confirmation).
+- Past-sales-chat answers stay OFF (owner, 2026-10-17; done via `QB_SALES_HISTORY_ENABLED`).
 - **Tests:** AT-03, AT-04 (no invented discount), prompt-injection documents ignored; evaluation set re-pointed to new citations.
 
 ## M5 — Chats and history
@@ -85,7 +85,7 @@ answered; work that does not depend on them goes first.
 ## M7 — Audit, operations and release readiness
 
 - Audit events for approvals, access-scope changes, document changes, publishing, exports; tamper-resistant (§10; proposed: append-only table + hash chain, to be listed as an implementation necessity).
-- Queue (Redis per §11, or SQS per owner), Docker Compose for all services, HTTPS reverse proxy, log collection, staging + production config (§11).
+- Single EC2 server (owner): Docker Compose with API, worker, PostgreSQL + pgvector, Redis queue (§11, replaces SQS), HTTPS reverse proxy, log collection; staging setup per owner (§11).
 - Backup and tested restore (§16 g).
 - Load tests: 160 sessions, 40-chat baseline, 160-chat burst; p95 targets from §2 (AT-09).
 - Written deployment guide (§16).

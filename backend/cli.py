@@ -4,6 +4,9 @@
     python -m backend.cli create-user --employee-id emp_001 --email you@your-company.com --name "Your Name" \
         --role administrator --department "Company Wide" --department Administration
 (the password is read from the QB_NEW_USER_PASSWORD environment variable or prompted for)
+
+    python -m backend.cli seed-departments
+creates the departments the owner chose on 2026-10-17 (PRD §8 suggested hierarchy); existing names are left alone.
 """
 from __future__ import annotations
 
@@ -17,11 +20,18 @@ from .database.pool import make_pool, migrate
 from .database.users import UserStore
 from .permissions.roles import Role
 
+# PRD §8 suggested hierarchy, chosen by the owner on 2026-10-17 as the initial departments. Sales sub-teams are separate
+# departments (no hierarchy in the schema). §8 "Glossary/" and "Archive/" are vault folders, not departments.
+# Administrators can rename, add or disable departments later (PRD §7 Departments).
+INITIAL_DEPARTMENTS = ("Company General", "HR", "Sales - Fresh Seller", "Sales - Upseller", "Production",
+                       "Marketing", "Customer Support", "Leadership", "Training")
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(prog="backend.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("migrate")
+    sub.add_parser("seed-departments")
     cu = sub.add_parser("create-user")
     cu.add_argument("--employee-id", required=True)
     cu.add_argument("--email", required=True)
@@ -35,6 +45,12 @@ def main() -> int:
         return 0
     migrate(settings.database_url)
     users = UserStore(make_pool(settings.database_url), settings.tenant_id)
+    if a.cmd == "seed-departments":
+        for name in INITIAL_DEPARTMENTS:
+            print(("exists " if users.department_by_name(name) else "created"), name)
+            if not users.department_by_name(name):
+                users.create_department(name)
+        return 0
     ids = []
     for name in a.department:
         d = users.department_by_name(name)

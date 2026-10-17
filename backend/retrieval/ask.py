@@ -92,7 +92,8 @@ class AskService:
                     retrieved=out.candidates)
         min_sim = self.settings.sales_history_min_similarity
         cases = []
-        if (include_sales_history or min_sim is not None) and sales_department_ids and out.embedding is not None:
+        if (self.settings.sales_history_enabled and (include_sales_history or min_sim is not None)   # owner: OFF (2026-10-17)
+                and sales_department_ids and out.embedding is not None):
             cases = self.search.store.sales_search(out.embedding, self.search.embedder.name,
                                                    sales_department_ids, self.settings.historical_top_k)
             if min_sim is not None:

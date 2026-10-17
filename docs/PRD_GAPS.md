@@ -46,10 +46,10 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 | Document fields | §8: category, sensitivity/access scope, owner, approving user, provenance, effective date, version ID, indexing checksum | partial: no sensitivity, owner, effective date, checksum; `access_level` only a label | Add the missing columns + `document_permissions` (§12) (M3). ❓ **Sensitivity levels?** (names and who may see each) |
 | Authoritative store | §8: Obsidian-compatible Markdown vault, server-side, Git-versioned | Postgres rows + raw files in S3 / local folder | Add a Git-backed vault directory on the server; publication writes the Markdown file and commits (M3). ❓ **Obsidian front-matter keys** for the §8 fields — none are specified |
 | Retrieval filter | §8: "approved, unexpired" content | `status = 'active'` | Filter `Published` + not past expiry (M3) |
-| LLM | §8, §11: DeepSeek or configured LLM; §10: no confidential data to any provider until the company approves it | Gemini / OpenAI / Claude / Bedrock behind `generate_answer` | **Owner (2026-10-17): will provide the API key.** Add a DeepSeek provider behind the same interface; keep the others. The key lives only in AWS Secrets Manager / server env, never in chat, the repo, Markdown or the frontend (§10). Generation stays off until the key is configured. ❓ **Which provider is the key for?** (PRD default: DeepSeek) |
+| LLM | §8, §11: DeepSeek or configured LLM; §10: no confidential data to any provider until the company approves it | Gemini / OpenAI / Claude / Bedrock behind `generate_answer` | **Owner (2026-10-17): OpenAI for now; owner adds the DeepSeek key later and DeepSeek becomes the default.** Done: `deepseek` provider added (`QB_GENERATION_PROVIDER=deepseek`, key `DEEPSEEK_API_KEY`). Keys live only in AWS Secrets Manager / server env, never in chat, repo, Markdown or frontend (§10). Model ids stay required settings |
 | Not-found reply | §6 FR-CHAT-04: exact text "I couldn't find an approved answer in the company knowledge base." + Report missing information | different wording; failed questions logged | Use the exact text; add "Report missing information" → `knowledge_gaps` (M4) |
 | Knowledge gaps | §9, §12: de-duplicated, assigned to department owner | `query_log` failed questions | New `knowledge_gaps` table, dedupe on normalized question + department. ❓ **De-dup rule** not specified — exact normalized text match until you say otherwise |
-| Answers from past sales chats | §1: never invent policies/prices; §7 Sales memory = *approved* playbooks/objection examples; no unrestricted import of identifiable transcripts | commit 48939eb answers from imported past chats when no policy exists (labelled "history only") | **Conflict.** Proposed: turn off the history-only answer path for P0 (Sales memory is P1); keep the importer but only for reviewed, anonymized records. ❓ Confirm |
+| Answers from past sales chats | §1: never invent policies/prices; §7 Sales memory = *approved* playbooks/objection examples | commit 48939eb answered from imported past chats when no policy exists | **Resolved — owner (2026-10-17): OFF.** `QB_SALES_HISTORY_ENABLED` (default false) gates every use of past chats, in every mode. Code kept for a later decision |
 | Confidence | old PRD showed High/Medium/Low; new PRD silent | shown in UI | Keep (harmless), but no longer PRD-required. ❓ keep or remove? |
 | Language | §6 FR-CHAT-08: answer in the question's language | language detected; answer language not instructed; Roman Urdu normalizer | Instruct the LLM to answer in the detected language; keep the Urdu/Roman Urdu work |
 | Web Search | §6 FR-CHAT-05 (P1 governance, §14) | none | P0 shows the pill per §4.1 but disabled until P1. ❓ OK? |
@@ -62,13 +62,25 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 | API paths | §11 contract: `/auth/*`, `/chats/*`, `/admin/*`, `/knowledge/*` (marked "illustrative") | `/v1/auth`, `/v1/conversations`, `/v1/documents`, `/v1/ask` … | ❓ **Rename to the §11 paths, or keep `/v1/` prefix?** Proposed: `/v1` + §11 names (`/v1/chats`, `/v1/admin/access-requests`), old paths removed |
 | Chat messages | §11: `POST /chats/{id}/messages` asks within a chat | `POST /v1/ask` with a conversation id | Add the §11 route; `/v1/ask` stays for internal apps (API keys) ❓ |
 | Frontend stack | §11: React + TypeScript + Tailwind (Next.js or Vite) | vanilla `frontend/app.js` (976 lines) + `app.css` | Rebuild in Vite + React + TS + Tailwind (no Next.js server needed) (M6) |
-| Reference screenshots | §4: `image(20261016-164021).png` (admin), `image(20261016-164058).png` (employee) | **Added 2026-10-17** in `UI images/reference/` (sizes match §4: 1468 × 901 and 1478 × 907). Older mock-ups in `UI images/` are superseded | Findings in §0.5 below. ❓ Original mascot / icon / font files, if they exist |
+| Reference screenshots | §4: `image(20261016-164021).png` (admin), `image(20261016-164058).png` (employee) | **Added 2026-10-17** in `UI images/reference/` (sizes match §4). Older mock-ups in `UI images/` are superseded | Findings in §0.5. **Owner: no mascot file — recreate it** as SVG (M6) |
 | Admin sidebar | §4.3 exact order incl. WORKSPACE group, Approvals, System | close but not identical | Match §4.3 exactly in M6 |
-| Queue | §11: Redis + worker queue | Amazon SQS + ECS worker | **Owner (2026-10-17): hosted on AWS.** Per §11: Redis on Amazon ElastiCache replaces SQS (veto if you would rather keep SQS — it works today). Object storage stays S3 |
+| Queue | §11: Redis + worker queue | Amazon SQS + ECS worker | **Owner (2026-10-17): one budget-friendly EC2 server.** Redis per §11 runs as a container on that server (no ElastiCache). Replaces SQS in M7 |
 | Object storage | §11: private object storage for originals | S3 | Unchanged (any S3-compatible store) |
-| Deployment | §11: Docker, HTTPS reverse proxy, backups, logs, staging + prod; §16: tested backup/restore | Dockerfile + compose for local; AWS notes | **AWS** (owner, 2026-10-17). Docker containers on AWS, RDS PostgreSQL + pgvector, S3, ElastiCache Redis, HTTPS load balancer, CloudWatch logs, RDS/S3 backups; deployment guide in M7. ❓ ECS/Fargate or a single EC2 host? |
+| Deployment | §11: Docker, HTTPS reverse proxy, backups, logs, staging + prod; §16: tested backup/restore | Dockerfile + compose for local; AWS notes | **Owner (2026-10-17): a single EC2 instance, cheapest workable.** Proposed (veto if not): Docker Compose on that one server running API, worker, PostgreSQL + pgvector, Redis and a reverse proxy with HTTPS (Caddy / Let's Encrypt); originals in S3; nightly `pg_dump` + EBS snapshots to S3 for §16(g). Instance size chosen in M7 from the load test (§2, AT-09). ❓ Staging: a second small instance, or staging on the same server? |
 | Load testing | §2, §13 AT-09: 160 sessions, 40 chats baseline, 160 burst | none | Add a load-test script (M7); tool choice listed under implementation necessities |
 | Non-goals | old PRD §5 banned workflow automation & multi-agent systems; new §11 allows Hermes Agent (Phase 2) and optional n8n | `CLAUDE.md` Rule 1.4 cites the old list | `CLAUDE.md` now cites new §15 exclusions |
+
+### 0.4b Knowledge and departments (owner, 2026-10-17)
+
+- **Previous knowledge is not carried over.** The owner will write new Obsidian knowledge (§8). M3 therefore builds the
+  new document model without migrating old knowledge rows. The old rows are not deleted by any code; ❓ say if you want
+  them cleared from the database (irreversible) or left until the new model replaces the tables.
+- **Departments now:** the PRD §8 suggested hierarchy, chosen by the owner: Company General, HR, Sales - Fresh Seller,
+  Sales - Upseller, Production, Marketing, Customer Support, Leadership, Training. Created with
+  `python -m backend.cli seed-departments` (idempotent). Sales sub-teams are separate departments because the schema has
+  no hierarchy. §8 "Glossary/" and "Archive/" are vault folders, not departments. Departments already in a database
+  (e.g. "Company Wide", "Administration") are left alone.
+- "Company General" is the §6 FR-CHAT-06 scope name; the admin card's "Company Wide" (§4.3) means access to all departments.
 
 ### 0.5 What the reference screenshots show (added 2026-10-17)
 
@@ -77,7 +89,7 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 - **Admin sidebar:** WORKSPACE is a collapsible header (chevron) above the KNOWLEDGE, MANAGE and ADMINISTRATION groups; that block scrolls on its own (visible scrollbar), and chat history ("Previous 7 days") sits below it. Icons per item as shown.
 - **Example cards:** the admin screenshot shows the first card with the orange outline — this is the hover/active state from §4.1, not a default selection.
 - **Font:** a rounded geometric sans; it cannot be identified with certainty from a raster image. ❓ **Do you have the font name or files?** Until then M6 picks the closest match by visual comparison and lists it under implementation necessities (§4.1 "rather than guessing").
-- **Mascot and icons:** no original files in the repo. §4 allows recreated SVGs reviewed against the screenshots; that is what M6 does unless you supply the originals.
+- **Mascot and icons:** no original files exist (owner, 2026-10-17). M6 recreates them as SVG and reviews them side by side with the screenshots (§4).
 
 ### 0.4 What already works and is reused
 
@@ -187,6 +199,8 @@ admin approve/reject with role + departments; per-user chats (create/list/rename
 - Measured latency on a 4-core CPU: embedding a question 0.3-0.5 s; searching a question end to end **4.1 s** (was 11-21 s); embedding documents ~0.7 s per chunk. The LLM call comes on top, so a full answer is realistically 7-9 s against the PRD's "5-8 s typical" target.
 
 ## 4. Implementation necessities (not product decisions — veto any of them)
+
+- **DeepSeek client (2026-10-17):** DeepSeek's OpenAI-compatible API at `https://api.deepseek.com`, called with the `openai` SDK; key from `DEEPSEEK_API_KEY` (PRD §8, §11).
 
 scrypt password hashing · HS256 JWT bearer tokens (stack: JWT / Cognito) · SHA-256 hashed API keys (shown once) · `psycopg` 3 with plain SQL
 (no ORM) and a plain `migrations/*.sql` runner · pgvector `vector(1024)` with an HNSW cosine index (BGE-M3 is 1024-d; changing

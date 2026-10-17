@@ -37,23 +37,30 @@ class LazyGenerator:
             return ""
 
 
+# PRD §8, §11: DeepSeek is the default answer LLM, configurable. Owner (2026-10-17): OpenAI until the DeepSeek key is added.
+PROVIDERS = ("deepseek", "openai", "gemini", "claude", "bedrock")
+
+
 def get_generator(settings: Settings) -> GenerationProvider:
     p = settings.generation_provider
-    if p not in ("gemini", "openai", "claude", "bedrock"):
-        raise NotImplementedError(f"generation provider {p!r}: choose gemini, openai, claude or bedrock")
+    if p not in PROVIDERS:
+        raise NotImplementedError(f"generation provider {p!r}: choose one of {', '.join(PROVIDERS)}")
     return LazyGenerator(lambda: _build_generator(settings))
 
 
 def _build_generator(settings: Settings) -> GenerationProvider:
     """Stack decision: Gemini / OpenAI / Claude initially, a Bedrock model later. The model id is required
     (nothing names one); API keys come from the provider SDKs' standard environment variables
-    (GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY) which ECS injects from AWS Secrets Manager."""
+    (DEEPSEEK_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY), injected on the server from AWS Secrets Manager (PRD §10)."""
     p, model = settings.generation_provider, settings.generation_model_id
     if not model:
         raise ValueError("QB_GENERATION_MODEL_ID is required (no model is named by the PRD or the stack)")
     if p == "gemini":
         from .providers import GeminiGenerator
         return GeminiGenerator(model)
+    if p == "deepseek":
+        from .providers import DeepSeekGenerator
+        return DeepSeekGenerator(model)
     if p == "openai":
         from .providers import OpenAIGenerator
         return OpenAIGenerator(model)
@@ -65,4 +72,4 @@ def _build_generator(settings: Settings) -> GenerationProvider:
     if p == "bedrock":                                  # "Bedrock model later"
         from .bedrock import BedrockGenerator
         return BedrockGenerator(model, settings.aws_region)
-    raise NotImplementedError(f"generation provider {p!r}: choose gemini, openai, claude or bedrock")
+    raise NotImplementedError(f"generation provider {p!r}: choose one of {', '.join(PROVIDERS)}")

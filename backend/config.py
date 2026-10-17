@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # question an answer is written from them alone, clearly labelled as not policy. Only past chats at least this similar
     # (cosine) to the question are used. Unset = the PRD behaviour: history only in Sales Coach, never answering alone.
     sales_history_min_similarity: Optional[float] = None
+    # Owner decision (2026-10-17): past sales chats are OFF — answers come only from approved knowledge (PRD §1, §7, §8).
+    # While False, no past chat is retrieved in any mode and `sales_history_min_similarity` has no effect.
+    sales_history_enabled: bool = False
 
     # ---- pluggable providers (PRD §24, §27, §28) -------------------------------------
     embedding_provider: str = "bge-m3"     # PRD §24.1 initial model to evaluate

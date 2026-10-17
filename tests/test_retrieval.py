@@ -138,7 +138,7 @@ def test_grounded_answer_has_sources_with_section_version_updated():
 
 def test_historical_cases_counts_and_only_when_requested():
     store = FakeStore(vec=[cand(score=.95)], sales=[sales_case("closed")] * 3 + [sales_case("lost")] * 2)
-    ask, _, gen = build(store)
+    ask, _, gen = build(store, sales_history_enabled=True)
     assert ask.ask("q", DEPT).historical_cases is None
     r = ask.ask("q", DEPT, include_sales_history=True, sales_department_ids=DEPT)
     assert r.historical_cases == {"similar": 5, "successful": 3}              # PRD §30 example shape
@@ -306,7 +306,7 @@ def _case(sim, outcome="closed"):
 
 def test_history_only_answer_is_labelled_and_still_logged_as_a_gap():
     from backend.retrieval.ask import HISTORY_ONLY_LABEL
-    ask, _, gen = build(FakeStore(sales=[_case(0.8), _case(0.4, "lost")]), sales_history_min_similarity=0.6,
+    ask, _, gen = build(FakeStore(sales=[_case(0.8), _case(0.4, "lost")]), sales_history_min_similarity=0.6, sales_history_enabled=True,
                         confidence_vector_high=0.75, confidence_vector_medium=0.6)
     res = ask.ask("customer says it is too expensive", DEPT, sales_department_ids=DEPT)
     assert res.answer.startswith(HISTORY_ONLY_LABEL) and not res.actions and res.found is False
@@ -318,12 +318,12 @@ def test_history_only_answer_is_labelled_and_still_logged_as_a_gap():
 def test_without_the_setting_or_close_chats_the_prd_not_found_answer_stays():
     ask, _, gen = build(FakeStore(sales=[_case(0.9)]))                    # setting unset -> PRD behaviour
     assert ask.ask("q", DEPT, sales_department_ids=DEPT).answer == NOT_FOUND_TEXT and not gen.calls
-    ask, _, gen = build(FakeStore(sales=[_case(0.3)]), sales_history_min_similarity=0.6)
+    ask, _, gen = build(FakeStore(sales=[_case(0.3)]), sales_history_min_similarity=0.6, sales_history_enabled=True)
     assert ask.ask("q", DEPT, sales_department_ids=DEPT).answer == NOT_FOUND_TEXT and not gen.calls
 
 
 def test_with_the_setting_general_mode_also_gets_past_chats_next_to_knowledge():
-    ask, _, gen = build(FakeStore(vec=[cand(score=0.9)], sales=[_case(0.7), _case(0.2)]), sales_history_min_similarity=0.5)
+    ask, _, gen = build(FakeStore(vec=[cand(score=0.9)], sales=[_case(0.7), _case(0.2)]), sales_history_min_similarity=0.5, sales_history_enabled=True)
     res = ask.ask("discount?", DEPT, sales_department_ids=DEPT)                # include_sales_history False (general mode)
     assert res.found and [c.similarity for c in gen.calls[0][0].sales_cases] == [0.7]
 
@@ -338,7 +338,13 @@ def test_prompt_allows_history_only_answers_but_never_as_policy():
 
 
 def test_off_topic_past_chats_fall_back_to_the_prd_answer():                  # "hello" matches greeting chats at 0.97
-    ask, _, gen = build(FakeStore(sales=[_case(0.95)]), sales_history_min_similarity=0.55)
+    ask, _, gen = build(FakeStore(sales=[_case(0.95)]), sales_history_min_similarity=0.55, sales_history_enabled=True)
     gen.generate_answer = lambda ctx, q: "NO_RELEVANT_HISTORY"
     res = ask.ask("hello", DEPT, sales_department_ids=DEPT)
     assert res.answer == NOT_FOUND_TEXT and res.actions == LOW_CONFIDENCE_ACTIONS
+
+
+def test_owner_decision_past_sales_chats_are_off_by_default():         # owner (2026-10-17): OFF in every mode
+    ask, _, gen = build(FakeStore(sales=[_case(0.95)]), sales_history_min_similarity=0.5)
+    res = ask.ask("customer says it is too expensive", DEPT, include_sales_history=True, sales_department_ids=DEPT)
+    assert res.answer == NOT_FOUND_TEXT and not gen.calls and res.historical_cases is None
