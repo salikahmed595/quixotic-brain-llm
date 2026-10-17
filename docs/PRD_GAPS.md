@@ -59,8 +59,8 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 
 | Area | New PRD | Code today | P0 handling |
 |---|---|---|---|
-| API paths | §11 contract: `/auth/*`, `/chats/*`, `/admin/*`, `/knowledge/*` (marked "illustrative") | `/v1/auth`, `/v1/conversations`, `/v1/documents`, `/v1/ask` … | ❓ **Rename to the §11 paths, or keep `/v1/` prefix?** Proposed: `/v1` + §11 names (`/v1/chats`, `/v1/admin/access-requests`), old paths removed |
-| Chat messages | §11: `POST /chats/{id}/messages` asks within a chat | `POST /v1/ask` with a conversation id | Add the §11 route; `/v1/ask` stays for internal apps (API keys) ❓ |
+| API paths | §11 contract ("illustrative") | **Done (M2–M5):** `/v1` + §11 names: `/v1/auth/*`, `/v1/admin/*` (users, access requests, departments, proposals, documents, knowledge gaps, API keys, jobs), `/v1/knowledge/*` (documents, proposals, search alias), `/v1/chats` with `POST /v1/chats/{id}/messages`. `/v1/conversations` and `/v1/ask` stay (internal apps) | — |
+| Chat messages | §11: `POST /chats/{id}/messages` | **Done (M5):** `POST /v1/chats/{id}/messages` (answer or search mode); chat search covers titles, questions, answers and search results of your own chats only | — |
 | Frontend stack | §11: React + TypeScript + Tailwind (Next.js or Vite) | **Done (M6, 2026-10-17):** `web/` — Vite + React 18 + TypeScript + Tailwind 4; old `frontend/` removed | Built to `web/dist`, served by the API (`QB_FRONTEND_DIR=web/dist`) |
 | Reference screenshots | §4: `image(20261016-164021).png` (admin), `image(20261016-164058).png` (employee) | **Added 2026-10-17** in `UI images/reference/` (sizes match §4). Older mock-ups in `UI images/` are superseded | Findings in §0.5. **Owner: no mascot file — recreate it** as SVG (M6) |
 | Admin sidebar | §4.3 exact order incl. WORKSPACE group, Approvals, System | close but not identical | Match §4.3 exactly in M6 |

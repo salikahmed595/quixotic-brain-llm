@@ -127,7 +127,7 @@ function Settings({ app, close, onChatsGone }: { app: App; close: () => void; on
         <h4 className="text-[15px] font-bold flex items-center gap-2"><Icon name="msg" size={16} /> Your chats</h4>
         <p className="hint">Chats are private to you. Deleting them removes the history and what the assistant remembers from it. It can't be undone.</p>
         <div><button className="btn bad" onClick={() => { close(); confirmModal('Delete all chats?', 'All your chats will be deleted. This can’t be undone.', 'Delete everything', async () => {
-          const r = await api<{ deleted: number }>('/v1/conversations', { method: 'DELETE' }); app.setChats([]); onChatsGone(); toast(`${r.deleted} chat${r.deleted === 1 ? '' : 's'} deleted`);
+          const r = await api<{ deleted: number }>('/v1/chats', { method: 'DELETE' }); app.setChats([]); onChatsGone(); toast(`${r.deleted} chat${r.deleted === 1 ? '' : 's'} deleted`);
         }); }}><Icon name="trash" size={16} /> Delete all my chats</button></div>
       </div>
       <div className="flex items-center justify-between border-t border-line pt-4">

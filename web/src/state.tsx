@@ -43,7 +43,7 @@ export function AppProvider({ me: initialMe, onLogout, children }: { me: Me; onL
   const rank = { employee: 0, department_reviewer: 1, knowledge_admin: 2, founder_ceo: 2, system_admin: 3 }[me.role] ?? 0;
 
   const reloadChats = useCallback(() => {
-    api<{ conversations: Chat[] }>('/v1/conversations').then(r => setChats(r.conversations)).catch(() => {});
+    api<{ chats: Chat[] }>('/v1/chats').then(r => setChats(r.chats)).catch(() => {});
   }, []);
   useEffect(() => {
     api<{ departments: Department[] }>('/v1/departments').then(r => setActive(r.departments.filter(d => d.status === 'active'))).catch(() => {});

@@ -43,7 +43,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
     if (!route.chat) { setThread([]); setConvId(null); return; }
     if (route.chat === convId) return;
     setLoadingChat(true);
-    api(`/v1/conversations/${route.chat}`).then(conv => {
+    api(`/v1/chats/${route.chat}`).then(conv => {
       setThread(conv.messages.map((m: any) => m.role === 'user' ? { role: 'user', text: m.content.text } : fromStored(m.content)));
       setConvId(conv.id); setMode('general');
       const dep = conv.department_id && app.departments.find(d => d.id === conv.department_id); setScope(dep ? dep.name : null);

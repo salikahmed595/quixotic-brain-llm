@@ -67,7 +67,7 @@ answered; work that does not depend on them goes first.
 - Past-sales-chat answers stay OFF (owner, 2026-10-17; done via `QB_SALES_HISTORY_ENABLED`).
 - **Tests:** AT-03, AT-04 (no invented discount), prompt-injection documents ignored; evaluation set re-pointed to new citations.
 
-## M5 — Chats and history
+## M5 — Chats and history — ✅ built 2026-10-17 (/v1/chats contract, title + message search, isolation tests)
 
 - §11 chat contract: `POST /chats`, `GET /chats`, `GET /chats/{id}`, `POST /chats/{id}/messages`, `DELETE /chats/{id}` (+ rename); path prefix per M0.
 - Search own chat titles and messages; date-grouped history (§6 FR-CHAT-01); thumbs up/down (exists, §6 FR-CHAT-07).

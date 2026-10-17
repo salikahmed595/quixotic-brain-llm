@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, storage } from '../api';
 import { Brand, Icon } from '../icons';
 import { useApp, useRoute } from '../state';
@@ -49,7 +49,14 @@ export function Sidebar({ onClose, onNewChat }: { onClose: () => void; onNewChat
   const [wsOpen, setWsOpen] = useState(storage.get('qb_ws') !== '0');
   const groups = NAV.map(g => ({ ...g, items: g.items.filter(i => me.permissions.includes(i.perm)) })).filter(g => g.items.length);
   const q = filter.trim().toLowerCase();
-  const shown = chats.filter(c => !q || c.title.toLowerCase().includes(q));
+  /* PRD §6 FR-CHAT-01 "search own conversation titles/messages": titles filter at once; message text is searched on the server. */
+  const [hits, setHits] = useState<Chat[] | null>(null);
+  useEffect(() => {
+    if (!q) { setHits(null); return; }
+    const t = setTimeout(() => { api<{ chats: Chat[] }>('/v1/chats?q=' + encodeURIComponent(q)).then(r => setHits(r.chats)).catch(() => setHits(null)); }, 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  const shown = !q ? chats : hits ?? chats.filter(c => c.title.toLowerCase().includes(q));
   const count = (id: string) => (id === 'approvals' ? counts.pending : id === 'requests' ? counts.requests : 0);
 
   const chatMenu = (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => {
@@ -147,7 +154,7 @@ function renameChat(chat: Chat, done: () => void) {
 }
 function RenameChat({ chat, done, cancel }: { chat: Chat; done: () => void; cancel: () => void }) {
   const [title, setTitle] = useState(chat.title); const a = useAction();
-  const save = () => a.run(() => api(`/v1/conversations/${chat.id}`, { method: 'PATCH', body: { title } })).then(ok => ok && done());
+  const save = () => a.run(() => api(`/v1/chats/${chat.id}`, { method: 'PATCH', body: { title } })).then(ok => ok && done());
   return (<>
     <input className="input mb-4" value={title} maxLength={120} autoFocus onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} />
     {a.error && <Banner kind="err" className="mb-3">{a.error}</Banner>}
@@ -160,7 +167,7 @@ function deleteChat(chat: Chat, done: () => void) {
     <div className="flex justify-end gap-3">
       <button className="btn" onClick={close}>Cancel</button>
       <button className="btn bad" onClick={async () => {
-        try { await api(`/v1/conversations/${chat.id}`, { method: 'DELETE' }); close(); done(); toast('Chat deleted'); } catch (e) { toast((e as Error).message); }
+        try { await api(`/v1/chats/${chat.id}`, { method: 'DELETE' }); close(); done(); toast('Chat deleted'); } catch (e) { toast((e as Error).message); }
       }}>Delete</button>
     </div>
   </>));

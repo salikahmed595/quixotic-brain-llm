@@ -36,6 +36,28 @@ class ConversationStore:
                              "WHERE tenant_id=%s AND user_id=%s ORDER BY updated_at DESC LIMIT %s",
                              (self.tenant, user_id, limit)).fetchall()
 
+    def search(self, user_id: UUID, query: str, limit: int = 50) -> list[dict]:
+        """PRD §6 FR-CHAT-01 "search own conversation titles/messages". Only the owner's chats are ever searched (FR-CHAT-09)."""
+        term = "".join(ch for ch in query if ch not in r"\%_").strip()      # LIKE wildcards and escapes are not special
+        if not term:
+            return []
+        q = f"%{term}%"
+        with self.pool.connection() as c:
+            return c.execute(
+                """WITH m AS (
+                       SELECT m.conversation_id, m.id,
+                              concat_ws(' ', m.content->>'text', m.content->>'answer',
+                                        jsonb_path_query_array(m.content, '$.results[*].text')::text) AS body
+                       FROM conversation_messages m JOIN conversations c2 ON c2.id = m.conversation_id
+                       WHERE c2.tenant_id=%(t)s AND c2.user_id=%(u)s)
+                   SELECT cv.id, cv.title, cv.mode, cv.created_at, cv.updated_at,
+                          (SELECT left(m.body, 160) FROM m WHERE m.conversation_id = cv.id AND m.body ILIKE %(q)s
+                            ORDER BY m.id DESC LIMIT 1) AS snippet
+                   FROM conversations cv
+                   WHERE cv.tenant_id=%(t)s AND cv.user_id=%(u)s
+                     AND (cv.title ILIKE %(q)s OR EXISTS (SELECT 1 FROM m WHERE m.conversation_id = cv.id AND m.body ILIKE %(q)s))
+                   ORDER BY cv.updated_at DESC LIMIT %(n)s""", {"q": q, "t": self.tenant, "u": user_id, "n": limit}).fetchall()
+
     def get(self, user_id: UUID, conversation_id: UUID) -> Optional[dict]:
         with self.pool.connection() as c:
             conv = c.execute("SELECT id, title, mode, department_id, created_at, updated_at FROM conversations "
