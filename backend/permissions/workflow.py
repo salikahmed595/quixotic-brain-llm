@@ -41,20 +41,20 @@ def check_transition(
     depts = set(item_department_ids)
 
     if to_status == ARCHIVED:                                   # §9.4 "Archive information"
-        if not can(actor.role, P.ARCHIVE_KNOWLEDGE):
+        if not can(actor.role, P.MANAGE_DOCUMENTS):
             raise PermissionDenied("only administrators can archive knowledge")
         return
     if to_status == SUBMITTED:                                  # §9.2 contributors submit
-        if not can(actor.role, P.SUBMIT_INFORMATION):
+        if not can(actor.role, P.PROPOSE_KNOWLEDGE):
             raise PermissionDenied("your role cannot submit information")
-        if actor.role is not Role.ADMINISTRATOR and created_by != actor.user_id:
+        if not actor.all_departments and created_by != actor.user_id:
             raise PermissionDenied("only the author can submit a draft")
         return
     if to_status == PENDING:                                    # §12.3 step after Submitted
         return                                                  # performed by the submit action (system)
-    # approve / reject / activate -> reviewers
-    if can(actor.role, P.APPROVE_KNOWLEDGE):                    # §9.4
+    # approve / reject / activate -> publishers anywhere, reviewers only for the departments they review (PRD §3)
+    if can(actor.role, P.REVIEW_PROPOSALS) and actor.can_publish:
         return
-    if can(actor.role, P.APPROVE_REJECT_DEPARTMENT_KNOWLEDGE) and depts & actor.managed_department_ids:
+    if can(actor.role, P.REVIEW_PROPOSALS) and depts & actor.managed_department_ids:
         return                                                  # §9.3 "department knowledge"
     raise PermissionDenied("only the department manager or an administrator can review this knowledge")

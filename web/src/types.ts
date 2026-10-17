@@ -1,4 +1,5 @@
-export type Role = 'employee' | 'contributor' | 'manager' | 'administrator';
+/* PRD §3 roles */
+export type Role = 'employee' | 'department_reviewer' | 'knowledge_admin' | 'system_admin' | 'founder_ceo';
 
 export interface Department { id: string; name: string; status?: string; manager_id?: string | null }
 
@@ -6,11 +7,24 @@ export interface Me {
   user_id: string;
   full_name: string;
   email: string;
+  phone?: string | null;
   employee_id: string;
   role: Role;
+  role_label: string;
+  /** server-side permissions (PRD §3, §7); the UI only uses them to choose what to show */
+  permissions: string[];
+  can_publish: boolean;
+  account_status: string;
+  email_verified: boolean;
+  mfa_enabled: boolean;
   avatar?: string | null;
   department_ids: string[];
   departments: { id: string; name: string }[];
+  /** departments this person may search (PRD §6 FR-CHAT-06) */
+  scope: { id: string; name: string }[];
+  /** true only when the scope is every active department (PRD §4.2, §15) */
+  company_wide: boolean;
+  reviews_department_ids: string[];
   preferences?: Record<string, any>;
 }
 

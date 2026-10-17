@@ -205,6 +205,13 @@ class OpsStore:
                              "WHERE tenant_id=%s AND (%s::text IS NULL OR event=%s) ORDER BY id DESC LIMIT %s",
                              (self.tenant, event, event, limit)).fetchall()
 
+    def audit_for_user(self, user_id: UUID, limit: int = 100) -> list[dict]:
+        """PRD §7 Users "audit history": what this person did and what was done to their account."""
+        with self.pool.connection() as c:
+            return c.execute("SELECT id, at, actor_id, actor_label, event, detail FROM audit_logs WHERE tenant_id=%s "
+                             "AND (actor_id=%s OR detail->>'user'=%s) ORDER BY id DESC LIMIT %s",
+                             (self.tenant, user_id, str(user_id), limit)).fetchall()
+
     # ---- sales memories (§16.2) ----
     def sales_memory_imports(self, limit: int = 50) -> list[dict]:
         """§17.1 import UI: each import with its department and how many memories it stored."""

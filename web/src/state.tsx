@@ -1,6 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import { api } from './api';
-import { RANK } from './ui';
 import type { Chat, Department, Me } from './types';
 
 /* ---------------- hash router: #/ask, #/chat/<id>, #/<admin page> ---------------- */
@@ -40,7 +39,8 @@ export function AppProvider({ me: initialMe, onLogout, children }: { me: Me; onL
   const [activeDepartments, setActive] = useState<Department[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [counts, setCountsState] = useState({ requests: 0, pending: 0 });
-  const rank = RANK[me.role] ?? 0;
+  // Interim ordering for older admin pages; page access itself follows me.permissions (PRD §3, §7).
+  const rank = { employee: 0, department_reviewer: 1, knowledge_admin: 2, founder_ceo: 2, system_admin: 3 }[me.role] ?? 0;
 
   const reloadChats = useCallback(() => {
     api<{ conversations: Chat[] }>('/v1/conversations').then(r => setChats(r.conversations)).catch(() => {});
@@ -48,13 +48,14 @@ export function AppProvider({ me: initialMe, onLogout, children }: { me: Me; onL
   useEffect(() => {
     api<{ departments: Department[] }>('/v1/departments').then(r => setActive(r.departments.filter(d => d.status === 'active'))).catch(() => {});
     reloadChats();
-    if (rank >= 2) {
-      api<{ requests: unknown[] }>('/v1/access-requests').then(r => setCountsState(c => ({ ...c, requests: r.requests.length }))).catch(() => {});
+    if (me.permissions.includes('manage_users'))
+      api<{ requests: unknown[] }>('/v1/admin/access-requests').then(r => setCountsState(c => ({ ...c, requests: r.requests.length }))).catch(() => {});
+    if (me.permissions.includes('review_proposals')) {
       api<{ items: unknown[] }>('/v1/knowledge?status=pending_review&limit=100').then(r => setCountsState(c => ({ ...c, pending: r.items.length }))).catch(() => {});
     }
-  }, [rank, reloadChats]);
+  }, [me.permissions, reloadChats]);
 
-  const departments = me.role === 'administrator' ? activeDepartments : activeDepartments.filter(d => me.department_ids.includes(d.id));
+  const departments = me.scope;
   const value: AppState = {
     me, setMe, rank, departments, activeDepartments, chats, setChats, reloadChats, counts,
     setCounts: c => setCountsState(old => ({ ...old, ...c })), logout: onLogout,

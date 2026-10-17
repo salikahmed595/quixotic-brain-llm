@@ -1,11 +1,12 @@
-"""Department scope — applied BEFORE retrieval (PRD §42, §11.3, §51 "Access filtering before retrieval")."""
+"""Department scope — applied BEFORE retrieval (PRD §3 deny by default, §8 retrieval workflow, §10 "filters apply before
+vector/keyword retrieval")."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Optional
 from uuid import UUID
 
-from .roles import Role
+from .roles import ALL_DEPARTMENT_ROLES, Role
 
 
 class PermissionDenied(Exception):
@@ -14,12 +15,17 @@ class PermissionDenied(Exception):
 
 @dataclass(frozen=True)
 class Principal:
-    """An authenticated employee. PRD §11.3: detect identity, role and department."""
+    """An authenticated, Active person (PRD §5 FR-AUTH-03/05: no other account state ever becomes a Principal)."""
     user_id: UUID
     employee_id: str
     role: Role
-    department_ids: frozenset[UUID]                       # authorized departments (§9.1)
-    managed_department_ids: frozenset[UUID] = field(default_factory=frozenset)  # §10 "department managers"
+    department_ids: frozenset[UUID]                                          # member of (§3 multi-department membership)
+    managed_department_ids: frozenset[UUID] = field(default_factory=frozenset)  # departments this person reviews (§7)
+    can_publish: bool = False                                                # §3 Knowledge Admin publisher grant
+
+    @property
+    def all_departments(self) -> bool:
+        return self.role in ALL_DEPARTMENT_ROLES
 
 
 def resolve_department_scope(
@@ -30,12 +36,12 @@ def resolve_department_scope(
 ) -> frozenset[UUID]:
     """Departments whose knowledge may be retrieved for this request.
 
-    - Administrator: "Full access" (§9.4) -> every department.
-    - Everyone else: only departments they are authorized for (§9.1 "authorized departments").
-    - API key calls (§40 "Allowed departments"): intersect with the key's allowed departments.
-    - A requested department outside the scope is refused, never silently widened.
+    - Knowledge Admin, System Admin, Founder/CEO: every active department (they curate or govern all knowledge).
+    - Everyone else: only the departments they are a member of (§3, §6 FR-CHAT-06).
+    - API key calls: intersected with the key's allowed departments.
+    - A requested department outside the scope is refused, never silently widened (§6 FR-CHAT-06 tampered values).
     """
-    scope = all_department_ids if principal.role is Role.ADMINISTRATOR else principal.department_ids
+    scope = all_department_ids if principal.all_departments else principal.department_ids & all_department_ids
     if key_allowed_department_ids is not None:
         scope = scope & key_allowed_department_ids
     if requested_department_id is not None:

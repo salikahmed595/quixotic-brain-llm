@@ -1,9 +1,12 @@
-"""Credentials. PRD §41 (V1): email or employee ID + password. §40: per-app API keys with rate limit.
+"""Credentials. PRD §5 FR-AUTH-06: Argon2id password hashing, server-side sessions, password reset, admin MFA;
+§10/§11: per-app API keys with rate limits.
 
-IMPLEMENTATION NECESSITIES (not in the PRD, listed in docs/PRD_GAPS.md): scrypt password hashing,
-HS256 JWT bearer tokens, SHA-256 hashed API keys, in-memory rate-limit window."""
+IMPLEMENTATION NECESSITIES (not in the PRD, listed in docs/PRD_GAPS.md §4): argon2-cffi defaults for Argon2id, 32-byte random
+session and one-time tokens stored only as SHA-256 hashes, TOTP (RFC 6238, pyotp) for admin MFA with the secret encrypted by
+Fernet (cryptography), SHA-256 hashed API keys, in-memory rate-limit windows."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import re
@@ -14,19 +17,27 @@ from typing import Optional
 from uuid import UUID
 
 import jwt
+import pyotp
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError
+from cryptography.fernet import Fernet, InvalidToken
 
-# ---- passwords ------------------------------------------------------------------------------
+# ---- passwords: Argon2id (PRD §5 FR-AUTH-06 "Argon2id preferred"); older scrypt hashes still verify and are upgraded -----
+_ARGON = PasswordHasher()                 # argon2-cffi defaults (Argon2id, RFC 9106 low-memory profile)
 _N, _R, _P = 2**14, 8, 1
 
 
 def hash_password(password: str) -> str:
-    salt = secrets.token_bytes(16)
-    dk = hashlib.scrypt(password.encode(), salt=salt, n=_N, r=_R, p=_P)
-    return f"scrypt${_N}${_R}${_P}${salt.hex()}${dk.hex()}"
+    return _ARGON.hash(password)
 
 
 def verify_password(password: str, stored: str) -> bool:
-    try:
+    if stored.startswith("$argon2"):
+        try:
+            return _ARGON.verify(stored, password)
+        except (VerificationError, InvalidHashError):
+            return False
+    try:                                   # legacy scrypt$N$r$p$salt$hash (before 2026-10-17)
         _, n, r, p, salt, dk = stored.split("$")
         calc = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p))
         return hmac.compare_digest(calc.hex(), dk)
@@ -34,7 +45,73 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-# ---- JWT (stack decision: "JWT / Cognito"; self-issued HS256 JWT now, Cognito can replace `read_token` later) ----
+def needs_rehash(stored: str) -> bool:
+    """True for legacy scrypt hashes and for Argon2 hashes made with weaker parameters: rehash after a successful login."""
+    if not stored.startswith("$argon2"):
+        return True
+    try:
+        return _ARGON.check_needs_rehash(stored)
+    except InvalidHashError:
+        return True
+
+
+# PRD §5 FR-AUTH-01 asks for a "password policy" without rules; this is the minimum (docs/PRD_GAPS.md §3).
+PASSWORD_MIN_LENGTH = 8
+
+
+def password_problem(password: str, *personal: str) -> Optional[str]:
+    """A short reason the password is not acceptable, or None."""
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return f"Use at least {PASSWORD_MIN_LENGTH} characters."
+    low = password.lower()
+    for p in personal:
+        if p and len(p) >= 3 and p.lower() in low:
+            return "Do not use your name, username or email in the password."
+    if len(set(password)) < 4:
+        return "Choose a less repetitive password."
+    return None
+
+
+# ---- opaque tokens: sessions and one-time links (only the SHA-256 hash is stored) ---------------------------------------
+def new_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+# ---- admin MFA: TOTP (RFC 6238), secret encrypted at rest (PRD §10) -----------------------------------------------------
+def _fernet(key: str) -> Fernet:
+    # Any secret string is accepted; it is stretched to a valid 32-byte Fernet key.
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(key.encode()).digest()))
+
+
+def encrypt_secret(plain: str, key: str) -> str:
+    return _fernet(key).encrypt(plain.encode()).decode()
+
+
+def decrypt_secret(token: str, key: str) -> Optional[str]:
+    try:
+        return _fernet(key).decrypt(token.encode()).decode()
+    except (InvalidToken, ValueError):
+        return None
+
+
+def new_totp_secret() -> str:
+    return pyotp.random_base32()
+
+
+def totp_uri(secret: str, account: str, issuer: str = "Quixotic AI") -> str:
+    return pyotp.TOTP(secret).provisioning_uri(name=account, issuer_name=issuer)
+
+
+def verify_totp(secret: str, code: str) -> bool:
+    code = re.sub(r"\s", "", code or "")
+    return bool(re.fullmatch(r"\d{6}", code)) and pyotp.TOTP(secret).verify(code, valid_window=1)
+
+
+# ---- signed short-lived tokens (HS256); used for service-to-service calls, never as a user login --------------------
 def issue_token(user_id: UUID, secret: str, ttl_seconds: int, now: Optional[float] = None) -> str:
     t = int(now or time.time())
     return jwt.encode({"sub": str(user_id), "iat": t, "exp": t + ttl_seconds}, secret, algorithm="HS256")

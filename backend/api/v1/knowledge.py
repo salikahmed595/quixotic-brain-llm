@@ -62,7 +62,7 @@ def _check_departments(actor: Principal, svc: Services, ids: list[UUID]) -> None
 
 
 @router.post("", status_code=201)
-def create(body: KnowledgeCreate, actor: Principal = Depends(require(P.SUBMIT_INFORMATION)),
+def create(body: KnowledgeCreate, actor: Principal = Depends(require(P.PROPOSE_KNOWLEDGE)),
            svc: Services = Depends(get_services)):
     if not body.department_ids:
         raise HTTPException(422, "at least one department is required")
@@ -78,7 +78,7 @@ def list_knowledge(status: Optional[str] = None, limit: int = 50, offset: int = 
                    actor: Principal = Depends(current_principal), svc: Services = Depends(get_services)):
     if status and status not in STATUSES:
         raise HTTPException(422, f"status must be one of {STATUSES}")
-    scope = None if actor.role is Role.ADMINISTRATOR else actor.department_ids
+    scope = None if actor.all_departments else actor.department_ids
     rows = svc.knowledge.list_versions(statuses=[status] if status else None, department_ids=scope, limit=limit, offset=offset)
     return {"items": [_view(v) for v in rows]}
 
@@ -88,18 +88,18 @@ def get_one(version_id: UUID, actor: Principal = Depends(current_principal), svc
     v = svc.knowledge.get_version(version_id)
     if v is None:
         raise HTTPException(404, "not found")
-    if actor.role is not Role.ADMINISTRATOR and not (set(v["department_ids"]) & actor.department_ids):
+    if not actor.all_departments and not (set(v["department_ids"]) & actor.department_ids):
         raise HTTPException(404, "not found")                       # never reveal other departments' items
     return _view(v, svc.knowledge.history(version_id))
 
 
 @router.patch("/{version_id}")
-def update_draft(version_id: UUID, body: DraftUpdate, actor: Principal = Depends(require(P.SUBMIT_INFORMATION)),
+def update_draft(version_id: UUID, body: DraftUpdate, actor: Principal = Depends(require(P.PROPOSE_KNOWLEDGE)),
                  svc: Services = Depends(get_services)):
     v = svc.knowledge.get_version(version_id)
     if v is None or v["status"] != "draft":
         raise HTTPException(409, "only drafts can be edited; create a new version instead")
-    if actor.role is not Role.ADMINISTRATOR and v["created_by"] != actor.user_id:
+    if not actor.all_departments and v["created_by"] != actor.user_id:
         raise HTTPException(403, "only the author can edit a draft")
     svc.knowledge.update_draft(version_id, actor.user_id, body.information, body.access_level)
     return {"version_id": str(version_id)}
@@ -114,7 +114,7 @@ def transition(version_id: UUID, body: Transition, actor: Principal = Depends(cu
 
 
 @router.post("/items/{item_id}/versions", status_code=201)
-def new_version(item_id: UUID, body: NewVersion, actor: Principal = Depends(require(P.SUBMIT_INFORMATION)),
+def new_version(item_id: UUID, body: NewVersion, actor: Principal = Depends(require(P.PROPOSE_KNOWLEDGE)),
                 svc: Services = Depends(get_services)):
     """§15: e.g. Discount Policy V2 replaces V1 once approved and activated; V1 is then archived automatically."""
     rows = [v for v in svc.knowledge.list_versions(limit=1000) if v["item_id"] == item_id]

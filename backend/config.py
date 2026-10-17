@@ -36,8 +36,21 @@ class Settings(BaseSettings):
     raw_storage_dir: Optional[str] = None  # LOCAL DEVELOPMENT ONLY: keep raw files in this folder instead of S3 (docs/PRD_GAPS.md)
 
     # ---- implementation necessities (not in PRD; see docs/PRD_GAPS.md) ----------------
-    session_secret: str                    # signs login tokens
-    session_ttl_seconds: int               # PRD §41 names no session lifetime
+    session_secret: str                    # signs service-to-service tokens (Hermes sidecar, PRD §11)
+    session_ttl_seconds: int               # PRD §5 FR-AUTH-06 "session expiry" without a number
+
+    # ---- accounts (PRD §5) — values the PRD does not give are required -------------------------------------------
+    public_url: str                        # e.g. https://ai.example.com — links in emails; https => Secure cookies
+    one_time_link_ttl_seconds: int         # FR-AUTH-02 / FR-AUTH-06 verification + reset links: lifetime not specified
+    admin_mfa_required: bool               # FR-AUTH-06 "admin MFA"; false only for local development
+    field_encryption_key: str              # PRD §10 encryption at rest: protects MFA secrets (>= 32 characters)
+    mail_backend: str                      # FR-AUTH-02: "smtp" (real email) or "console" (local dev: links go to the log)
+    mail_from: Optional[str] = None        # required for smtp, e.g. "Quixotic AI <no-reply@example.com>"
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_starttls: bool = True
 
     # ---- ingestion (PRD §13) — PRD gives no sizes ------------------------------------
     max_upload_bytes: int                  # PRD §51 "Upload size limits" without a number
@@ -93,6 +106,31 @@ class Settings(BaseSettings):
             raise ValueError("session_secret must be at least 32 characters (HS256 JWT signing key)")
         return v
 
+    @field_validator("field_encryption_key")
+    @classmethod
+    def _enc(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError("field_encryption_key must be at least 32 characters")
+        return v
+
+    @field_validator("public_url")
+    @classmethod
+    def _url(cls, v: str) -> str:
+        if not v.startswith(("https://", "http://")):
+            raise ValueError("public_url must start with https:// (or http:// for local development)")
+        return v.rstrip("/")
+
+    @field_validator("mail_backend")
+    @classmethod
+    def _mail(cls, v: str) -> str:
+        if v not in ("smtp", "console"):
+            raise ValueError("mail_backend must be 'smtp' or 'console'")
+        return v
+
+    @property
+    def secure_cookies(self) -> bool:
+        return self.public_url.startswith("https://")
+
     @field_validator("candidate_count")
     @classmethod
     def _cand(cls, v: int) -> int:
@@ -121,6 +159,10 @@ class Settings(BaseSettings):
             raise ValueError("sales_history_min_similarity must be between 0 and 1")
         if not 1 <= self.rerank_top_k <= self.candidate_count:
             raise ValueError("require 1 <= rerank_top_k <= candidate_count")
+        if self.mail_backend == "smtp" and not (self.smtp_host and self.smtp_port and self.mail_from):
+            raise ValueError("mail_backend=smtp needs smtp_host, smtp_port and mail_from")
+        if self.one_time_link_ttl_seconds < 60:
+            raise ValueError("one_time_link_ttl_seconds must be at least 60")
         if self.reranker_provider and not self.reranker_model:
             raise ValueError("reranker_provider is set but reranker_model is not (PRD names no model)")
         return self

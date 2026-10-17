@@ -6,30 +6,30 @@ import { Avatar, Banner, openMenu, openModal, ROLE_LABEL, scopeLabel, toast, use
 import type { Chat } from '../types';
 import { personalizationModal, profileModal, settingsModal } from './Account';
 
-/* PRD §4.3 — admin sidebar, exact groups and order. `min` is the role rank allowed to see the page; the server checks
-   every call regardless (§3 "not only by hiding sidebar links"). Employees (rank 0) see no workspace at all (§4.2). */
-export const NAV: { group: string; items: { id: string; label: string; icon: string; min: number }[] }[] = [
+/* PRD §4.3 — admin sidebar, exact groups and order. `perm` is the server permission that opens the page (§7); the server
+   checks every call regardless (§3 "not only by hiding sidebar links"). Employees have none, so they see no workspace (§4.2). */
+export const NAV: { group: string; items: { id: string; label: string; icon: string; perm: string }[] }[] = [
   { group: 'Knowledge', items: [
-    { id: 'knowledge', label: 'Knowledge', icon: 'book', min: 1 },
-    { id: 'add', label: 'Add information', icon: 'plus', min: 1 },
-    { id: 'documents', label: 'Documents', icon: 'doc', min: 1 },
-    { id: 'sales', label: 'Sales memory', icon: 'msg', min: 3 },
+    { id: 'knowledge', label: 'Knowledge', icon: 'book', perm: 'view_knowledge' },
+    { id: 'add', label: 'Add information', icon: 'plus', perm: 'propose_knowledge' },
+    { id: 'documents', label: 'Documents', icon: 'doc', perm: 'manage_documents' },
+    { id: 'sales', label: 'Sales memory', icon: 'msg', perm: 'manage_sales_memory' },
   ] },
   { group: 'Manage', items: [
-    { id: 'approvals', label: 'Approvals', icon: 'check', min: 2 },
-    { id: 'requests', label: 'Access requests', icon: 'users', min: 2 },
-    { id: 'dashboard', label: 'Dashboard', icon: 'chart', min: 2 },
-    { id: 'insights', label: 'Insights', icon: 'alert', min: 3 },
+    { id: 'approvals', label: 'Approvals', icon: 'check', perm: 'review_proposals' },
+    { id: 'requests', label: 'Access requests', icon: 'users', perm: 'manage_users' },
+    { id: 'dashboard', label: 'Dashboard', icon: 'chart', perm: 'view_dashboard' },
+    { id: 'insights', label: 'Insights', icon: 'alert', perm: 'view_insights' },
   ] },
   { group: 'Administration', items: [
-    { id: 'users', label: 'Users', icon: 'users', min: 3 },
-    { id: 'departments', label: 'Departments', icon: 'building', min: 3 },
-    { id: 'vocabulary', label: 'Vocabulary', icon: 'spark', min: 3 },
-    { id: 'keys', label: 'API keys', icon: 'key', min: 3 },
-    { id: 'system', label: 'System', icon: 'pulse', min: 3 },
+    { id: 'users', label: 'Users', icon: 'users', perm: 'manage_users' },
+    { id: 'departments', label: 'Departments', icon: 'building', perm: 'manage_departments' },
+    { id: 'vocabulary', label: 'Vocabulary', icon: 'spark', perm: 'manage_vocabulary' },
+    { id: 'keys', label: 'API keys', icon: 'key', perm: 'manage_api_keys' },
+    { id: 'system', label: 'System', icon: 'pulse', perm: 'manage_system' },
   ] },
 ];
-export const pageMin = (id: string) => NAV.flatMap(g => g.items).find(i => i.id === id)?.min ?? 0;
+export const pagePerm = (id: string) => NAV.flatMap(g => g.items).find(i => i.id === id)?.perm;
 
 /* PRD §6 FR-CHAT-01 "recent history grouping" */
 function groupChats(chats: Chat[]) {
@@ -43,11 +43,11 @@ function groupChats(chats: Chat[]) {
 }
 
 export function Sidebar({ onClose, onNewChat }: { onClose: () => void; onNewChat: () => void }) {
-  const app = useApp(); const { me, rank, chats, counts } = app;
+  const app = useApp(); const { me, chats, counts } = app;
   const route = useRoute();
   const [filter, setFilter] = useState('');
   const [wsOpen, setWsOpen] = useState(storage.get('qb_ws') !== '0');
-  const groups = NAV.map(g => ({ ...g, items: g.items.filter(i => i.min <= rank) })).filter(g => g.items.length);
+  const groups = NAV.map(g => ({ ...g, items: g.items.filter(i => me.permissions.includes(i.perm)) })).filter(g => g.items.length);
   const q = filter.trim().toLowerCase();
   const shown = chats.filter(c => !q || c.title.toLowerCase().includes(q));
   const count = (id: string) => (id === 'approvals' ? counts.pending : id === 'requests' ? counts.requests : 0);
@@ -134,7 +134,7 @@ export function Sidebar({ onClose, onNewChat }: { onClose: () => void; onNewChat
         <Avatar user={me} />
         <span className="flex-1 min-w-0 flex flex-col leading-tight">
           <b className="text-sm text-ink truncate">{me.full_name}</b>
-          <small className="text-xs text-muted truncate">{ROLE_LABEL[me.role]} · {scopeLabel(me, app.activeDepartments)}</small>
+          <small className="text-xs text-muted truncate">{ROLE_LABEL[me.role]} · {scopeLabel(me)}</small>
         </span>
         <Icon name="dots" size={18} className="text-ink-2" />
       </div>

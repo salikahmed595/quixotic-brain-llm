@@ -28,7 +28,7 @@ def setup(stores, settings):
     u, k = stores["users"], stores["knowledge"]
     sales, hr = u.department_by_name("Sales")["id"], u.department_by_name("HR")["id"]
     admin = u.create_user(f"emp_{uuid4().hex[:6]}", f"{uuid4().hex[:6]}@q.ai", "Admin", hash_password("x"),
-                          Role.ADMINISTRATOR, [])
+                          Role.SYSTEM_ADMIN, [])
     emb, lang, storage = HashEmbedder(), LanguageService(settings.roman_urdu_min_ratio), MemStorage()
     return sales, hr, admin, emb, lang, IngestionService(k, storage, emb, lang, settings)
 
@@ -64,7 +64,7 @@ def test_full_brain_flow(stores):
     all_ids = stores["users"].all_department_ids()
     scope = resolve_department_scope(sales_user, all_ids)
     assert all(c.title != "HR Leave Policy" for c in search.search("annual leave for employees", scope).candidates)
-    admin_scope = resolve_department_scope(Principal(admin, "a", Role.ADMINISTRATOR, frozenset()), all_ids)
+    admin_scope = resolve_department_scope(Principal(admin, "a", Role.SYSTEM_ADMIN, frozenset()), all_ids)
     assert any(c.title == "HR Leave Policy" for c in search.search("annual leave for employees", admin_scope).candidates)
 
     # hybrid retrieval finds the policy and returns section/version for sources (§30)
@@ -156,13 +156,15 @@ def test_ops_stores_keys_jobs_logs_feedback_dashboard(stores):
 def test_user_login_lookup_and_principal(stores):
     u = stores["users"]
     sales = u.department_by_name("Sales")["id"]
-    uid = u.create_user("emp_104_t", "Ali.T@Quixotic.AI", "Ali", hash_password("pw"), Role.MANAGER, [sales])
+    uid = u.create_user("emp_104_t", "Ali.T@Quixotic.AI", "Ali", hash_password("pw"), Role.DEPARTMENT_REVIEWER, [sales])
     assert u.get_by_login("emp_104_t")["id"] == uid and u.get_by_login("ali.t@quixotic.ai")["id"] == uid   # §41
-    u.update_department(sales, manager_id=uid)
+    u.update_department(sales, reviewer_ids=[uid])
     p = u.principal(u.get(uid))
-    assert p.role is Role.MANAGER and p.department_ids == {sales} and p.managed_department_ids == {sales}
-    u.update_user(uid, is_active=False)
-    assert u.get_by_login("emp_104_t") is None
+    assert p.role is Role.DEPARTMENT_REVIEWER and p.department_ids == {sales} and p.managed_department_ids == {sales}
+    assert u.set_status(uid, "suspended", None, "test") == "active"                      # PRD §5 FR-AUTH-05
+    row = u.get_by_login("emp_104_t")
+    assert row["account_status"] == "suspended" and row["is_active"] is False and row["approval_status"] == "approved"
+    assert [h["to_status"] for h in u.status_history(uid)] == ["active", "suspended"]  # FR-AUTH-07
 
 
 def test_chat_history_store_on_real_postgres(stores, db):

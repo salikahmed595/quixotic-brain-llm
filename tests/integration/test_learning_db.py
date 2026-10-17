@@ -30,7 +30,7 @@ The price list shows the standard price of every service and package. Price chan
 def _setup(stack, n_users=6):
     svc, client = stack
     sales = svc.users.department_by_name("Sales")["id"]
-    svc.users.create_user("lr_admin", "lr_admin@q.ai", "Admin", hash_password("pw12345"), Role.ADMINISTRATOR, [])
+    svc.users.create_user("lr_admin", "lr_admin@q.ai", "Admin", hash_password("pw12345"), Role.SYSTEM_ADMIN, [])
     users = [svc.users.create_user(f"lr_u{i}", f"lr_u{i}@q.ai", f"User {i}", hash_password("pw12345"), Role.EMPLOYEE, [sales]) for i in range(n_users)]
     return svc, client, sales, users
 

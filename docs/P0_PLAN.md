@@ -27,7 +27,7 @@ answered; work that does not depend on them goes first.
 | API path style (`/v1/chats` vs `/chats`) | M5 | §11 |
 | ✅ Past-sales-chat answers OFF (`QB_SALES_HISTORY_ENABLED=false`) | M4 | §1, §7 |
 
-## M1 — Accounts, sessions and the five account states
+## M1 — Accounts, sessions and the five account states — ✅ built 2026-10-17
 
 - Migration: `users.account_status` ∈ Pending / Active / Rejected / Suspended / Deactivated (§5 FR-AUTH-05), replacing `approval_status` + `is_active`; status-history table for "view account status history" (§5 FR-AUTH-07).
 - Argon2id hashing; old scrypt hashes verified and rehashed on login (§5 FR-AUTH-06).
@@ -38,7 +38,7 @@ answered; work that does not depend on them goes first.
 - Admin MFA (method per M0).
 - **Tests:** AT-01 (backend part), AT-02; every protected endpoint returns 401/403 for each non-Active state.
 
-## M2 — Roles, departments, scopes (deny by default)
+## M2 — Roles, departments, scopes (deny by default) — ✅ roles, users, access requests, departments built 2026-10-17
 
 - Roles per §3: Employee, Department Reviewer, Knowledge Admin (+ publisher grant), System Admin. Founder/CEO reserved for Phase 2.
 - Multi-department membership (exists); no implicit Company Wide (§4.2, §15).

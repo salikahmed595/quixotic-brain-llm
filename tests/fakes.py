@@ -48,3 +48,40 @@ class FakeGenerator:
 
 def sales_case(outcome="closed") -> SalesCase:
     return SalesCase(uuid4(), "price objection", "too expensive", "I understand...", outcome, 0.9)
+
+
+class FakeSessions:
+    """In-memory SessionStore (backend/database/accounts.py)."""
+    def __init__(self):
+        self.rows = {}
+
+    def create(self, user_id, ttl_seconds, mfa_passed, ip=None, user_agent=None):
+        import secrets
+        token, csrf = secrets.token_urlsafe(16), secrets.token_urlsafe(8)
+        self.rows[token] = dict(id=uuid4(), user_id=user_id, csrf_token=csrf, mfa_passed=mfa_passed, revoked=False)
+        return token, csrf
+
+    def lookup(self, token):
+        r = self.rows.get(token)
+        return None if not r or r["revoked"] else r
+
+    def mark_mfa_passed(self, sid):
+        for r in self.rows.values():
+            if r["id"] == sid: r["mfa_passed"] = True
+
+    def revoke(self, sid):
+        for r in self.rows.values():
+            if r["id"] == sid: r["revoked"] = True
+
+    def revoke_user(self, user_id, except_session=None):
+        n = 0
+        for r in self.rows.values():
+            if r["user_id"] == user_id and r["id"] != except_session and not r["revoked"]:
+                r["revoked"] = True; n += 1
+        return n
+
+
+def session_headers(sessions, user_id):
+    """Bearer header for a fresh session (non-browser clients send the session token as a Bearer token)."""
+    token, _ = sessions.create(user_id, 600, True)
+    return {"Authorization": "Bearer " + token}

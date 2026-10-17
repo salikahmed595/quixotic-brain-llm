@@ -25,16 +25,16 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 
 | Area | New PRD | Code today | P0 handling |
 |---|---|---|---|
-| Account states | §5 FR-AUTH-05: Pending, Active, Rejected, Suspended, Deactivated | `approval_status` pending/approved/rejected + `is_active` boolean | Migrate to one `account_status` with the five PRD states (M1) |
-| Email verification | §5 FR-AUTH-02: verify email or invite/OTP | none | Required in P0 (§14). ❓ **Which mail provider / sender address?** Until set, signup fails loudly with "email not configured" |
-| Password hashing | §5 FR-AUTH-06: Argon2id preferred | `hashlib.scrypt` | Switch to Argon2id (`argon2-cffi`); verify old scrypt hashes and rehash on next login (M1) |
-| Sessions | §5 FR-AUTH-06: HttpOnly secure session cookies, CSRF, expiry, logout; §5 FR-AUTH-05 suspension revokes sessions promptly | Stateless HS256 JWT bearer token in JS; no logout; no revocation | Server-side `sessions` table (§12), HttpOnly cookie, CSRF token, `POST /auth/logout`, revoke on suspend/reject (M1) |
-| Password reset | §5 FR-AUTH-06 | only change-password while logged in | Add reset by emailed link (needs the mail provider above) |
-| Admin MFA | §5 FR-AUTH-06 | none | ❓ **Method?** (TOTP authenticator app is the usual choice.) Not invented until you confirm |
-| First admin | §5 FR-AUTH-06: one-time protected setup path, never via public signup | CLI `backend/cli.py` creates users | Keep the CLI as the one-time path; make it refuse once any system admin exists (M1). ❓ OK? |
-| Signup fields | §5 FR-AUTH-01: full name, work email, password, confirm, requested department; employee ID/phone optional | employee ID required (`users.employee_id NOT NULL`) | ❓ **Do you use employee IDs / phone?** If not, make them optional |
-| Roles | §3: Employee, Department Manager / Knowledge Reviewer, Knowledge Admin, System Admin, Founder/CEO | employee, contributor, manager, administrator | ❓ **Mapping:** proposed `manager → department_reviewer`, `administrator → system_admin`; `contributor` has no new-PRD equivalent (old PRD §9.2 let contributors upload; the new §3 lists no employee upload right and §9 says not all employees may write to the vault) — proposed: fold into `employee`. Knowledge Admin "publisher permission" needs to be a separate grant |
-| Founder/CEO | §3, §9: authority over Telegram/Discord (Phase 2) | none | Phase 2 only; not built in P0 |
+| Account states | §5 FR-AUTH-05: Pending, Active, Rejected, Suspended, Deactivated | **Done (M1, 2026-10-17):** `users.account_status` with the five states (migration 008); `is_active` / `approval_status` are now read-only generated columns; every change is recorded in `account_status_history` (FR-AUTH-07) | Suspend / deactivate / reactivate on the Users page; leaving Active revokes every session at once |
+| Email verification | §5 FR-AUTH-02: verify email or invite/OTP | **Done (M1):** one-time link emailed at sign-up; an admin can approve only after the email is verified (AT-01). Mail backend is a required setting `QB_MAIL_BACKEND` = `smtp` (any provider: SES, Google Workspace, Microsoft 365…) or `console` (local: link in the log). ❓ **Which SMTP service and sender address for production?** |
+| Password hashing | §5 FR-AUTH-06: Argon2id preferred | **Done (M1):** Argon2id (`argon2-cffi` defaults); old scrypt hashes verify once and are rehashed at the next sign-in | — |
+| Sessions | §5 FR-AUTH-06 | **Done (M1):** server-side `sessions` table (only token hashes stored), HttpOnly `qb_session` cookie (Secure when `QB_PUBLIC_URL` is https), SameSite=Lax, CSRF token per session checked on every cookie write, `POST /v1/auth/logout`, expiry `QB_SESSION_TTL_SECONDS`; suspend/reject/deactivate/password reset revoke sessions. Non-browser clients may send the same session token as a Bearer header | — |
+| Password reset | §5 FR-AUTH-06 | **Done (M1):** emailed one-time link (`QB_ONE_TIME_LINK_TTL_SECONDS`), always answers 202 so it never reveals accounts; resetting signs out every device | — |
+| Admin MFA | §5 FR-AUTH-06 | **Done (M1), proposed method — veto if needed:** TOTP authenticator app (RFC 6238, `pyotp`), QR enrolment at first sign-in, secret encrypted with `QB_FIELD_ENCRYPTION_KEY`; required for Knowledge Admin, System Admin and Founder/CEO when `QB_ADMIN_MFA_REQUIRED=true` (keep true in production). Admins can reset a lost phone from Users | — |
+| First admin | §5 FR-AUTH-06 | **Done (M1):** `python -m backend.cli bootstrap-admin` on the server; refuses once any System Admin exists | — |
+| Signup fields | §5 FR-AUTH-01 | **Done (M1):** full name, username (owner request 2026-10-05), work email, password + confirm, requested department (now required), optional phone; role is always Employee | — |
+| Roles | §3 | **Done (M2, migration 009), mapping as proposed — veto if needed:** contributor → employee, manager → department_reviewer, administrator → system_admin; `knowledge_admin` and `founder_ceo` added. Knowledge Admin publishes only with the separate `can_publish` grant; System Admins always hold it. Page access is one permission per §7 page (`backend/permissions/roles.py`). Knowledge Admin, System Admin and Founder/CEO search every department (they curate or govern all knowledge); everyone else only their own. ❓ **Confirm the Founder/CEO pages** (Knowledge, Add information, Approvals, Dashboard, Insights) |
+| Founder/CEO | §3, §9 | Role exists (M2); Telegram/Hermes authority comes with the Hermes milestone (`docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md`) | — |
 | "Company Wide" | §4.2, §15: never by default, never faked | already: no implicit visibility | Unchanged |
 | Self-approval | §7 Approvals: prevent where policy requires | managers can approve own uploads | ❓ **Which changes need separation of duties?** P0 has no Approvals page (§14 puts it in P1) |
 
@@ -256,7 +256,7 @@ admin approve/reject with role + departments; per-user chats (create/list/rename
 
 - **DeepSeek client (2026-10-17):** DeepSeek's OpenAI-compatible API at `https://api.deepseek.com`, called with the `openai` SDK; key from `DEEPSEEK_API_KEY` (PRD §8, §11).
 
-scrypt password hashing · HS256 JWT bearer tokens (stack: JWT / Cognito) · SHA-256 hashed API keys (shown once) · `psycopg` 3 with plain SQL
+Argon2id password hashing (`argon2-cffi`) · server-side sessions with 32-byte random tokens stored as SHA-256 hashes, HttpOnly cookie + per-session CSRF token · TOTP admin MFA (`pyotp`, QR via `segno`), secret encrypted with Fernet (`cryptography`) · password policy: at least 8 characters, not containing the name/username/email, at least 4 different characters (PRD gives no rules) · abuse limits per IP: 5 sign-ups, 30 attempts, 5 emails per hour; 10 failed logins per identifier per 15 min · SHA-256 hashed API keys (shown once) · `psycopg` 3 with plain SQL
 (no ORM) and a plain `migrations/*.sql` runner · pgvector `vector(1024)` with an HNSW cosine index (BGE-M3 is 1024-d; changing
 the model needs a migration + re-index, §24.2) · `sentence-transformers` for BGE-M3 and the cross-encoder · `pypdf`, `python-docx` ·
 `boto3` (S3, SQS, Bedrock Converse API) · CPU-only PyTorch (stack: no GPU) · synchronous endpoints · Docker image `python:3.14-slim` (the version the tests ran on) ·
@@ -273,7 +273,7 @@ the model needs a migration + re-index, §24.2) · `sentence-transformers` for B
 
 ## 5. Deliberately not built
 
-PRD §5 non-goals; §41 SSO/MFA ("potential later"); §13.1 Google Drive/website/Notion/Slack/email/CRM; §45 Qdrant migration; §61 Phase 5
+PRD §5 non-goals; SSO (not asked for by the new PRD); §13.1 Google Drive/website/Notion/Slack/email/CRM; §45 Qdrant migration; §61 Phase 5
 (feedback-based improvement, knowledge-gap detection beyond failed questions, model benchmarking, fine-tuning, local LLM, voice, agents);
 §55 CloudWatch dashboards and §54 backup configuration, §51 HTTPS/private RDS/private S3/Secrets Manager (infrastructure, not application
 code — the PRD gives no IaC choice); §59 metrics other than Recall@5, Recall@10 and MRR (they need labelled data or logs the PRD does not define).

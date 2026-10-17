@@ -32,12 +32,12 @@ def upload(file: UploadFile = File(...), department_ids: str = Form(...), title:
            category: Optional[str] = Form(None), document_type: Optional[str] = Form(None),
            access_level: Optional[str] = Form(None), language: Optional[str] = Form(None),
            status: str = Form("draft"),
-           actor: Principal = Depends(require(P.UPLOAD_DOCUMENTS)), svc: Services = Depends(get_services)):
+           actor: Principal = Depends(require(P.MANAGE_DOCUMENTS)), svc: Services = Depends(get_services)):
     """`status` mirrors the §13.2 form's Status field. Only an administrator may publish directly
     (status=active); every other upload is submitted for review (§9.2 "All submissions require review")."""
     if status not in ("draft", "active"):
         raise HTTPException(422, "status must be 'draft' or 'active'")
-    if status == "active" and actor.role is not Role.ADMINISTRATOR:
+    if status == "active" and not actor.can_publish:
         raise HTTPException(403, "only an administrator can publish directly; your upload will be submitted for review")
     try:
         dept_ids = [UUID(x) for x in department_ids.split(",") if x.strip()]
@@ -74,13 +74,13 @@ def upload(file: UploadFile = File(...), department_ids: str = Form(...), title:
 @router.get("")
 def list_documents(limit: int = 50, offset: int = 0, actor: Principal = Depends(current_principal),
                    svc: Services = Depends(get_services)):
-    scope = None if actor.role is Role.ADMINISTRATOR else actor.department_ids
+    scope = None if actor.all_departments else actor.department_ids
     return {"documents": [_view(v) for v in svc.knowledge.list_versions(department_ids=scope, only_files=True,
                                                                          limit=limit, offset=offset)]}
 
 
 @router.delete("/{document_id}", status_code=204)
-def delete_document(document_id: UUID, actor: Principal = Depends(require(P.MANAGE_VERSIONING)),
+def delete_document(document_id: UUID, actor: Principal = Depends(require(P.MANAGE_DOCUMENTS)),
                     svc: Services = Depends(get_services)):
     f = svc.knowledge.delete_version(document_id)
     if f is None and svc.knowledge.get_version(document_id) is None:

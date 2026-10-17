@@ -1,6 +1,6 @@
 """End-to-end: HTTP API -> S3 -> SQS -> worker -> PostgreSQL/pgvector -> search/ask.
 
-Real: FastAPI app, auth (JWT), PostgreSQL + pgvector, the SQL stores, ingestion, the worker loop.
+Real: FastAPI app, auth (server-side sessions), PostgreSQL + pgvector, the SQL stores, ingestion, the worker loop.
 Mocked: S3/SQS (moto), the answer model (no LLM key available) and - unless the weights are on disk - the embedder.
 Set QB_TEST_DATABASE_URL to run. Put the models in .models/ (scripts/download_models.sh) to use BGE-M3 and the reranker."""
 import os
@@ -14,6 +14,8 @@ from moto import mock_aws
 from backend.analytics.dashboard import AnalyticsStore
 from backend.api.services import Services
 from backend.auth.security import SlidingWindowLimiter, hash_password
+from backend.database.accounts import OneTimeTokenStore, SessionStore, SystemSettingsStore
+from backend.database.conversations import ConversationStore
 from backend.database.knowledge import KnowledgeStore
 from backend.database.ops import OpsStore
 from backend.database.retrieval_store import RetrievalSQLStore
@@ -21,6 +23,7 @@ from backend.database.users import UserStore
 from backend.ingestion.pipeline import IngestionService
 from backend.ingestion.storage import S3Storage, SQSQueue
 from backend.main import create_app
+from backend.notifications.mail import ConsoleMailer
 from backend.permissions.roles import Role
 from backend.reranking.base import CrossEncoderReranker
 from backend.retrieval.ask import AskService
@@ -71,21 +74,27 @@ def stack(db, monkeypatch):
         svc = Services(settings=s, users=users, knowledge=knowledge, ops=ops, analytics=AnalyticsStore(db, t), search=search,
                        ask=AskService(search, FakeGenerator(), s), ingestion=IngestionService(knowledge, storage, emb, lang, s),
                        importer=SalesMemoryImporter(ops, emb, lang, None, None), storage=storage, queue=SQSQueue(s),
-                       language=lang, embedder=emb, limiter=SlidingWindowLimiter(), pool=db)
+                       language=lang, embedder=emb, limiter=SlidingWindowLimiter(), pool=db,
+                       sessions=SessionStore(db, t), one_time=OneTimeTokenStore(db), system_settings=SystemSettingsStore(db, t),
+                       mailer=ConsoleMailer(), conversations=ConversationStore(db, t))
         yield svc, TestClient(create_app(svc))
 
 
 def login(client, ident, pw="pw12345"):
+    """Signs in through the real login route; the session token from the HttpOnly cookie is then sent as a Bearer token so one
+    client can act as several people at once (non-browser clients use sessions the same way)."""
     r = client.post("/v1/auth/login", json={"identifier": ident, "password": pw})
     assert r.status_code == 200, r.text
-    return {"Authorization": "Bearer " + r.json()["access_token"]}
+    token = r.cookies["qb_session"]
+    client.cookies.clear()
+    return {"Authorization": "Bearer " + token}
 
 
 def test_upload_process_search_ask(stack):
     svc, client = stack
     sales = svc.users.department_by_name("Sales")["id"]
     hr = svc.users.department_by_name("HR")["id"]
-    svc.users.create_user("e2e_admin", "e2e_admin@q.ai", "Admin", hash_password("pw12345"), Role.ADMINISTRATOR, [])
+    svc.users.create_user("e2e_admin", "e2e_admin@q.ai", "Admin", hash_password("pw12345"), Role.SYSTEM_ADMIN, [])
     svc.users.create_user("e2e_sales", "e2e_sales@q.ai", "Sales Rep", hash_password("pw12345"), Role.EMPLOYEE, [sales])
     admin, rep = login(client, "e2e_admin"), login(client, "e2e_sales@q.ai")           # employee ID or email (§41)
     assert client.post("/v1/auth/login", json={"identifier": "e2e_sales", "password": "bad"}).status_code == 401
@@ -111,7 +120,7 @@ def test_upload_process_search_ask(stack):
     assert handled >= 1
     done = client.get("/v1/documents", headers=admin).json()["documents"][0]
     assert done["processing_status"] == "ready" and done["status"] == "active"
-    jobs = client.get("/v1/jobs", headers=admin).json()["jobs"]
+    jobs = client.get("/v1/admin/jobs", headers=admin).json()["jobs"]
     assert all(j["status"] == "succeeded" for j in jobs)
 
     # raw original stored in S3 under /raw/documents/ (§46)

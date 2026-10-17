@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from './icons';
-import type { Department, Me, Role } from './types';
+import type { Me, Role } from './types';
 
 /* ---------------- tiny global stores: toast, modals, menus ---------------- */
 function store<T>(initial: T) {
@@ -135,8 +135,12 @@ export const STATUS: Record<string, [string, string]> = {
 };
 export const StatusChip = ({ s }: { s: string }) => { const [l, c] = STATUS[s] || [s, '']; return <span className={`chip dot ${c}`}>{l}</span>; };
 
-export const ROLE_LABEL: Record<Role, string> = { employee: 'Employee', contributor: 'Contributor', manager: 'Manager', administrator: 'Administrator' };
-export const RANK: Record<Role, number> = { employee: 0, contributor: 1, manager: 2, administrator: 3 };
+/* PRD §3 roles. "Administrator" is the System Admin, as on the §4.3 admin card. */
+export const ROLE_LABEL: Record<Role, string> = {
+  employee: 'Employee', department_reviewer: 'Department Reviewer', knowledge_admin: 'Knowledge Admin',
+  system_admin: 'Administrator', founder_ceo: 'Founder / CEO',
+};
+export const can = (me: Me, permission: string) => me.permissions.includes(permission);
 
 export function fmtDate(iso?: string | null) {
   if (!iso) return '—'; const d = new Date(iso); if (isNaN(+d)) return '—';
@@ -153,11 +157,9 @@ export function Avatar({ user, size = 36 }: { user?: { full_name?: string; avata
 
 /* PRD §4.2 / §4.3: "Role · Authorized Scope". 'Company Wide' only when the person truly sees every active department
    (administrators do); never assigned or shown by default (§15). */
-export function scopeLabel(me: Me, activeDepartments: Department[]) {
-  if (me.role === 'administrator') return 'Company Wide';
-  const mine = activeDepartments.filter(d => me.department_ids.includes(d.id));
-  if (activeDepartments.length > 0 && mine.length === activeDepartments.length) return 'Company Wide';
-  return mine.map(d => d.name).join(', ') || 'No access yet';
+export function scopeLabel(me: Me) {
+  if (me.company_wide) return 'Company Wide';
+  return me.scope.map(d => d.name).join(', ') || 'No access yet';
 }
 
 export function DeptChecks({ depts, value, onChange }: { depts: { id: string; name: string }[]; value: string[]; onChange: (v: string[]) => void }) {

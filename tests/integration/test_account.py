@@ -16,8 +16,8 @@ def _setup(stack):
     svc.conversations = ConversationStore(svc.pool, svc.settings.tenant_id)
     sales = svc.users.department_by_name("Sales")["id"]
     finance = svc.users.department_by_name("Finance")["id"]
-    admin = svc.users.create_user("ac_admin", "ac_admin@q.ai", "Admin", hash_password("pw12345"), Role.ADMINISTRATOR, [])
-    mgr = svc.users.create_user("ac_mgr", "ac_mgr@q.ai", "Mona Manager", hash_password("pw12345"), Role.MANAGER, [sales, finance])
+    admin = svc.users.create_user("ac_admin", "ac_admin@q.ai", "Admin", hash_password("pw12345"), Role.SYSTEM_ADMIN, [])
+    mgr = svc.users.create_user("ac_mgr", "ac_mgr@q.ai", "Mona Manager", hash_password("pw12345"), Role.DEPARTMENT_REVIEWER, [sales, finance])
     return svc, client, sales, finance, admin, mgr
 
 
@@ -51,7 +51,7 @@ def test_preferences_are_cleaned_and_reach_the_answer_model_with_the_role(stack)
     from backend.api.v1.ask import _asker
     class C: key = None; principal = svc.users.principal(svc.users.get_by_login("ac_mgr"))
     asker, prefs = _asker(svc, C)
-    assert asker == {"role": "manager", "departments": ["Finance", "Sales"]} and prefs["language"] == "roman_urdu"
+    assert asker == {"role": "department_reviewer", "departments": ["Finance", "Sales"]} and prefs["language"] == "roman_urdu"
 
 
 def test_password_change(stack):
@@ -81,13 +81,13 @@ def test_bulk_department_access_and_who_can_see_what(stack):
     hr = svc.users.department_by_name("HR")["id"]
     ids = [svc.users.create_user(f"bulk{i}", f"bulk{i}@q.ai", f"Bulk {i}", hash_password("pw12345"), Role.EMPLOYEE, []) for i in range(3)]
     admin = login(client, "ac_admin")
-    r = client.post("/v1/users/bulk-departments", headers=admin, json={"user_ids": [str(i) for i in ids], "add": [str(hr), str(sales)]})
+    r = client.post("/v1/admin/users/bulk-departments", headers=admin, json={"user_ids": [str(i) for i in ids], "add": [str(hr), str(sales)]})
     assert r.json() == {"updated": 3}
-    users = {u["employee_id"]: set(u["departments"]) for u in client.get("/v1/users", headers=admin).json()["users"]}
+    users = {u["employee_id"]: set(u["departments"]) for u in client.get("/v1/admin/users", headers=admin).json()["users"]}
     assert users["bulk0"] == {"HR", "Sales"}
-    client.post("/v1/users/bulk-departments", headers=admin, json={"user_ids": [str(i) for i in ids], "remove": [str(sales)]})
-    users = {u["employee_id"]: set(u["departments"]) for u in client.get("/v1/users", headers=admin).json()["users"]}
+    client.post("/v1/admin/users/bulk-departments", headers=admin, json={"user_ids": [str(i) for i in ids], "remove": [str(sales)]})
+    users = {u["employee_id"]: set(u["departments"]) for u in client.get("/v1/admin/users", headers=admin).json()["users"]}
     assert users["bulk1"] == {"HR"}
-    assert client.post("/v1/users/bulk-departments", headers=admin, json={"user_ids": [str(ids[0])]}).status_code == 422     # nothing to do
+    assert client.post("/v1/admin/users/bulk-departments", headers=admin, json={"user_ids": [str(ids[0])]}).status_code == 422     # nothing to do
     emp = login(client, "bulk0")
-    assert client.post("/v1/users/bulk-departments", headers=emp, json={"user_ids": [str(ids[0])], "add": [str(sales)]}).status_code == 403
+    assert client.post("/v1/admin/users/bulk-departments", headers=emp, json={"user_ids": [str(ids[0])], "add": [str(sales)]}).status_code == 403

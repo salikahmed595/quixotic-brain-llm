@@ -10,6 +10,8 @@ BASE = dict(
     max_upload_bytes=1000, chunk_size=100, chunk_overlap=20, candidate_count=20, final_chunk_count=5,
     rerank_top_k=8, historical_top_k=5, roman_urdu_min_ratio=0.5, confidence_high=0.8, confidence_medium=0.5, confidence_vector_high=0.8, confidence_vector_medium=0.5,
     generation_provider="bedrock",
+    public_url="http://testserver", one_time_link_ttl_seconds=3600, admin_mfa_required=False,
+    field_encryption_key="test-field-key-test-field-key-123456", mail_backend="console",
 )
 
 

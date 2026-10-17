@@ -25,7 +25,7 @@ class SalesMemoryCreate(BaseModel):
 
 
 @router.post("", status_code=201)
-def create(body: SalesMemoryCreate, actor: Principal = Depends(require(P.IMPORT_HISTORICAL_DATA)),
+def create(body: SalesMemoryCreate, actor: Principal = Depends(require(P.MANAGE_SALES_MEMORY)),
            svc: Services = Depends(get_services)):
     text = body.record.embedding_text()
     if not text:
@@ -38,7 +38,7 @@ def create(body: SalesMemoryCreate, actor: Principal = Depends(require(P.IMPORT_
 
 @router.post("/imports", status_code=202)
 def import_conversations(file: UploadFile = File(...), department_id: UUID = Form(...),
-                         actor: Principal = Depends(require(P.IMPORT_HISTORICAL_DATA)),
+                         actor: Principal = Depends(require(P.MANAGE_SALES_MEMORY)),
                          svc: Services = Depends(get_services)):
     """§17.1: drop a JSON file, then process. Stored raw first (§17.2), processed in the background (§47)."""
     data = file.file.read(svc.settings.max_upload_bytes + 1)
@@ -62,13 +62,13 @@ def import_conversations(file: UploadFile = File(...), department_id: UUID = For
 
 
 @router.get("/imports")
-def list_imports(_: Principal = Depends(require(P.IMPORT_HISTORICAL_DATA)), svc: Services = Depends(get_services)):
+def list_imports(_: Principal = Depends(require(P.MANAGE_SALES_MEMORY)), svc: Services = Depends(get_services)):
     """§17.1: imports with progress (§47) and how many sales memories each stored."""
     return {"imports": svc.ops.sales_memory_imports()}
 
 
 @router.delete("/imports/{job_id}")
-def delete_import(job_id: UUID, actor: Principal = Depends(require(P.IMPORT_HISTORICAL_DATA)),
+def delete_import(job_id: UUID, actor: Principal = Depends(require(P.MANAGE_SALES_MEMORY)),
                   svc: Services = Depends(get_services)):
     """Owner request (2026-10-08): undo an import made with the wrong file or department."""
     job = svc.ops.get_job(job_id)

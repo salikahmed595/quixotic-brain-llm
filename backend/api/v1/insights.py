@@ -24,24 +24,24 @@ def health(svc: Services = Depends(get_services)):
 
 
 @router.get("/dashboard")
-def dashboard(actor: Principal = Depends(require(P.VIEW_DEPARTMENT_ANALYTICS)), svc: Services = Depends(get_services)):
+def dashboard(actor: Principal = Depends(require(P.VIEW_DASHBOARD)), svc: Services = Depends(get_services)):
     """§9.4 administrators see all analytics; §9.3 managers see their department."""
-    scope: Optional[frozenset] = None if can(actor.role, P.VIEW_ALL_ANALYTICS) else actor.managed_department_ids
+    scope: Optional[frozenset] = None if can(actor.role, P.VIEW_INSIGHTS) else actor.managed_department_ids
     return svc.analytics.dashboard(scope)
 
 
 @router.get("/failed-questions")
-def failed_questions(_: Principal = Depends(require(P.VIEW_FAILED_QUERIES)), svc: Services = Depends(get_services)):
+def failed_questions(_: Principal = Depends(require(P.MANAGE_KNOWLEDGE_GAPS)), svc: Services = Depends(get_services)):
     return {"failed_questions": svc.ops.failed_questions()}
 
 
 @router.get("/knowledge-health")
-def knowledge_health(_: Principal = Depends(require(P.VIEW_ALL_ANALYTICS)), svc: Services = Depends(get_services)):
+def knowledge_health(_: Principal = Depends(require(P.VIEW_INSIGHTS)), svc: Services = Depends(get_services)):
     return svc.analytics.knowledge_health()
 
 
 @router.get("/answer-quality")
-def answer_quality(days: int = 30, _: Principal = Depends(require(P.VIEW_ALL_ANALYTICS)), svc: Services = Depends(get_services)):
+def answer_quality(days: int = 30, _: Principal = Depends(require(P.VIEW_INSIGHTS)), svc: Services = Depends(get_services)):
     """Patterns in 👍/👎 for administrators: which sources and question types are rated badly, and how well 'high confidence' matches reality."""
     q = svc.ops.answer_quality(max(1, min(days, 365)), since=svc.ops.learning_since())
     q["learning_enabled"] = bool(svc.settings.feedback_learning)
@@ -49,7 +49,7 @@ def answer_quality(days: int = 30, _: Principal = Depends(require(P.VIEW_ALL_ANA
 
 
 @router.post("/learning/reset")
-def reset_learning(actor: Principal = Depends(require(P.CONFIGURE_MODELS)), svc: Services = Depends(get_services)):
+def reset_learning(actor: Principal = Depends(require(P.MANAGE_SYSTEM)), svc: Services = Depends(get_services)):
     """Forget everything learned from ratings so far (the ratings stay stored for the audit trail; they just stop counting)."""
     svc.ops.reset_learning(actor.user_id)
     audit.record(svc.ops, audit.ADMIN_ACTION, actor.user_id, actor.employee_id, action="reset_learning")
@@ -57,6 +57,6 @@ def reset_learning(actor: Principal = Depends(require(P.CONFIGURE_MODELS)), svc:
 
 
 @router.get("/audit-logs")
-def audit_logs(event: Optional[str] = None, limit: int = 200, _: Principal = Depends(require(P.VIEW_SYSTEM_HEALTH)),
+def audit_logs(event: Optional[str] = None, limit: int = 200, _: Principal = Depends(require(P.MANAGE_SYSTEM)),
                svc: Services = Depends(get_services)):
     return {"audit_logs": svc.ops.list_audit(limit, event)}

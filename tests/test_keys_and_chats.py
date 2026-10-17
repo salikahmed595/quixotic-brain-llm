@@ -121,13 +121,13 @@ def test_login_is_throttled_after_repeated_failures_and_recovers():
 
 def test_unknown_user_still_costs_a_password_hash():           # no account enumeration through response time
     from backend.auth.security import _DUMMY_HASH, verify_password
-    assert _DUMMY_HASH.startswith("scrypt$") and not verify_password("guess", _DUMMY_HASH)
+    assert _DUMMY_HASH.startswith("$argon2id$") and not verify_password("guess", _DUMMY_HASH)
 
 
 def test_new_user_password_must_be_at_least_8_chars():
     from tests.test_security_and_api import bearer, make_client
     c, svc, *_ = make_client()
-    r = c.post("/v1/users", headers=bearer(svc, "emp_9"), json={"employee_id": "e", "email": "e@q.ai", "full_name": "E", "password": "short", "role": "employee"})
+    r = c.post("/v1/admin/users", headers=bearer(svc, "emp_9"), json={"username": "eee", "email": "e@q.ai", "full_name": "E E", "password": "short", "invite": False, "role": "employee"})
     assert r.status_code == 422
 
 

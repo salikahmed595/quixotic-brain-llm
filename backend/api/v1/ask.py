@@ -180,7 +180,7 @@ def search(body: SearchRequest, caller: Caller = Depends(api_caller("search")), 
     class _R:                                              # reuse the logging helper
         query, retrieved, confidence, confidence_score = out.query, out.candidates, out.confidence, out.confidence_score
     _log(svc, caller, requested, "search_only", _R, None, started)
-    debug = body.debug and can(caller.principal.role, P.CONFIGURE_MODELS)
+    debug = body.debug and can(caller.principal.role, P.MANAGE_SYSTEM)
     result = {"results": [{"text": c.text, "score": c.best_score, "source": c.title,
                            **({"section": c.section, "vector_score": c.vector_score, "rerank_score": c.rerank_score} if debug else {})}
                           for c in out.candidates]}

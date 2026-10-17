@@ -127,7 +127,7 @@ const expiresText = (iso?: string | null) => {
   const m = ms / 60000; return m < 90 ? `in ${Math.round(m)} min` : m < 2880 ? `in ${Math.round(m / 60)} h` : `in ${Math.round(m / 1440)} days · ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 };
 export function KeysPage() {
-  const { data, error, reload } = useLoad(() => Promise.all([api('/v1/api-keys').then(r => r.api_keys as any[]), api<{ departments: Department[] }>('/v1/departments').then(r => r.departments)]));
+  const { data, error, reload } = useLoad(() => Promise.all([api('/v1/admin/api-keys').then(r => r.api_keys as any[]), api<{ departments: Department[] }>('/v1/departments').then(r => r.departments)]));
   const [fresh, setFresh] = useState<{ name: string; key: string; expires?: string } | null>(null);
   const [keys, ds] = data || [null, []];
   const dn = (id: string) => ds.find(d => d.id === id)?.name || '—';
@@ -149,7 +149,7 @@ export function KeysPage() {
             <tr key={k.id}><td><b>{k.app_name}</b></td><td><code>{k.key_prefix}••••{k.last4 || ''}</code></td><td>{k.permissions.map((p: string) => <span key={p} className="chip m-0.5">{p.replace('_', ' ')}</span>)}</td>
               <td>{k.allowed_department_ids.length ? k.allowed_department_ids.map(dn).join(', ') : 'All departments'}</td><td>{expiresText(k.expires_at)}</td><td>{k.last_used_at ? fmtDate(k.last_used_at) : 'Never'}</td><td>{fmtDate(k.created_at)}</td>
               <td><span className={`chip dot ${sc}`}>{sl}</span></td>
-              <td>{k.status === 'active' && <button className="btn ghost sm" onClick={() => confirmModal('Revoke this key?', 'Any app using it stops working immediately. This can’t be undone.', 'Revoke', async () => { await api(`/v1/api-keys/${k.id}`, { method: 'DELETE' }); reload(); })}>Revoke</button>}</td></tr>); })}</tbody></table></div>
+              <td>{k.status === 'active' && <button className="btn ghost sm" onClick={() => confirmModal('Revoke this key?', 'Any app using it stops working immediately. This can’t be undone.', 'Revoke', async () => { await api(`/v1/admin/api-keys/${k.id}`, { method: 'DELETE' }); reload(); })}>Revoke</button>}</td></tr>); })}</tbody></table></div>
       ) : <Empty icon="key" title="No API keys yet" text="Create a key so another app can use your company knowledge." />}
     </div>
   );
@@ -160,7 +160,7 @@ function NewKey({ depts, close, done }: { depts: Department[]; close: () => void
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!all && !ids.length) { a.setError('Pick at least one department, or choose “All departments”.'); return; }
-    a.run(async () => { const r = await api('/v1/api-keys', { method: 'POST', body: { name, permissions: perms, department_ids: all ? [] : ids, expires_in: exp } }); done({ name, key: r.api_key, expires: r.expires_at }); close(); });
+    a.run(async () => { const r = await api('/v1/admin/api-keys', { method: 'POST', body: { name, permissions: perms, department_ids: all ? [] : ids, expires_in: exp } }); done({ name, key: r.api_key, expires: r.expires_at }); close(); });
   };
   return (
     <form onSubmit={submit} className="grid gap-4">
@@ -182,7 +182,7 @@ const JOBS: Record<string, [string, string]> = { queued: ['Queued', 'amber'], ru
 export function SystemPage() {
   const [healthy, setHealthy] = useState<boolean | null>(null); const [ev, setEv] = useState('');
   useEffect(() => { api('/v1/health').then(() => setHealthy(true)).catch(() => setHealthy(false)); }, []);
-  const jobs = useLoad(() => api('/v1/jobs').then(r => r.jobs as any[]));
+  const jobs = useLoad(() => api('/v1/admin/jobs').then(r => r.jobs as any[]));
   usePoll(!!jobs.data?.some(x => x.status === 'queued' || x.status === 'running'), jobs.reload);
   const audit = useLoad(() => api('/v1/audit-logs?limit=100' + (ev ? '&event=' + ev : '')).then(r => r.audit_logs as any[]), [ev]);
   return (

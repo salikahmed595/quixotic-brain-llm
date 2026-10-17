@@ -9,6 +9,7 @@ from typing import Any, Optional
 from ..analytics.dashboard import AnalyticsStore
 from ..auth.security import SlidingWindowLimiter
 from ..config import Settings
+from ..database.accounts import OneTimeTokenStore, SessionStore, SystemSettingsStore
 from ..database.conversations import ConversationStore
 from ..database.knowledge import KnowledgeStore
 from ..database.ops import OpsStore
@@ -18,6 +19,7 @@ from ..database.users import UserStore
 from ..generation.base import get_generator
 from ..ingestion.pipeline import IngestionService
 from ..learning.feedback import make_signal_source
+from ..notifications.mail import make_mailer
 from ..ingestion.storage import LocalDirStorage, S3Storage, SQSQueue
 from ..reranking.base import get_reranker
 from ..retrieval.ask import AskService
@@ -46,6 +48,10 @@ class Services:
     pool: Any = None
     conversations: Any = None
     models_ready: Any = None            # threading.Event set when the embedding model and reranker are in memory
+    sessions: Any = None                # PRD §5 FR-AUTH-06 server-side sessions
+    one_time: Any = None                # verification / reset links
+    system_settings: Any = None         # PRD §12 system_settings
+    mailer: Any = None                  # PRD §5 FR-AUTH-02 email
 
 
 def build_services(settings: Settings, parser=None, extractor=None, run_migrations: bool = True,
@@ -80,4 +86,6 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         ingestion=IngestionService(knowledge, storage, embedder, language, settings),
         importer=SalesMemoryImporter(ops, embedder, language, parser, extractor),
         storage=storage, queue=SQSQueue(settings), language=language, embedder=embedder,
-        limiter=SlidingWindowLimiter(), pool=pool, conversations=ConversationStore(pool, t), models_ready=ready)
+        limiter=SlidingWindowLimiter(), pool=pool, conversations=ConversationStore(pool, t), models_ready=ready,
+        sessions=SessionStore(pool, t), one_time=OneTimeTokenStore(pool), system_settings=SystemSettingsStore(pool, t),
+        mailer=make_mailer(settings))

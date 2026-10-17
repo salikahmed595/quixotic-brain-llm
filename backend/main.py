@@ -25,7 +25,7 @@ def create_app(services: Optional[Services] = None) -> FastAPI:
     app = FastAPI(title="Quixotic Brain", version="v1", lifespan=lifespan)
     if services is not None:
         app.state.services = services
-    for r in (insights.router, auth.router, ask.router, documents.router, knowledge.router, sales.router,
+    for r in (insights.router, auth.router, admin.public, ask.router, documents.router, knowledge.router, sales.router,
               feedback.router, admin.router, conversations.router, vocabulary.router):
         app.include_router(r)
     # Optional, for hosting the front-end elsewhere (stack: Vercel). Comma-separated origins; unset = no CORS.

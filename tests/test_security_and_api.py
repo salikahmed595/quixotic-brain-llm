@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.services import Services
 from backend.auth.security import (SlidingWindowLimiter, generate_api_key, hash_api_key, hash_password, issue_token,
-                                   read_token, verify_password)
+                                   needs_rehash, read_token, verify_password)
 from backend.main import create_app
 from backend.permissions.access import Principal
 from backend.permissions.roles import Role
@@ -16,13 +16,17 @@ from backend.retrieval.ask import AskService
 from backend.retrieval.language import LanguageService
 from backend.retrieval.search import SearchService
 from tests.conftest import make_settings
-from tests.fakes import FakeEmbedder, FakeGenerator, FakeStore, cand
+from tests.fakes import FakeEmbedder, FakeGenerator, FakeSessions, FakeStore, cand, session_headers
 
 
 # ---- credentials ----
-def test_password_hash_roundtrip():
+def test_password_hash_is_argon2id_and_legacy_scrypt_still_verifies():          # PRD §5 FR-AUTH-06
     h = hash_password("s3cret")
+    assert h.startswith("$argon2id$") and not needs_rehash(h)
     assert verify_password("s3cret", h) and not verify_password("wrong", h) and h != hash_password("s3cret")
+    legacy = "scrypt$16384$8$1$00112233445566778899aabbccddeeff$" + __import__("hashlib").scrypt(
+        b"old", salt=bytes.fromhex("00112233445566778899aabbccddeeff"), n=16384, r=8, p=1).hex()
+    assert verify_password("old", legacy) and needs_rehash(legacy)
 
 
 def test_token_roundtrip_expiry_and_tamper():
@@ -55,17 +59,21 @@ SECRET = "test-secret-test-secret-test-secret-123"
 class Users:
     def __init__(self):
         self.rows = {
-            "emp_104": dict(id=uuid4(), employee_id="emp_104", role="employee", is_active=True, approval_status="approved",
-                            password_hash=hash_password("pw"), email="a@q.ai", full_name="Employee One"),
-            "emp_9": dict(id=uuid4(), employee_id="emp_9", role="administrator", is_active=True, approval_status="approved",
-                          password_hash=hash_password("pw"), email="b@q.ai", full_name="Admin One"),
+            "emp_104": dict(id=uuid4(), employee_id="emp_104", role="employee", account_status="active",
+                            password_hash=hash_password("pw"), email="a@q.ai", full_name="Employee One", can_publish=False),
+            "emp_9": dict(id=uuid4(), employee_id="emp_9", role="system_admin", account_status="active",
+                          password_hash=hash_password("pw"), email="b@q.ai", full_name="Admin One", can_publish=True),
         }
         self.depts = {"emp_104": {SALES}, "emp_9": set()}
     def get_by_login(self, ident): return next((u for u in self.rows.values() if ident in (u["employee_id"], u["email"])), None)
     get_by_login_any = get_by_login
     def get(self, uid): return next((u for u in self.rows.values() if u["id"] == uid), None)
     def get_by_employee_id(self, e): return self.rows.get(e)
-    def principal(self, u): return Principal(u["id"], u["employee_id"], Role(u["role"]), frozenset(self.depts[u["employee_id"]]))
+    def principal(self, u): return Principal(u["id"], u["employee_id"], Role(u["role"]), frozenset(self.depts[u["employee_id"]]),
+                                             frozenset(), u.get("can_publish", False))
+    def get_by_email(self, e): return next((u for u in self.rows.values() if u["email"] == e), None)
+    def record_login(self, uid): pass
+    def set_password_hash(self, uid, h): self.get(uid)["password_hash"] = h
     def department_by_name(self, n): return {"sales": {"id": SALES}, "hr": {"id": HR}}.get(n.lower())
     def all_department_ids(self): return frozenset({SALES, HR})
     def list_departments(self, include_archived=True): return [{"id": SALES, "name": "Sales", "status": "active"}, {"id": HR, "name": "HR", "status": "active"}]
@@ -93,19 +101,20 @@ def make_client(vec=None, key_perms=("ask", "search", "feedback"), rate=60, allo
                rate_limit_per_minute=rate, expires_at=expires, status=status, created_by=users.rows["emp_9"]["id"])
     svc = Services(settings=s, users=users, knowledge=None, ops=Ops(key), analytics=None, search=search,
                    ask=AskService(search, FakeGenerator(), s), ingestion=None, importer=None, storage=None, queue=None,
-                   language=lang, embedder=FakeEmbedder(), limiter=SlidingWindowLimiter())
+                   language=lang, embedder=FakeEmbedder(), limiter=SlidingWindowLimiter(), sessions=FakeSessions())
     return TestClient(create_app(svc)), svc, store, full
 
 
 def bearer(svc, ident="emp_104"):
-    return {"Authorization": "Bearer " + issue_token(svc.users.rows[ident]["id"], SECRET, 600)}
+    return session_headers(svc.sessions, svc.users.rows[ident]["id"])
 
 
 def test_login_success_failure_and_audit():
     c, svc, *_ = make_client()
     assert c.post("/v1/auth/login", json={"identifier": "emp_104", "password": "nope"}).status_code == 401
-    r = c.post("/v1/auth/login", json={"identifier": "a@q.ai", "password": "pw"})        # email works too (§41)
-    assert r.status_code == 200 and r.json()["token_type"] == "bearer"
+    r = c.post("/v1/auth/login", json={"identifier": "a@q.ai", "password": "pw"})        # email works too
+    assert r.status_code == 200 and r.json()["mfa"] == "none" and "access_token" not in r.json()
+    assert "qb_session" in r.cookies and "httponly" in r.headers["set-cookie"].lower()    # §5 FR-AUTH-06
     events = [e[0] for e in svc.ops.audit_rows]
     assert events == ["failed_authentication", "user_login"]                              # §53
 
@@ -172,7 +181,7 @@ def test_feedback_validates_outcome_values_prd_21():
 
 def test_employee_cannot_use_admin_routes():
     c, svc, *_ = make_client()
-    for method, url in [("get", "/v1/users"), ("get", "/v1/api-keys"), ("get", "/v1/audit-logs"), ("get", "/v1/failed-questions"),
+    for method, url in [("get", "/v1/admin/users"), ("get", "/v1/admin/api-keys"), ("get", "/v1/audit-logs"), ("get", "/v1/failed-questions"),
                         ("post", "/v1/admin/reindex")]:
         assert getattr(c, method)(url, headers=bearer(svc)).status_code == 403, url
 

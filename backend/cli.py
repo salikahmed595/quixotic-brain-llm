@@ -7,6 +7,10 @@
 
     python -m backend.cli seed-departments
 creates the departments the owner chose on 2026-10-17 (PRD §8 suggested hierarchy); existing names are left alone.
+
+    python -m backend.cli bootstrap-admin --email you@company.com --name "Your Name" --username you
+PRD §5 FR-AUTH-06: the one-time protected setup path for the FIRST System Admin. It runs only on the server (shell access is
+the protection) and refuses once any System Admin exists; public sign-up can never create one.
 """
 from __future__ import annotations
 
@@ -14,7 +18,7 @@ import argparse
 import getpass
 import os
 
-from .auth.security import hash_password
+from .auth.security import hash_password, password_problem
 from .config import get_settings
 from .database.pool import make_pool, migrate
 from .database.users import UserStore
@@ -38,6 +42,10 @@ def main() -> int:
     cu.add_argument("--name", required=True)
     cu.add_argument("--role", required=True, choices=[r.value for r in Role])
     cu.add_argument("--department", action="append", default=[], help="department name; repeatable (PRD §10)")
+    ba = sub.add_parser("bootstrap-admin")
+    ba.add_argument("--email", required=True)
+    ba.add_argument("--name", required=True)
+    ba.add_argument("--username", required=True)
     a = ap.parse_args()
     settings = get_settings()
     if a.cmd == "migrate":
@@ -50,6 +58,17 @@ def main() -> int:
             print(("exists " if users.department_by_name(name) else "created"), name)
             if not users.department_by_name(name):
                 users.create_department(name)
+        return 0
+    if a.cmd == "bootstrap-admin":
+        if users.system_admin_exists():
+            raise SystemExit("refused: a System Admin already exists. Use the admin Users page to add more (PRD §5 FR-AUTH-06).")
+        password = os.environ.get("QB_NEW_USER_PASSWORD") or getpass.getpass("Password for the first System Admin: ")
+        problem = password_problem(password, a.username, a.email.split("@")[0], a.name)
+        if problem:
+            raise SystemExit(problem)
+        uid = users.create_user(a.username.strip().lower(), a.email.strip().lower(), a.name, hash_password(password),
+                                Role.SYSTEM_ADMIN, [])
+        print("created the first System Admin", uid, "- sign in and set up two-step sign-in (MFA)")
         return 0
     ids = []
     for name in a.department:
