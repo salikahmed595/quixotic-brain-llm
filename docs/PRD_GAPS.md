@@ -120,6 +120,25 @@ P0 will do. ❓ = needs your decision before that milestone starts.
 - Implementation necessities: React 18.3, Vite 6.3, Tailwind 4.1, TypeScript 5.8 (exact versions in `web/package.json`); Node 24 build
   stage in the Dockerfile. Test-only: Playwright 1.63, pixelmatch 7.1, pngjs 7.0 (dev dependencies).
 
+### 0.7 Hermes, Telegram and Obsidian (owner, 2026-10-17)
+
+Status today: **not built.** No Hermes, Telegram or vault code exists in `backend/`, `workers/` or the Docker setup.
+PRD §9 describes the flow; §14 puts it in P2 / Phase 3 and §16 says it must not delay the Phase 1 launch.
+
+| Topic | PRD | Owner decision (2026-10-17) |
+|---|---|---|
+| When | §14 P2, §16 "must not delay a safe Phase 1 launch" | **Build after M3** (vault + statuses + publication exist). Runs beside M4–M7 only if it does not delay the §16 release |
+| Deployment | §11 Hermes Agent "optional Phase 2 Telegram/Discord + controlled backend tools" | Hermes runs on the same EC2 server (Docker Compose service) with the API |
+| Obsidian | §8 Obsidian-compatible Markdown vault, server-side, Git-versioned; §1/§9 every change reviewed | **CEO uses the Obsidian desktop app + Git sync.** Edits sync to a separate *proposals* area (branch or folder) on the server, never to the published vault; each change becomes a Draft/Under Review proposal with a before/after diff |
+| Approval | §3 Founder/CEO approves within an approval matrix; §9 step 5 high-impact always explicit | **CEO confirms in Telegram:** the bot sends the diff, CEO taps Approve / Revise / Reject. High-impact topics (HR, pay, discounts, refunds, customer payments, security) also need a second approver — proposed: a Knowledge Admin in the web Approvals page. ❓ confirm the second approver |
+| Voice notes | §9 step 2; §10 approved providers only | **OpenAI speech-to-text** (OpenAI is the approved provider since 2026-10-17). Uncertain segments flagged for confirmation |
+| Hermes permissions | §15 no open-ended filesystem/shell; §11 signed `POST /integrations/hermes/knowledge-proposals` | Hermes gets only the backend tools (search approved docs, create proposal, get proposal status) through the signed endpoint; no shell, no file access, no direct vault writes |
+| Senders | §9 step 1 allowlist + verified identity mapping | Allowlisted Telegram user IDs mapped to company users with Founder/CEO or Knowledge Admin authority |
+
+Still open ❓ (asked when the milestone starts): the Telegram bot token and allowlisted IDs (stored only in AWS Secrets Manager /
+server env, §10); the retention period for original messages and audio (§9 step 2); Discord now or later; the exact
+Hermes Agent version (pinned, listed under implementation necessities).
+
 ### 0.4 What already works and is reused
 
 Hybrid retrieval (Postgres FTS + pgvector) with permission filters **before** search; reranker interface; ingestion of

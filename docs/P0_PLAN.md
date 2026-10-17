@@ -51,6 +51,7 @@ answered; work that does not depend on them goes first.
 - Statuses Draft / Under Review / Approved / Published / Archived (§8). No migration of old knowledge rows — the owner starts fresh with new Obsidian knowledge (PRD_GAPS §0.4b).
 - Fields per §8: category, department(s), sensitivity/access scope, owner, approving user, provenance, effective date, version ID, indexing checksum; `document_permissions` and ACL metadata on every chunk (§8, §12).
 - Git-backed Obsidian-compatible vault on the server; publication writes the Markdown file and commits (§8). Front-matter keys per owner decision.
+  Design it so a separate *proposals* area can receive the CEO's Obsidian Git sync later (owner, 2026-10-17; PRD_GAPS §0.7) — proposals never write the published vault.
 - Import approved Obsidian Markdown files (P0 "Obsidian-compatible approved document import", §14); PDF/DOCX/TXT/MD upload already works — add parse review step and reject unreadable files (§7 Documents).
 - Controlled publication transaction: new version indexed and permission-synced before it switches to Published; old chunks invalidated; previous version recoverable; fail closed if index and permissions disagree (§8).
 - Retrieval filter: Published and not past expiry (§8). Admin reindex endpoint (`POST /admin/documents/{id}/reindex`, §11).
@@ -96,3 +97,16 @@ answered; work that does not depend on them goes first.
 Out of P0 (do not build now): Add information, Approvals UI, Knowledge browser, Sales memory UI, Dashboard/Insights
 polish, Vocabulary UI changes, Web Search, voice questions (P1); Hermes + Telegram/Discord (P2). Existing code for
 these stays in place but is not extended until its phase.
+
+## After M3 — Hermes + Telegram knowledge updates (PRD §9; owner decisions in PRD_GAPS §0.7)
+
+Starts once M3 is done; must not delay the §16 Phase 1 release.
+
+- Hermes Agent as a Docker Compose service on the EC2 server; only backend tools via signed `POST /integrations/hermes/knowledge-proposals` (§11, §15).
+- Telegram gateway: allowlisted IDs mapped to verified Founder/CEO / Knowledge Admin users (§9 step 1).
+- Voice notes transcribed with OpenAI speech-to-text; uncertain segments flagged (§9 step 2).
+- Intent (ask, add fact, edit rule, replace policy, report gap) → search approved docs → Markdown proposal with before/after diff (§9 steps 3–4).
+- CEO approves in Telegram; high-impact topics also need a second approver (§9 step 5). On approval: new version, audit event, reindex, retrieval check, Telegram confirmation with the document link; on failure keep the old version and alert (§9 steps 6–7).
+- Obsidian desktop + Git sync into the proposals area; each synced change becomes a proposal for the same approval flow.
+- Knowledge-gap notifications to the owner on Telegram (§9 gap loop).
+- **Tests:** unlisted Telegram ID rejected; nothing is published without approval; high-impact needs two approvals; failed reindex keeps the previous version; Hermes cannot reach any tool outside the allowlist.
