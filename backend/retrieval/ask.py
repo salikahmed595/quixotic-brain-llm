@@ -15,13 +15,14 @@ from ..models import AnswerContext, Candidate
 from .language import NormalizedQuery
 from .search import SearchService, confidence_label
 
-# PRD §29 (no evidence at all) and §32 (low confidence) — wording is the PRD's.
-NOT_FOUND_TEXT = (
-    "I could not find an approved Quixotic policy covering this situation.\n\n"
-    "Please ask your manager or submit missing knowledge."
-)
-LOW_CONFIDENCE_TEXT = "I could not find enough reliable Quixotic information to answer this confidently."
-LOW_CONFIDENCE_ACTIONS = ["ask_manager", "report_missing_knowledge", "search_documents"]   # §32
+# PRD §6 FR-CHAT-04: "If no verified answer is found: 'I couldn't find an approved answer in the company knowledge base.'
+# Offer Report missing information." The exact wording is the PRD's; it is used for every case without approved evidence.
+NOT_FOUND_TEXT = "I couldn't find an approved answer in the company knowledge base."
+LOW_CONFIDENCE_TEXT = NOT_FOUND_TEXT
+NOT_FOUND_ACTIONS = ["report_missing_information", "search_documents"]
+LOW_CONFIDENCE_ACTIONS = NOT_FOUND_ACTIONS
+# The answer model writes exactly this when the passages it was given do not answer the question (generation/prompt.py rule 3).
+NO_APPROVED_ANSWER = "NO_APPROVED_ANSWER"
 # Owner request (2026-10-08): an answer written only from past sales chats always starts with this line (PRD §19: keep
 # historical correlation and official policy clearly distinguishable).
 # MEASURED on 800 of the owner's chats: "hello" (0.97) and "thanks" (0.88) match chat lines more closely than real sales
@@ -42,8 +43,8 @@ def order_by_priority(chunks: list[Candidate], tiers: dict[str, int]) -> list[Ca
 
 
 def source_of(c: Candidate) -> dict:
-    """PRD §30: title, section, version, updated."""
-    return {"title": c.title, "section": c.section, "version": c.version,
+    """PRD §6 FR-CHAT-04 citations: document title, relevant section and effective/updated date, plus the version (AT-03)."""
+    return {"title": c.title, "section": c.section, "version": c.version, "document_id": str(c.item_id), "version_id": str(c.version_id),
             "updated": c.updated_at.isoformat() if c.updated_at else None}
 
 
@@ -81,9 +82,10 @@ class AskService:
     def ask(self, question: str, department_ids: frozenset[UUID], include_sales_history: bool = False,
             sales_department_ids: frozenset[UUID] = frozenset(), levels: frozenset[str] = frozenset(),
             history: Sequence[tuple[str, str]] = (), asker: Optional[dict] = None,
-            preferences: Optional[dict] = None) -> AskResult:
+            preferences: Optional[dict] = None, recheck=None) -> AskResult:
         """`history`: earlier (question, answer) pairs of the same chat, oldest first. Used only to understand what a short
-        follow-up refers to, never as a source of facts."""
+        follow-up refers to, never as a source of facts. `recheck(version_ids) -> still allowed ids` re-checks permissions and
+        publication right before the answer is returned (PRD §8 "Recheck permissions before providing the final source/answer")."""
         previous = history[-1][0] if history else None
         interpretation = self._interpret(question, history)
         out = self.search.search(question, department_ids, levels, previous_question=previous,
@@ -103,14 +105,25 @@ class AskService:
                 res = self._history_only(out, cases, history, asker, preferences)
                 if res is not None:
                     return res
-            if not out.candidates:                                                    # §29
-                return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=LOW_CONFIDENCE_ACTIONS, **base)
-            return AskResult(answer=LOW_CONFIDENCE_TEXT, found=False, actions=LOW_CONFIDENCE_ACTIONS, **base)   # §32: no LLM call
+            # PRD §6 FR-CHAT-04: no verified answer -> the exact sentence, no LLM call, offer Report missing information
+            return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
 
         context = AnswerContext(knowledge=order_by_priority(out.candidates, self.settings.priority_tiers),
                                 sales_cases=cases, history=list(history),
                                 asker=asker or {}, preferences=preferences or {})
         answer = self.generator.generate_answer(context, out.query.original)
+        if NO_APPROVED_ANSWER in answer:              # the model found the passages do not answer it: the PRD's exact reply
+            return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
+        if recheck is not None:
+            used = {c.version_id for c in context.knowledge}
+            allowed = recheck(used)
+            if not allowed:                           # everything it used was unpublished or became off-limits meanwhile
+                return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
+            if len(allowed) < len(used):              # answer again from what is still allowed only
+                context.knowledge = [c for c in context.knowledge if c.version_id in allowed]
+                answer = self.generator.generate_answer(context, out.query.original)
+                if NO_APPROVED_ANSWER in answer:
+                    return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
         hist = ({"similar": len(cases), "successful": sum(c.outcome == SUCCESSFUL_OUTCOME for c in cases)}
                 if cases else None)
         seen, sources = set(), []

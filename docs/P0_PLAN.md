@@ -57,7 +57,7 @@ answered; work that does not depend on them goes first.
 - Retrieval filter: Published and not past expiry (§8). Admin reindex endpoint (`POST /admin/documents/{id}/reindex`, §11).
 - **Tests:** draft/under-review text never retrievable; publish swap is atomic; old version recoverable (AT-06 backend part, without the P1 Approvals UI).
 
-## M4 — Answers, citations, missing knowledge
+## M4 — Answers, citations, missing knowledge — ✅ built 2026-10-17 (exact not-found text, citations, recheck, gap loop; AT-03/04/05 tests)
 
 - Exact not-found text from §6 FR-CHAT-04 and "Report missing information" → `knowledge_gaps` table, de-duplicated, assigned to the department owner (§9, §12).
 - Citations show document title, section and effective/updated date + version (§6 FR-CHAT-04, AT-03).

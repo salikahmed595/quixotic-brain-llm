@@ -17,6 +17,7 @@ from backend.api.services import Services
 from backend.auth.security import SlidingWindowLimiter, hash_password
 from backend.database.accounts import OneTimeTokenStore, SessionStore, SystemSettingsStore
 from backend.database.conversations import ConversationStore
+from backend.database.gaps import GapStore
 from backend.database.knowledge import KnowledgeStore
 from backend.database.ops import OpsStore
 from backend.database.retrieval_store import RetrievalSQLStore
@@ -77,7 +78,7 @@ def stack(db, monkeypatch, tmp_path):
                        importer=SalesMemoryImporter(ops, emb, lang, None, None), storage=storage, queue=SQSQueue(s),
                        language=lang, embedder=emb, limiter=SlidingWindowLimiter(), pool=db,
                        sessions=SessionStore(db, t), one_time=OneTimeTokenStore(db), system_settings=SystemSettingsStore(db, t),
-                       mailer=ConsoleMailer(), conversations=ConversationStore(db, t))
+                       mailer=ConsoleMailer(), conversations=ConversationStore(db, t), gaps=GapStore(db, t))
         yield svc, TestClient(create_app(svc))
 
 
@@ -184,7 +185,7 @@ def test_upload_process_search_ask(stack):
     # failed question (§35): nothing relevant -> low confidence -> visible to admin only (§9.4)
     miss = client.post("/v1/ask", headers=rep, json={"question": "zxqv blorptastic ungleeb"}).json()
     if miss["confidence"] == "low":
-        assert miss["actions"] == ["ask_manager", "report_missing_knowledge", "search_documents"]
+        assert miss["actions"] == ["report_missing_information", "search_documents"] and miss["gap_id"]
         assert any("zxqv" in f["original_query"] for f in client.get("/v1/failed-questions", headers=admin).json()["failed_questions"])
     assert client.get("/v1/failed-questions", headers=rep).status_code == 403
 

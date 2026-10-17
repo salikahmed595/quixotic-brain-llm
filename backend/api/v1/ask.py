@@ -13,6 +13,7 @@ from ...permissions.roles import P, can
 from ..deps import Caller, api_caller, get_services, resolve_caller
 from ..services import Services
 from .auth import clean_preferences, learned_hints
+from .gaps import record_gap
 
 router = APIRouter(prefix="/v1", tags=["ask"])
 
@@ -123,8 +124,9 @@ def _scope(svc: Services, caller: Caller, department: Optional[str]):
     return scope, requested
 
 
-def _log(svc, caller, requested, mode, res, answer, started):
-    return svc.ops.log_query(
+def _log(svc, caller, requested, mode, res, answer, started, gap_id=None):
+    extra = {"gap_id": gap_id} if gap_id else {}
+    return svc.ops.log_query(**extra,
         user_id=caller.principal.user_id, api_key_id=caller.key["id"] if caller.key else None, department_id=requested,
         mode=mode, original=res.query.original, normalized=res.query.normalized, language=res.query.language,
         confidence=res.confidence, score=res.confidence_score, found=bool(res.retrieved) and res.confidence != "low",
@@ -142,20 +144,29 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
     _check_chat(svc, caller, body.conversation_id)
     started = time.monotonic()
     asker, prefs = _asker(svc, caller)
+    levels = svc.settings.levels_for(caller.principal.role.value)
+    store = getattr(svc.search, "store", None)
+    # PRD §8: re-check publication and permissions of every cited version right before the answer is returned
+    recheck = (lambda ids: store.still_eligible(list(ids), scope, levels)) if hasattr(store, "still_eligible") else None
     try:
         res = svc.ask.ask(body.question, scope, include_sales_history=body.mode == "sales_coach",
-                          sales_department_ids=scope, levels=svc.settings.levels_for(caller.principal.role.value),
-                          history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs)
+                          sales_department_ids=scope, levels=levels,
+                          history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs, recheck=recheck)
     except RuntimeError as e:                    # e.g. no answer-model API key configured yet
         raise HTTPException(503, str(e))
-    query_id = _log(svc, caller, requested, body.mode, res, res.answer, started)
+    gap_id = None
+    if not res.found and caller.key is None:     # §9 gap loop: an unanswered employee question becomes a de-duplicated gap
+        gap_id = record_gap(svc, caller.principal, body.question, requested)
+    query_id = _log(svc, caller, requested, body.mode, res, res.answer, started, gap_id)
     out = {"query_id": str(query_id), "answer": res.answer, "confidence": res.confidence}   # PRD §38 shape
     if can(caller.principal.role, P.VIEW_SOURCES):
         out["sources"] = res.sources
     if res.historical_cases is not None:
         out["historical_cases"] = res.historical_cases
     if res.actions:
-        out["actions"] = res.actions                                                        # PRD §32
+        out["actions"] = res.actions                                       # §6 FR-CHAT-04: offer Report missing information
+    if gap_id:
+        out["gap_id"] = str(gap_id)
     cid = _remember(svc, caller, body.conversation_id, body.question, body.mode, requested,
                     {"kind": "ask", "mode": body.mode, "question": body.question, **out})
     if cid is not None:

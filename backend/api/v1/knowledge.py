@@ -109,13 +109,14 @@ class ProposalIn(BaseModel):
     expires_at: Optional[datetime] = None
     change_note: Optional[str] = Field(default=None, max_length=1000)
     high_impact: bool = False
+    gap_id: Optional[UUID] = None                     # answering a knowledge gap (§9 gap loop)
 
 
 def _draft(b, body, file_id=None) -> Draft:
     return Draft(title=" ".join(b.title.split()), body=body, department_ids=list(b.department_ids), sensitivity=b.sensitivity,
                  category=(b.category or "").strip() or None, owner_id=b.owner_id, provenance=(b.provenance or "").strip() or None,
                  effective_date=b.effective_date, expires_at=b.expires_at, change_note=(b.change_note or "").strip() or None,
-                 high_impact=b.high_impact, source_file_id=file_id)
+                 high_impact=b.high_impact, source_file_id=file_id, gap_id=getattr(b, "gap_id", None))
 
 
 @router.post("/proposals", status_code=201)
@@ -157,13 +158,13 @@ def propose_upload(file: UploadFile = File(...), department_ids: str = Form(...)
                    title: Optional[str] = Form(None), category: Optional[str] = Form(None), item_id: Optional[UUID] = Form(None),
                    owner_id: Optional[UUID] = Form(None), provenance: Optional[str] = Form(None),
                    effective_date: Optional[date] = Form(None), expires_at: Optional[datetime] = Form(None),
-                   change_note: Optional[str] = Form(None), high_impact: bool = Form(False),
+                   change_note: Optional[str] = Form(None), high_impact: bool = Form(False), gap_id: Optional[UUID] = Form(None),
                    p: Principal = Depends(require(P.PROPOSE_KNOWLEDGE)), svc: Services = Depends(get_services)):
     """PDF / DOCX / TXT / MD (§7 Documents). Stored, parsed and indexed in the background; reviewers then see the parsed text."""
     file_id, name = _store_upload(svc, p, file)
     b = ProposalIn(item_id=item_id, title=(title or name.rsplit(".", 1)[0]).strip() or name, body=None, department_ids=_ids(department_ids),
                    sensitivity=sensitivity, category=category, owner_id=owner_id, provenance=provenance or f"Uploaded file {name}",
-                   effective_date=effective_date, expires_at=expires_at, change_note=change_note, high_impact=high_impact)
+                   effective_date=effective_date, expires_at=expires_at, change_note=change_note, high_impact=high_impact, gap_id=gap_id)
     try:
         d = _draft(b, None, file_id)
         out = _ks(svc).propose_update(p, item_id, d, source="upload", source_ref=None) if item_id else \

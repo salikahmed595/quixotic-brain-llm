@@ -11,6 +11,7 @@ from ..auth.security import SlidingWindowLimiter
 from ..config import Settings
 from ..database.accounts import OneTimeTokenStore, SessionStore, SystemSettingsStore
 from ..database.conversations import ConversationStore
+from ..database.gaps import GapStore
 from ..database.knowledge import KnowledgeStore
 from ..database.ops import OpsStore
 from ..database.pool import make_pool, migrate
@@ -52,6 +53,7 @@ class Services:
     one_time: Any = None                # verification / reset links
     system_settings: Any = None         # PRD §12 system_settings
     mailer: Any = None                  # PRD §5 FR-AUTH-02 email
+    gaps: Any = None                    # PRD §9 knowledge gaps
 
 
 def build_services(settings: Settings, parser=None, extractor=None, run_migrations: bool = True,
@@ -88,4 +90,4 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         storage=storage, queue=SQSQueue(settings), language=language, embedder=embedder,
         limiter=SlidingWindowLimiter(), pool=pool, conversations=ConversationStore(pool, t), models_ready=ready,
         sessions=SessionStore(pool, t), one_time=OneTimeTokenStore(pool), system_settings=SystemSettingsStore(pool, t),
-        mailer=make_mailer(settings))
+        mailer=make_mailer(settings), gaps=GapStore(pool, t))

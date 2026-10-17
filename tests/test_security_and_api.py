@@ -137,10 +137,11 @@ def test_department_outside_authorization_is_403_and_unknown_is_400():
     assert c.post("/v1/ask", json={"question": "q"}).status_code == 401
 
 
-def test_low_confidence_is_logged_as_failed_question_and_returns_actions():     # PRD §32, §35
+def test_low_confidence_is_logged_as_failed_question_and_returns_actions():     # PRD §6 FR-CHAT-04
     c, svc, *_ = make_client(vec=[cand(score=0.1)])
     r = c.post("/v1/ask", headers=bearer(svc), json={"question": "new client ka onboarding SLA kya hai?"}).json()
-    assert r["confidence"] == "low" and r["actions"] == ["ask_manager", "report_missing_knowledge", "search_documents"]
+    assert r["confidence"] == "low" and r["actions"] == ["report_missing_information", "search_documents"]
+    assert r["answer"] == "I couldn't find an approved answer in the company knowledge base."
     assert svc.ops.logged[0]["found"] is False
 
 

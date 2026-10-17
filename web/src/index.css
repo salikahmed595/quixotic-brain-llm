@@ -188,5 +188,5 @@
   .pill { height: 44px; min-width: 44px; justify-content: center; }
   .sb-row, .chat-item { height: 44px; }
   .ws-item { height: 44px; }
-  .chat-item .dots { width: 40px; height: 40px; opacity: 1; }
+  .chat-item .dots { width: 44px; height: 44px; opacity: 1; }   /* PRD §4.4 44 × 44 px touch targets */
 }

@@ -3,7 +3,7 @@ import { api, session } from '../api';
 import { Icon } from '../icons';
 import { Mascot } from '../components/Mascot';
 import { go, replaceRoute, useApp, useRoute } from '../state';
-import { Banner, Loading, openDrawer, toast } from '../ui';
+import { Banner, can, Loading, openDrawer, openModal, toast, useAction } from '../ui';
 import type { Msg, Source } from '../types';
 
 /* PRD §4.1 home screen + §6 chat. Suggestion cards submit example questions; they are never hard-coded answers (FR-CHAT-03). */
@@ -26,7 +26,7 @@ const REASONS = ['Wrong answer', 'Not what I asked', 'Too long', 'Too short', 'M
 
 function fromStored(c: any): Msg {
   if (c.kind === 'search') return { role: 'ai', kind: 'search', question: c.question, results: c.results || [] };
-  return { role: 'ai', kind: 'ask', question: c.question, query_id: c.query_id, answer: c.answer, confidence: c.confidence, sources: c.sources || [], found: !c.actions };
+  return { role: 'ai', kind: 'ask', question: c.question, query_id: c.query_id, answer: c.answer, confidence: c.confidence, sources: c.sources || [], found: !c.actions, gap_id: c.gap_id };
 }
 
 export function Ask({ resetKey }: { resetKey: number }) {
@@ -65,7 +65,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
       } else {
         const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general' } });
-        msg = { role: 'ai', kind: 'ask', question: q, query_id: r.query_id, answer: r.answer, confidence: r.confidence, sources: r.sources || [], found: !r.actions }; saved(r);
+        msg = { role: 'ai', kind: 'ask', question: q, query_id: r.query_id, answer: r.answer, confidence: r.confidence, sources: r.sources || [], found: !r.actions, gap_id: r.gap_id }; saved(r);
       }
     } catch (e) { msg = { role: 'ai', error: (e as Error).message, question: q }; }
     setThread(t => [...t.slice(0, -1), msg]); setBusy(false);
@@ -240,7 +240,7 @@ function openSources(sources: Source[]) {
           <div key={k} className="card !p-4 shadow-none">
             <div className="flex items-center gap-2 font-bold"><span className="chip orange">{k + 1}</span>{s.title}</div>
             <dl className="kv mt-2.5 text-[13.5px]">
-              <dt>Section</dt><dd>{s.section || '—'}</dd><dt>Version</dt><dd>v{s.version}</dd><dt>Updated</dt><dd>{s.updated ? new Date(s.updated).toLocaleDateString() : '—'}</dd>
+              <dt>Section</dt><dd>{s.section || '—'}</dd><dt>Version</dt><dd>v{s.version}</dd><dt>Effective</dt><dd>{s.updated ? new Date(s.updated).toLocaleDateString() : '—'}</dd>
             </dl>
           </div>
         ))}
@@ -277,13 +277,9 @@ function Message({ m, i, update, retry, submit }: { m: Msg; i: number; update: (
     try { await api('/v1/feedback', { method: 'POST', body: { query_id: m.query_id, note: r } }); update(i, { reasons: [...(m.reasons || []), r] }); toast('Noted: ' + r.toLowerCase()); }
     catch (e) { toast((e as Error).message); }
   };
-  /* PRD §6 FR-CHAT-04 "Offer Report missing information". Contributors and above can add it themselves. */
-  const report = async () => {
-    if (app.rank >= 1) { session.set('qb_prefill', JSON.stringify({ title: m.question })); go('add'); return; }
-    try { await api('/v1/feedback', { method: 'POST', body: { query_id: m.query_id, note: 'Missing information' } }); toast('Reported. The knowledge owners will see this question.'); }
-    catch (e) { toast((e as Error).message); }
-  };
-
+  /* PRD §6 FR-CHAT-04 "Offer Report missing information": the question becomes a de-duplicated gap for its department's owners (§9).
+     People who can add knowledge may also answer it straight away. */
+  const report = () => openModal('Report missing information', close => <ReportGap m={m} canAdd={can(app.me, 'propose_knowledge')} close={close} />);
   return wrap(<>
     {low ? <div className="notice"><b>{first}</b>{rest.length > 0 && <p className="mt-1.5">{rest.join(' ').trim()}</p>}</div>
       : <div className="answer">{m.answer}</div>}
@@ -323,3 +319,20 @@ function Hit({ r, k }: { r: { source: string; text: string }; k: number }) {
   );
 }
 
+
+function ReportGap({ m, canAdd, close }: { m: { question: string; query_id?: string; gap_id?: string }; canAdd: boolean; close: () => void }) {
+  const [comment, setComment] = useState(''); const a = useAction();
+  const send = () => a.run(async () => {
+    await api('/v1/knowledge-gaps/report', { method: 'POST', body: { query_id: m.query_id, comment: comment.trim() || null } });
+    close(); toast('Reported. The people who keep this knowledge up to date will see it.');
+  });
+  return (<>
+    <p className="text-ink-2 mb-3">The knowledge owners for your department will see this question: <b>“{m.question}”</b></p>
+    <div className="field mb-4"><label htmlFor="rg-c">Anything that would help? <span className="hint">(optional)</span></label>
+      <textarea id="rg-c" className="textarea min-h-[90px]" maxLength={1000} value={comment} onChange={e => setComment(e.target.value)} placeholder="e.g. Customers ask this every day" /></div>
+    {a.error && <Banner kind="err" className="mb-3">{a.error}</Banner>}
+    <div className="flex flex-wrap justify-end gap-3">
+      {canAdd && <button className="btn" onClick={() => { session.set('qb_prefill', JSON.stringify({ title: m.question, gap_id: m.gap_id })); close(); go('add'); }}>Add this information myself</button>}
+      <button className="btn" onClick={close}>Cancel</button><button className="btn primary" disabled={a.busy || !m.query_id} onClick={send}>Report</button></div>
+  </>);
+}

@@ -72,14 +72,14 @@ class OpsStore:
     def log_query(self, *, user_id: Optional[UUID], api_key_id: Optional[UUID], department_id: Optional[UUID],
                   mode: str, original: str, normalized: str, language: str, confidence: Optional[str],
                   score: Optional[float], found: bool, retrieved: list, answer: Optional[str],
-                  latency_ms: Optional[int]) -> UUID:
+                  latency_ms: Optional[int], gap_id: Optional[UUID] = None) -> UUID:
         with self.pool.connection() as c:
             return c.execute(
                 "INSERT INTO query_log (tenant_id, user_id, api_key_id, department_id, mode, original_query, "
-                "normalized_query, language, confidence, confidence_score, knowledge_found, retrieved, answer, latency_ms) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                "normalized_query, language, confidence, confidence_score, knowledge_found, retrieved, answer, latency_ms, gap_id) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                 (self.tenant, user_id, api_key_id, department_id, mode, original, normalized, language, confidence,
-                 score, found, Jsonb(retrieved), answer, latency_ms)).fetchone()["id"]
+                 score, found, Jsonb(retrieved), answer, latency_ms, gap_id)).fetchone()["id"]
 
     def get_query(self, query_id: UUID) -> Optional[dict]:
         with self.pool.connection() as c:

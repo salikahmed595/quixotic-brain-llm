@@ -229,13 +229,14 @@ class KnowledgeStore:
     # ---- proposals and decisions (§7 Approvals, §12) ----
     def create_proposal(self, *, kind: str, item_id: UUID, version_id: UUID, base_version_id: Optional[UUID], title: str,
                         summary: Optional[str], meta: dict, source: str, source_ref: Optional[str], submitted_by: Optional[UUID],
-                        high_impact: bool, required_approvals: int) -> UUID:
+                        high_impact: bool, required_approvals: int, gap_id: Optional[UUID] = None) -> UUID:
         with self.pool.connection() as c:
             return c.execute(
                 "INSERT INTO knowledge_proposals (tenant_id, kind, item_id, version_id, base_version_id, title, summary, meta, source, "
-                "source_ref, submitted_by, high_impact, required_approvals) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                "source_ref, submitted_by, high_impact, required_approvals, gap_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+                "RETURNING id",
                 (self.tenant, kind, item_id, version_id, base_version_id, title, summary, Jsonb(meta), source, source_ref, submitted_by,
-                 high_impact, required_approvals)).fetchone()["id"]
+                 high_impact, required_approvals, gap_id)).fetchone()["id"]
 
     def proposal_by_ref(self, source: str, source_ref: str) -> Optional[dict]:
         with self.pool.connection() as c:

@@ -73,6 +73,7 @@ class Draft:
     change_note: Optional[str] = None
     high_impact: bool = False
     source_file_id: Optional[UUID] = None
+    gap_id: Optional[UUID] = None                     # the knowledge gap this answers (§9 gap loop)
 
     def meta(self) -> dict:
         return {"title": self.title, "category": self.category, "department_ids": [str(d) for d in self.department_ids],
@@ -130,7 +131,9 @@ class KnowledgeService:
                                         checksum=checksum(d.body), status=UNDER_REVIEW)
         pid = self.store.create_proposal(kind="create", item_id=item, version_id=vid, base_version_id=None, title=d.title.strip(),
                                          summary=d.change_note, meta=d.meta(), source=source, source_ref=source_ref,
-                                         submitted_by=actor.user_id, high_impact=high, required_approvals=self._required(high))
+                                         submitted_by=actor.user_id, high_impact=high, required_approvals=self._required(high),
+                                         gap_id=d.gap_id)
+        self._mark_gap_in_progress(d.gap_id)
         job = self._enqueue("knowledge.process", {"version_id": str(vid)}, actor.user_id)
         audit.record(self.svc.ops, audit.KNOWLEDGE_SUBMISSION, actor.user_id, actor.employee_id, proposal=pid, title=d.title,
                      kind="create", source=source, high_impact=high)
@@ -156,7 +159,8 @@ class KnowledgeService:
         pid = self.store.create_proposal(kind="update", item_id=item_id, version_id=vid, base_version_id=base["id"] if base else None,
                                          title=d.title.strip(), summary=d.change_note, meta=d.meta(), source=source,
                                          source_ref=source_ref, submitted_by=actor.user_id, high_impact=high,
-                                         required_approvals=self._required(high))
+                                         required_approvals=self._required(high), gap_id=d.gap_id)
+        self._mark_gap_in_progress(d.gap_id)
         job = self._enqueue("knowledge.process", {"version_id": str(vid)}, actor.user_id)
         audit.record(self.svc.ops, audit.KNOWLEDGE_SUBMISSION, actor.user_id, actor.employee_id, proposal=pid, title=d.title,
                      kind="update", source=source, high_impact=high)
@@ -348,8 +352,18 @@ class KnowledgeService:
         if not any(c.version_id == version_id for c in found):
             raise KnowledgeError(500, "the new version could not be found by search after publication")
 
+    def _mark_gap_in_progress(self, gap_id: Optional[UUID]) -> None:
+        gaps = getattr(self.svc, "gaps", None)
+        if gap_id and gaps:
+            g = gaps.get(gap_id)
+            if g and g["status"] == "open":
+                gaps.update(gap_id, status="in_progress")
+
     def _after_publish(self, p: dict, item: dict) -> None:
-        """Hook for M4 (resolve knowledge gaps) and the bots (confirmation with the document link)."""
+        """§9: "Once approved new knowledge is published, mark the gap resolved"; then the bots' confirmation hook."""
+        gaps = getattr(self.svc, "gaps", None)
+        if gaps and p.get("gap_id"):
+            gaps.resolve_by_proposal(p["id"], p["gap_id"], None)
         hook = getattr(self.svc, "on_published", None)
         if hook:
             try:

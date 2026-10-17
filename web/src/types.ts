@@ -30,7 +30,7 @@ export interface Me {
 
 export interface Chat { id: string; title: string; updated_at: string }
 
-export interface Source { title: string; section?: string | null; version: number; updated?: string | null }
+export interface Source { title: string; section?: string | null; version: number; updated?: string | null; document_id?: string; version_id?: string }
 
 export type Msg =
   | { role: 'user'; text: string }
@@ -39,5 +39,5 @@ export type Msg =
   | { role: 'ai'; kind: 'search'; question: string; results: { source: string; text: string }[] }
   | {
       role: 'ai'; kind: 'ask'; question: string; query_id?: string; answer: string; confidence?: string;
-      sources: Source[]; found: boolean; helpful?: boolean; reasons?: string[];
+      sources: Source[]; found: boolean; helpful?: boolean; reasons?: string[]; gap_id?: string;
     };
