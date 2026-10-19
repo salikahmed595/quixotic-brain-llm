@@ -9,3 +9,5 @@ web/node_modules/
 web/dist/
 .devvault/
 .pytest-vault/
+.obsidian-remote.git/
+obsidian-vault/

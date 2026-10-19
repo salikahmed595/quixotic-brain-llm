@@ -89,3 +89,9 @@ cd /opt/quixotic && git pull
 docker compose -f docker-compose.prod.yml up -d --build          # migrations run automatically at start
 ```
 Logs: `docker compose -f docker-compose.prod.yml logs --since 1h api worker` (rotated, 200 MB max/service). Verify audit log: System -> Audit log or `GET /v1/admin/system/audit-verify`.
+
+## 10. Test Obsidian sync on one PC (no server, no Telegram)
+```bash
+python scripts/obsidian_local.py setup --email you@yourcompany.com --name ceo    # then restart the app
+```
+Creates `.obsidian-remote.git` (stands in for the server, same hook rules) and `obsidian-vault/` on `proposals/ceo`; sets `QB_VAULT_REMOTE` + `QB_HERMES_SHARED_SECRET` in `.env`; links branch `ceo` to that user. Open `obsidian-vault/` in Obsidian, add a note with `departments:` + `sensitivity:` front matter, commit + push (Obsidian Git plugin or `git push`) -> Approvals -> approve -> ask.
