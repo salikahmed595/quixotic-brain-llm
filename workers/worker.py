@@ -9,6 +9,7 @@ Run: python -m workers.worker
 from __future__ import annotations
 
 import logging
+import time
 from uuid import UUID
 
 from backend.api.services import Services, build_services
@@ -78,4 +79,8 @@ if __name__ == "__main__":
         if n:
             log.info("requeued %s unfinished job(s)", n)
     while True:
-        run_once(services)
+        try:
+            run_once(services)
+        except Exception:                                   # queue/database briefly unreachable: keep the worker alive and retry
+            log.exception("worker loop error; retrying in 5 s")
+            time.sleep(5)

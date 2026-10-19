@@ -41,3 +41,13 @@ def test_redis_queue_semantics():
 @pytest.mark.skipif(not os.environ.get("QB_TEST_REDIS_URL"), reason="needs a real Redis (QB_TEST_REDIS_URL)")
 def test_redis_queue_on_a_real_redis():
     _exercise(RedisQueue(os.environ["QB_TEST_REDIS_URL"], name=f"t:{uuid4()}"))
+
+
+def test_blocking_wait_fits_inside_socket_timeout():
+    """QA 2026-10-19: redis-py 8 defaults to a 5 s read timeout, so a 20 s BLMOVE on an idle queue killed the worker."""
+    q = RedisQueue("redis://localhost:1/0")
+    timeout = q._r.connection_pool.connection_kwargs["socket_timeout"]
+    calls = []
+    q._r.blmove = lambda src, dst, wait, a, b: calls.append(wait)
+    q.receive(600)
+    assert calls[0] < timeout

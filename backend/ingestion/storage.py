@@ -81,6 +81,9 @@ class SQSQueue:
         self._sqs.delete_message(QueueUrl=self._url, ReceiptHandle=receipt)
 
 
+SOCKET_TIMEOUT_SECONDS = 60
+
+
 class RedisQueue:
     """PRD §11 "Redis and worker queue" (owner: one EC2 server, Redis in a container). Reliable-queue pattern: a received job is
     moved to a processing list and removed only when the worker is done, so a worker that crashes mid-job does not lose it
@@ -89,13 +92,16 @@ class RedisQueue:
     def __init__(self, url: str, name: str = "quixotic:jobs", client=None) -> None:
         if client is None:
             import redis
-            client = redis.Redis.from_url(url, decode_responses=True)
+            # socket_timeout must outlast the blocking BLMOVE wait (receive caps it below), else the worker dies on an idle queue
+            client = redis.Redis.from_url(url, decode_responses=True, socket_timeout=SOCKET_TIMEOUT_SECONDS,
+                                          socket_connect_timeout=10, health_check_interval=30)
         self._r, self._q, self._p = client, name, f"{name}:processing"
 
     def send(self, job_id: UUID, job_type: str) -> None:
         self._r.lpush(self._q, json.dumps({"job_id": str(job_id), "type": job_type}))
 
     def receive(self, wait_seconds: int = 20) -> Optional[tuple[dict, str]]:
+        wait_seconds = min(wait_seconds, SOCKET_TIMEOUT_SECONDS - 10)
         raw = (self._r.lmove(self._q, self._p, "RIGHT", "LEFT") if wait_seconds <= 0
                else self._r.blmove(self._q, self._p, wait_seconds, "RIGHT", "LEFT"))
         return (json.loads(raw), raw) if raw else None
