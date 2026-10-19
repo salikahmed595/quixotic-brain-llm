@@ -66,6 +66,8 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         migrate(settings.database_url)
     pool = make_pool(settings.database_url)
     t = settings.tenant_id
+    from ..retrieval import batching
+    batching.QUEUE_TIMEOUT_SECONDS = settings.model_queue_timeout_seconds
     embedder = get_embedder(settings)
     knowledge, ops = KnowledgeStore(pool, t), OpsStore(pool, t)
     language = LanguageService(settings.roman_urdu_min_ratio, vocab_loader=ops.list_vocabulary)   # + words taught in the app

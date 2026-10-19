@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     # Measured: 0.04 skips it for ~54% of questions with the same result quality and no unanswerable question let through.
     rerank_skip_margin: float = 0.0
 
+    # Overload protection (QA 2026-10-19): seconds a request may wait for the CPU models before a 503 "busy". Unset = no limit.
+    model_queue_timeout_seconds: Optional[float] = None
+
     # Restate Urdu / Roman Urdu / mixed questions as an English search query with one small LLM call (PRD §23). Optional.
     query_interpretation: bool = False
     feedback_learning: bool = True         # owner request: learn from 👍/👎 (retrieval order + personal style); docs/PRD_GAPS.md

@@ -28,3 +28,20 @@ def test_errors_reach_every_caller_in_the_batch():
     with pytest.raises(RuntimeError):
         b.submit(["x"])
     assert b.submit([]) == []
+
+
+def test_overloaded_queue_turns_requests_away_and_drops_their_work(monkeypatch):
+    """QA 2026-10-19: under overload, requests that waited too long get ModelBusy (503) and the model never runs them."""
+    import threading, time
+    from backend.retrieval import batching
+    gate, ran = threading.Event(), []
+    def slow(items):
+        gate.wait(5); ran.extend(items); return items
+    b = batching.MicroBatcher(slow, max_batch=1, max_wait=0)
+    monkeypatch.setattr(batching, "QUEUE_TIMEOUT_SECONDS", 0.2)
+    first = threading.Thread(target=lambda: b.submit(["first"])); first.start(); time.sleep(0.05)
+    import pytest
+    with pytest.raises(batching.ModelBusy):
+        b.submit(["late"])                       # waits behind "first", gives up
+    gate.set(); first.join(2); time.sleep(0.1)
+    assert ran == ["first"]                      # the abandoned request was never computed

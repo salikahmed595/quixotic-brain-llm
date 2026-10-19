@@ -8,11 +8,18 @@ from __future__ import annotations
 import queue
 import threading
 import time
-from concurrent.futures import Future
+from concurrent.futures import Future, TimeoutError as FutureTimeout
 from typing import Callable, Sequence
 
 MAX_WAIT_SECONDS = 0.01      # how long the first request waits for others to join its batch
 MAX_BATCH_ITEMS = 64         # items (texts or pairs) per model call
+# Longest a request waits for the CPU models before it is turned away (QB_MODEL_QUEUE_TIMEOUT_SECONDS; None = no limit).
+# Without a limit, an overload queues work for callers that already gave up and the server stops answering anyone (QA 2026-10-19).
+QUEUE_TIMEOUT_SECONDS: float | None = None
+
+
+class ModelBusy(RuntimeError):
+    """The models are overloaded; the API answers 503 so the caller can retry."""
 
 
 class MicroBatcher:
@@ -28,7 +35,11 @@ class MicroBatcher:
             return []
         fut: Future = Future()
         self._q.put((list(items), fut))
-        return fut.result()
+        try:
+            return fut.result(timeout=QUEUE_TIMEOUT_SECONDS)
+        except FutureTimeout:
+            fut.cancel()                                 # still queued: the model never runs it
+            raise ModelBusy("The system is busy right now. Please try again in a moment.") from None
 
     def _loop(self) -> None:
         while True:
@@ -45,6 +56,9 @@ class MicroBatcher:
                     break
                 batch.append(nxt)
                 n += len(nxt[0])
+            batch = [(items, fut) for items, fut in batch if fut.set_running_or_notify_cancel()]   # drop abandoned requests
+            if not batch:
+                continue
             flat = [x for items, _ in batch for x in items]
             try:
                 out = self._fn(flat)

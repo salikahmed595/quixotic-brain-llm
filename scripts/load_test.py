@@ -45,9 +45,14 @@ def prepare(n: int, department: str) -> None:
     made = 0
     for i in range(1, n + 1):
         name = f"{PREFIX}{i:03d}"
-        if not users.get_by_login(name):
+        u = users.get_by_login(name)
+        if not u:
             users.create_user(name, f"{name}@load.invalid", f"Load test {i:03d}", h, Role.EMPLOYEE, [dept["id"]])
             made += 1
+        else:                                       # a re-run after `cleanup`: new password, active again
+            users.set_password_hash(u["id"], h)
+            if u["account_status"] != "active":
+                users.set_status(u["id"], "active", None, "load test re-run")
     print(f"{made} new load-test employees in {department} ({n} total)")
 
 
