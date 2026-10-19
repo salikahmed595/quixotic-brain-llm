@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     generation_provider: str               # PRD §28 lists several; none is chosen
     generation_model_id: Optional[str] = None
     generation_max_tokens: Optional[int] = None  # required by the Claude API; the PRD sets no answer length
+    # OpenAI reasoning models only (gpt-5 family, o-series): minimal | low | medium | high. Unset = the model's default.
+    # Lower is faster (PRD §2: p95 answer < 8 s); higher thinks longer.
+    generation_reasoning_effort: Optional[str] = None
 
     # ---- knowledge priority (PRD §20) -----------------------------------------------
     # PRD names the four tiers but not which document_type belongs to which. JSON object,
@@ -200,6 +203,8 @@ class Settings(BaseSettings):
             raise ValueError("sales_history_min_similarity must be between 0 and 1")
         if not 1 <= self.rerank_top_k <= self.candidate_count:
             raise ValueError("require 1 <= rerank_top_k <= candidate_count")
+        if self.generation_reasoning_effort not in (None, "", "minimal", "low", "medium", "high"):
+            raise ValueError("generation_reasoning_effort must be minimal, low, medium or high")
         if self.queue_backend not in ("redis", "sqs"):
             raise ValueError("queue_backend must be 'redis' or 'sqs'")
         if self.queue_backend == "redis" and not self.redis_url:

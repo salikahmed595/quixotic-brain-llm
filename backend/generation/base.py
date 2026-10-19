@@ -72,7 +72,7 @@ def _build_generator(settings: Settings) -> GenerationProvider:
         return DeepSeekGenerator(model)
     if p == "openai":
         from .providers import OpenAIGenerator
-        return OpenAIGenerator(model)
+        return OpenAIGenerator(model, settings.generation_reasoning_effort)
     if p == "claude":
         from .providers import ClaudeGenerator
         if not settings.generation_max_tokens:

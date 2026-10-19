@@ -36,20 +36,31 @@ class GeminiGenerator(_Interprets):
         return (r.text or "").strip()
 
 
+def _reasoning_model(model: str) -> bool:
+    """OpenAI reasoning models (gpt-5 family, o-series) think before answering; their thinking counts against the token budget."""
+    m = model.lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
 class OpenAIGenerator(_Interprets):
-    def __init__(self, model: str) -> None:
+    def __init__(self, model: str, reasoning_effort: str | None = None) -> None:
         from openai import OpenAI
         self._model, self._client = model, OpenAI()                 # reads OPENAI_API_KEY
+        self._effort = reasoning_effort
 
     def _complete(self, system: str, user: str, max_tokens: int) -> str:
+        # Short internal tasks (restating a question): with a reasoning model the thinking would use up the small budget and
+        # return nothing (measured with gpt-5-nano), so they think minimally.
+        extra = {"reasoning_effort": "minimal"} if _reasoning_model(self._model) else {}
         r = self._client.chat.completions.create(
-            model=self._model, max_completion_tokens=max_tokens,
+            model=self._model, max_completion_tokens=max_tokens, **extra,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
         return (r.choices[0].message.content or "").strip()
 
     def generate_answer(self, context: AnswerContext, question: str) -> str:
+        extra = {"reasoning_effort": self._effort} if self._effort and _reasoning_model(self._model) else {}
         r = self._client.chat.completions.create(
-            model=self._model,
+            model=self._model, **extra,
             messages=[{"role": "system", "content": SYSTEM_PROMPT},
                       {"role": "user", "content": build_user_prompt(context, question)}])
         return (r.choices[0].message.content or "").strip()
