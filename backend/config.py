@@ -52,7 +52,8 @@ class Settings(BaseSettings):
     smtp_port: Optional[int] = None
     smtp_username: Optional[str] = None
     smtp_password: Optional[str] = None
-    smtp_starttls: bool = True
+    smtp_starttls: bool = True             # port 587 style (STARTTLS)
+    smtp_ssl: bool = False                 # port 465 style (implicit TLS, e.g. Hostinger); then smtp_starttls is ignored
 
     # ---- knowledge model (PRD §8) — values the PRD does not give are required ------------------------------------
     vault_dir: str                         # §8/§11 versioned Markdown vault: a Git repository on the server (created if missing)

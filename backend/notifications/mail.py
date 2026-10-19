@@ -37,9 +37,12 @@ class SMTPMailer:
         msg = EmailMessage()
         msg["From"], msg["To"], msg["Subject"] = self.s.mail_from, to, subject
         msg.set_content(text)
-        with smtplib.SMTP(self.s.smtp_host, self.s.smtp_port, timeout=15) as smtp:
-            if self.s.smtp_starttls:
-                smtp.starttls(context=ssl.create_default_context())
+        ctx = ssl.create_default_context()
+        conn = (smtplib.SMTP_SSL(self.s.smtp_host, self.s.smtp_port, timeout=15, context=ctx) if self.s.smtp_ssl
+                else smtplib.SMTP(self.s.smtp_host, self.s.smtp_port, timeout=15))
+        with conn as smtp:
+            if self.s.smtp_starttls and not self.s.smtp_ssl:
+                smtp.starttls(context=ctx)
             if self.s.smtp_username:
                 smtp.login(self.s.smtp_username, self.s.smtp_password or "")
             smtp.send_message(msg)
