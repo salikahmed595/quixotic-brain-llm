@@ -1,28 +1,20 @@
-# Hermes + Telegram + Obsidian — research and step-by-step plan
+# Hermes + Telegram + Obsidian plan
+Researched 2026-10-17. Implements PRD §9 within §1, §3, §10, §11, §15. Owner decisions: `docs/PRD_GAPS.md` §0.7; milestone "After M3" in `docs/P0_PLAN.md`.
+**Status (2026-10-17): built.** H1–H5 in repo + tested. H0 (lock-down on real Hermes image) = checklist repeated on every Hermes upgrade. Must not delay §16 Phase 1.
 
-Researched 2026-10-17. Implements PRD §9 (Hermes, Telegram and Discord knowledge ingestion), within §1, §3, §10, §11 and
-§15. Owner decisions are in `docs/PRD_GAPS.md` §0.7; the milestone is "After M3" in `docs/P0_PLAN.md`.
-**Status (2026-10-17): built** — H1–H5 are in the repository and tested (see "What was built" below). H0 (proving the lock-down on
-the real Hermes image) is a checklist to repeat on every Hermes upgrade. It must not delay the §16 Phase 1 release.
-
----
-
-## What was built (2026-10-17)
-
+## Built
 | Piece | Where | Tested by |
 |---|---|---|
-| Signed Hermes endpoints: context, search, knowledge proposals (§11), proposal status, knowledge gaps | `backend/api/v1/integrations.py` | `tests/integration/test_hermes.py` |
-| **Confirmation by the real sender**: a Hermes proposal waits as `awaiting_confirmation` until the linked Telegram account taps Confirm in the approvals bot (the model can never act in someone else's name) | `backend/integrations/approvals_bot.py` | AT-07 test |
-| Approvals bot (Bot 2): Confirm/Cancel, Approve/Reject with the same rules as the web, `/start` (shows your Telegram ID), `/pending`, publication confirmation with link, gap notices | `backend/integrations/approvals_bot.py`, webhook `POST /v1/integrations/telegram/webhook`, local poller `python -m workers.telegram_poll` | AT-07 + high-impact test |
-| quixotic-mcp sidecar (the only tools Hermes has) | `integrations/mcp/` | `tests/test_mcp_sidecar.py` + real HTTP smoke test |
-| Hermes configuration (tools locked down, allowlist, OpenAI STT) | `deploy/hermes/config.yaml`, `SOUL.md`, `hermes.env.example` | H0 checklist below |
-| Obsidian sync: push to `proposals/<name>` → proposals; `main` written only by the backend; branch receives the official note after publication | `backend/knowledge/vault_sync.py`, `deploy/vault/*` | Git round-trip test + hook test |
-| Linking accounts (Telegram IDs, Obsidian branches) | Admin → System → Integrations | admin test |
+| Signed Hermes endpoints: context, search, knowledge proposals (§11), proposal status, gaps | `backend/api/v1/integrations.py` | `tests/integration/test_hermes.py` |
+| Sender confirmation: Hermes proposal stays `awaiting_confirmation` until linked Telegram account taps Confirm in approvals bot (model never acts in someone else's name) | `backend/integrations/approvals_bot.py` | AT-07 |
+| Approvals bot (Bot 2): Confirm/Cancel, Approve/Reject (same rules as web), `/start` (shows Telegram ID), `/pending`, publication confirmation + link, gap notices. Webhook `POST /v1/integrations/telegram/webhook`; local poller `python -m workers.telegram_poll` | same file | AT-07 + high-impact test |
+| quixotic-mcp sidecar (Hermes' only tools) | `integrations/mcp/` | `tests/test_mcp_sidecar.py` + HTTP smoke |
+| Hermes config (tools locked, allowlist, OpenAI STT) | `deploy/hermes/config.yaml`, `SOUL.md`, `hermes.env.example` | H0 |
+| Obsidian sync: push `proposals/<name>` -> proposals; `main` written only by backend; branch gets official note after publication | `backend/knowledge/vault_sync.py`, `deploy/vault/*` | Git round-trip + hook test |
+| Linking accounts (Telegram IDs, Obsidian branches) | Admin -> System -> Integrations | admin test |
+Server setup: `docs/DEPLOYMENT.md` §6–7.
 
-Setup on the server: `docs/backend.md` → "Hermes, Telegram and Obsidian".
-
-## 1. The idea in one picture
-
+## 1. Architecture
 ```mermaid
 flowchart LR
   CEO_phone["CEO on phone<br/>(text / voice note)"] -->|Telegram| HB["Bot 1: Quixotic Hermes<br/>(Hermes Agent gateway)"]
@@ -35,91 +27,46 @@ flowchart LR
   API -->|"on approval: new version, audit,<br/>reindex, retrieval check"| VAULT["Published vault (main branch)<br/>+ search index"]
   API -->|confirmation + link| AB
 ```
+Rules:
+1. Nothing becomes knowledge without approval (§1, §9 step 5, §15). Telegram/Obsidian only create *proposals*; `main` written only by backend after approval.
+2. Approval never goes through the AI: Approve belongs to backend-owned Bot 2, which checks the tapper's numeric Telegram ID against approvers. Hermes has no approve tool.
+3. Hermes locked down (§15): no terminal, files, web, browser, code exec, memory, self-written skills. Only the Quixotic tools in H2.
 
-Three rules hold everything together:
+## 2. Research findings
+**Hermes Agent (Nous Research):** MIT, Python. Docker image `nousresearch/hermes-agent` (tags `stable`/`latest`/`X.Y.Z`, or digest). State in one mounted folder `/opt/data` (`config.yaml`, `.env`, sessions, memories, skills). `command: gateway run`, `restart: unless-stopped`, ~1 GB RAM without browser. Never two gateways on one data folder.
+- Telegram: @BotFather bot; `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs); empty allowlist denies all; `unauthorized_dm_behavior: ignore`. Default polling (outbound only); webhook needs `TELEGRAM_WEBHOOK_SECRET`.
+- Voice: provider `openai` uses `VOICE_TOOLS_OPENAI_KEY` (owner's choice); `local` faster-whisper fallback. Bot API downloads capped 20 MB.
+- `clarify` tool shows inline buttons (used for "Is this transcript correct?"); not used for approval (rule 2).
+- Toolsets: `terminal`, `file`, `web`, `browser`, `code_execution`, `memory`, `skills`, `delegation`, `cronjob`, `session_search`, `clarify`, `messaging`; disable via `agent.disabled_toolsets` / `hermes tools`. Each MCP server = toolset `mcp-<name>`, allow-list with `tools.include`.
+- **Risk:** Hermes self-improves (writes skills, keeps memory) -> conflicts with §15, §8; disable `memory` + `skills`, tests check data folder for new skills.
+- Deny rules "not a complete shell interpreter" -> disabling terminal toolset is the containment.
+- Needs >=64k context model; OpenAI or any OpenAI-compatible endpoint (DeepSeek later).
+- Unconfirmed (test in H0): per-platform `disabled_toolsets`; platform with only `mcp-quixotic`+`clarify`; whether sender's Telegram ID reaches MCP calls.
 
-1. **Nothing becomes knowledge without approval** (§1, §9 step 5, §15). Telegram messages and Obsidian edits only ever
-   create *proposals*. The published vault (`main` branch) is written only by the backend after an approval.
-2. **Approval never goes through the AI.** The Approve button belongs to a second bot that the backend owns. The backend
-   checks the tapping user's numeric Telegram ID against the approver list. Hermes has no approve tool at all.
-3. **Hermes is locked down** (§15 "no open-ended Hermes filesystem/shell permissions"). No terminal, files, web, browser,
-   code execution, memory or self-written skills. Its only tools are the few Quixotic tools listed in §4.
+**Obsidian + Git:** Obsidian Git plugin auto commit/sync on timer; desktop uses installed Git (SSH ok); mobile slow -> CEO uses Telegram on phone, Obsidian on laptop. Don't install Obsidian via Flatpak/Snap. Server: plain Git repo over SSH enough (no Gitea); hook refuses pushes except CEO's proposals branch.
 
----
+**Telegram Bot API:** one token = one consumer (polling or one webhook) -> **two bots**: Hermes owns Bot 1; backend owns Bot 2 (webhook, Telegram secret-token header). Inline keyboards + `callback_query` give taps carrying tapper's user ID.
 
-## 2. What the research found
-
-### Hermes Agent (Nous Research)
-
-- Open source (MIT), Python. Official Docker image `nousresearch/hermes-agent`; tags `stable`/`latest`, `X.Y.Z`, or pin by
-  image digest. All state lives in one mounted data folder (`/opt/data`): `config.yaml`, `.env`, sessions, memories, skills.
-  Run with `command: gateway run` and `restart: unless-stopped`. About 1 GB RAM without browser tools.
-  Never run two gateway containers on the same data folder.
-- **Telegram gateway:** create a bot with @BotFather, put `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` (numeric IDs, not
-  usernames) in `.env`. With no allowlist it denies everyone. Unknown DMs: set `unauthorized_dm_behavior: ignore`.
-  Default is polling (outbound only, no open port). Webhook mode requires `TELEGRAM_WEBHOOK_SECRET`.
-- **Voice notes:** built-in speech-to-text; provider `openai` uses `VOICE_TOOLS_OPENAI_KEY` (matches the owner's choice);
-  `local` (faster-whisper) is the no-provider fallback. Bot API downloads are capped at 20 MB, which is minutes of voice.
-- **Buttons:** Hermes's `clarify` tool shows inline buttons (used for "Is this transcript correct?"). Approval does *not*
-  use this (rule 2).
-- **Tools:** built-in toolsets include `terminal`, `file`, `web`, `browser`, `code_execution`, `memory`, `skills`,
-  `delegation`, `cronjob`, `session_search`, `clarify`, `messaging`. They can be switched off
-  (`agent.disabled_toolsets`, `hermes tools` per platform). Each MCP server becomes a toolset `mcp-<name>`; its tools can be
-  allow-listed with `tools.include`.
-- **Risk found:** Hermes "self-improves": it writes its own skills and keeps agent memory by default. That conflicts with
-  §15 (no autonomous creation of company rules) and §8 (documents are data), so `memory` and `skills` must be disabled and
-  the data folder checked for new skills in the tests.
-- **Approvals/sandbox:** `approvals.mode`, `approvals.deny` and the Docker terminal backend exist, but the docs say the deny
-  rules are "not a complete shell interpreter". So disabling the terminal toolset entirely is the containment, not deny rules.
-- **Model:** needs at least 64k context. OpenAI is a supported provider, and so is any OpenAI-compatible endpoint
-  (DeepSeek later).
-- **Not confirmed by the docs (test in step H0):** a per-platform form of `disabled_toolsets`; whether a platform can run
-  with *only* `mcp-quixotic` + `clarify`; whether Hermes passes the sender's Telegram ID to MCP tool calls.
-
-### Obsidian + Git
-
-- The Obsidian Git community plugin commits and syncs the vault from inside Obsidian on a timer ("every X minutes").
-  On desktop it uses the installed Git (SSH keys work). On mobile it is slow and limited, so **the CEO uses Telegram on the
-  phone and Obsidian on the laptop.** Don't install Obsidian on Linux via Flatpak/Snap (plugin docs).
-- Server side, a plain Git repository over SSH is enough for one or two editors (no Gitea/Forgejo needed on a small EC2).
-  A server hook can refuse pushes to any branch except the CEO's proposals branch.
-
-### Telegram Bot API
-
-- One bot token can only be read by one consumer (polling *or* one webhook). That is why there are **two bots**:
-  Hermes owns Bot 1; the backend owns Bot 2 (webhook to the API, verified by Telegram's secret-token header).
-- Inline keyboard buttons + `callback_query` give Approve / Revise / Reject taps; every tap carries the tapper's user ID.
-
----
-
-## 3. What you (the owner) need to do
-
+## 3. Owner tasks
 | # | Task | Notes |
 |---|---|---|
-| O1 | Create **Bot 1 "Quixotic Hermes"** with @BotFather (`/newbot`), keep the token | Never paste tokens in chat or code; they go to AWS Secrets Manager (§10) |
-| O2 | Create **Bot 2 "Quixotic Approvals"** the same way | Separate token |
-| O3 | Get the **numeric Telegram user IDs** of the CEO, Founder and any Knowledge Admin who may send or approve | e.g. message @userinfobot; usernames are not enough |
-| O4 | Decide the **second approver** for high-impact topics (HR, pay, discounts, refunds, customer payments, security) | §9 step 5; proposed: a Knowledge Admin in the web Approvals page |
-| O5 | Decide **retention** for original messages and audio | §9 step 2 |
-| O6 | Decide what happens to a **rejected Obsidian edit** | proposed: backend reverts it on the CEO's branch and explains why in Telegram |
-| O7 | Confirm OpenAI may receive the CEO's voice notes and messages | already the approved provider (2026-10-17); §10 |
-| O8 | CEO laptop: install **Git** and **Obsidian** (desktop), one SSH key for the vault | step H4 walks through it |
-| O9 | Discord now or later? | §9 allows it; this plan does Telegram only |
+| O1 | Create Bot 1 "Quixotic Hermes" (@BotFather `/newbot`), keep token | tokens never in chat/code; AWS Secrets Manager (§10) |
+| O2 | Create Bot 2 "Quixotic Approvals" | separate token |
+| O3 | Numeric Telegram IDs of CEO, Founder, Knowledge Admins who send/approve | e.g. @userinfobot |
+| O4 | ❓ Second approver for high-impact topics (HR, pay, discounts, refunds, customer payments, security) | §9 step 5; proposed: Knowledge Admin in web Approvals |
+| O5 | ❓ Retention of original messages + audio | §9 step 2 |
+| O6 | ❓ Rejected Obsidian edit handling | proposed: backend reverts on CEO's branch, explains in Telegram |
+| O7 | Confirm OpenAI may receive CEO voice/messages | approved provider 2026-10-17; §10 |
+| O8 | CEO laptop: Git + Obsidian desktop, one SSH key | H4 |
+| O9 | ❓ Discord now or later? | §9 allows; plan = Telegram only |
 
----
-
-## 4. What we build — step by step
-
-### H0 — Prove Hermes can be locked down (half a day, before anything else)
-
-Run Hermes in Docker locally with a test bot. Pass only if all of these hold, otherwise use the fallback in §6:
-
-- With `TELEGRAM_ALLOWED_USERS` set, an unlisted account gets no reply.
-- With the config below, `hermes tools` (Telegram) lists only `clarify` and `mcp-quixotic` tools; asking it to "run a
-  command", "read a file", "search the web" or "remember this" fails.
-- No new files appear under `skills/` or `memories/` in the data folder after a session.
-- Find out whether the sender's Telegram ID reaches MCP calls (decides how proposals are attributed, see H2).
-
+## 4. Steps
+### H0 — Prove lock-down (before anything else)
+Run Hermes in Docker with a test bot. Pass only if all hold, else §6 fallback:
+- With `TELEGRAM_ALLOWED_USERS`, unlisted account gets no reply.
+- `hermes tools` (Telegram) lists only `clarify` + `mcp-quixotic` tools; "run a command"/"read a file"/"search the web"/"remember this" fail.
+- No new files under `skills/` or `memories/` after a session.
+- Determine if sender's Telegram ID reaches MCP calls (decides H2 attribution).
 ```yaml
 # /opt/data/config.yaml (sketch; exact keys confirmed in H0)
 model: { provider: openai }            # key from OPENAI_API_KEY in .env; >= 64k context
@@ -140,68 +87,39 @@ mcp_servers:
       prompts: false
       resources: false
 ```
-
-### H1 — Backend: proposals, approvers and the signed Hermes endpoint
-
-- Tables (migration): `telegram_identities` (Telegram user ID ↔ company user, verified by an admin), `knowledge_proposals`
-  (source = telegram | obsidian, sender, original text/transcript, intent, target document, Markdown body, before/after
-  diff, status Draft → Under Review → Approved/Rejected/Revise, high-impact flag, approvals), `integration_messages`
-  (platform message ID, chat, timestamp, retention date; §9 step 1).
-- `POST /integrations/hermes/knowledge-proposals` (§11): accepts only requests signed by the MCP sidecar (HMAC over body +
-  timestamp, rejects replays). Not reachable from the internet.
-- Proposal builder (§9 step 4): search approved documents in the sender's scope, find conflicts, build the Markdown proposal
-  and diff. A proposal is never authoritative; nothing is written to the published vault here.
-- High-impact detection: department/category tags HR, pay, discounts, refunds, customer payments, security → needs a second
-  approval (§9 step 5). ❓ the exact category list comes from M3's taxonomy.
-- Knowledge-gap link: a proposal can resolve an open gap (§9 gap loop, M4 `knowledge_gaps`).
-
-### H2 — `quixotic-mcp` sidecar (the only tools Hermes gets)
-
-A tiny MCP server (HTTP, internal network) that signs and forwards to the API:
-
-| Tool | Does | Never does |
+### H1 — Backend proposals, approvers, signed endpoint
+- Migration tables: `telegram_identities` (Telegram ID <-> user, admin-verified), `knowledge_proposals` (source telegram|obsidian, sender, original text/transcript, intent, target doc, Markdown body, before/after diff, status Draft -> Under Review -> Approved/Rejected/Revise, high-impact flag, approvals), `integration_messages` (platform msg ID, chat, timestamp, retention date; §9 step 1).
+- `POST /integrations/hermes/knowledge-proposals` (§11): only HMAC-signed (body+timestamp) requests from MCP sidecar; rejects replays; not internet-reachable.
+- Proposal builder (§9 step 4): search approved docs in sender's scope, find conflicts, build Markdown + diff. Never authoritative; nothing written to published vault.
+- High-impact (HR, pay, discounts, refunds, customer payments, security) needs second approval (§9 step 5). ❓ exact category list from M3 taxonomy.
+- A proposal can resolve an open gap (§9 gap loop, M4 `knowledge_gaps`).
+### H2 — `quixotic-mcp` sidecar (HTTP, internal network; signs + forwards)
+| Tool | Does | Never |
 |---|---|---|
-| `search_approved_knowledge(query)` | searches published content the sender may see (§8 filters first) | return drafts or other people's chats |
-| `create_knowledge_proposal(intent, title, department, body, target?)` | creates a proposal, returns its ID | publish or approve |
-| `get_proposal_status(id)` | Under Review / Approved / Rejected / Published | — |
-| `report_knowledge_gap(question)` | logs a gap (§9) | — |
-
-Attribution: if H0 shows Hermes passes the sender's Telegram ID to tool calls, the sidecar forwards it; if not, run one
-Hermes profile per allowlisted person (each with its own bot) so the sender is known from the bot. The LLM's own claim about
-who is speaking is never trusted.
-
+| `search_approved_knowledge(query)` | searches published content sender may see (§8 filters first) | return drafts / others' chats |
+| `create_knowledge_proposal(intent, title, department, body, target?)` | creates proposal, returns ID | publish/approve |
+| `get_proposal_status(id)` | Under Review/Approved/Rejected/Published | — |
+| `report_knowledge_gap(question)` | logs gap (§9) | — |
+Attribution: if Hermes passes sender's Telegram ID, sidecar forwards it; else one Hermes profile per allowlisted person (own bot). LLM's claim of who speaks is never trusted.
 ### H3 — Bot 2 "Quixotic Approvals" (backend-owned)
-
-- Webhook `POST /integrations/telegram/approvals` behind the HTTPS proxy, checked with Telegram's
-  `X-Telegram-Bot-Api-Secret-Token` header.
-- For each proposal it sends: summary, department, before/after diff (long diffs as a link to the web Approvals page),
-  sources found, conflicts, and buttons **Approve / Revise / Reject**.
-- A tap is accepted only if the tapper's numeric ID maps to a user allowed to approve that department (§3). High-impact needs a
-  second approver (O4) before publishing.
-- On approval (§9 step 6): new version in the vault (`main`), audit event, reindex, a test retrieval that must find the new
-  text, then a confirmation with the document link. On any failure (§9 step 7): keep the previous version, alert the owner,
-  offer Retry/Rollback.
-
-### H4 — Obsidian vault sync for the CEO
-
+- Webhook `POST /integrations/telegram/approvals` behind HTTPS proxy, checked via `X-Telegram-Bot-Api-Secret-Token`.
+- Sends summary, department, before/after diff (long -> link to web Approvals), sources, conflicts, buttons **Approve / Revise / Reject**.
+- Tap accepted only if tapper's ID maps to a user allowed to approve that department (§3); high-impact needs second approver (O4).
+- On approval (§9 step 6): new version in `main`, audit event, reindex, test retrieval must find new text, confirmation with doc link. On failure (§9 step 7): keep previous version, alert owner, offer Retry/Rollback.
+### H4 — Obsidian sync for CEO
 Server (EC2):
-
-1. A `vault` Unix user with `git-shell` (no normal shell); the CEO's SSH public key in its `authorized_keys`.
-2. Bare repo `/srv/vault.git`. `main` = published vault, written only by the backend (M3).
-3. `pre-receive` hook: the CEO's key may push only `refs/heads/proposals/ceo`; force-push and pushes to `main` are refused.
-4. `post-receive` hook: calls the API (signed, localhost) → the backend diffs `proposals/ceo` against `main` per file and
-   creates one proposal per changed note → Bot 2 sends it for approval.
-5. After each publish, the backend merges `main` into `proposals/ceo`, so the CEO's Obsidian shows what is live.
+1. `vault` Unix user with `git-shell`; CEO's SSH public key in `authorized_keys`.
+2. Bare repo `/srv/vault.git`; `main` = published vault, backend-only writes (M3).
+3. `pre-receive`: CEO's key may push only `refs/heads/proposals/ceo`; force-push and `main` pushes refused.
+4. `post-receive`: signed localhost API call -> backend diffs `proposals/ceo` vs `main` per file, one proposal per changed note -> Bot 2.
+5. After each publish backend merges `main` into `proposals/ceo`.
 
 CEO laptop:
-
-1. Install Git and Obsidian (desktop). Create an SSH key; send only the *public* key to the admin.
-2. `git clone vault@<server>:/srv/vault.git` and `git checkout proposals/ceo`; open that folder as an Obsidian vault.
-3. Install the **Obsidian Git** community plugin; turn on auto commit-and-sync every 10 minutes (pull + push).
-4. Write notes with the M3 front-matter (department, category, sensitivity, owner…); a template is provided by M3.
-
-### H5 — Deployment on the EC2 server (Docker Compose, M7)
-
+1. Install Git + Obsidian; create SSH key; send only the *public* key to admin.
+2. `git clone vault@<server>:/srv/vault.git`, `git checkout proposals/ceo`; open as vault.
+3. **Obsidian Git** plugin: auto commit-and-sync every 10 min.
+4. Notes use M3 front-matter (department, category, sensitivity, owner…); M3 provides template.
+### H5 — EC2 deployment (Compose, M7)
 ```yaml
 # added to the M7 compose file (sketch)
 services:
@@ -218,54 +136,34 @@ services:
     restart: unless-stopped
     networks: [ hermes_net, backend_net ]
 ```
+- Secrets (`TELEGRAM_BOT_TOKEN`, approvals bot token, `OPENAI_API_KEY`, `VOICE_TOOLS_OPENAI_KEY`, MCP token, HMAC key) from AWS Secrets Manager at start (§10), never repo.
+- Hermes adds ~1–1.5 GB RAM; include in M7 load-test sizing.
+- Nightly backup includes `/srv/vault.git`, `/srv/hermes` (§16 g).
+- Upgrade: change pinned digest, run H6 on staging, `docker compose pull && up -d`.
+### H6 — Tests (before go-live)
+- Unlisted Telegram user ignored; listed-but-unmapped refused.
+- No message/voice/Obsidian push changes published content without an approval tap.
+- Non-approver tap refused; high-impact needs two different approvers.
+- Hermes can't run commands, read files, browse, or write skills/memory (H0 vs deployed config).
+- MCP endpoint rejects unsigned/replayed/altered requests; not internet-reachable.
+- Failed reindex/retrieval check keeps previous version, alerts owner.
+- Push to `main` or force-push from CEO key refused.
+- Voice: transcript shown with "Is this correct?" before proposal creation.
 
-- Secrets (`TELEGRAM_BOT_TOKEN`, approvals bot token, `OPENAI_API_KEY`, `VOICE_TOOLS_OPENAI_KEY`, MCP token, HMAC key) come
-  from AWS Secrets Manager at start-up (§10), never from the repo.
-- Hermes adds roughly 1–1.5 GB RAM; size the instance in M7's load test with that included.
-- Backups: `/srv/vault.git` and `/srv/hermes` join the nightly backup (§16 g).
-- Upgrades: change the pinned digest, run H6 tests on staging, then `docker compose pull && up -d`.
-
-### H6 — Tests (must pass before go-live)
-
-- Unlisted Telegram user → ignored; listed but unmapped → refused.
-- No message, voice note or Obsidian push ever changes published content without an approval tap.
-- An approval tap from a non-approver ID is refused; high-impact needs two different approvers.
-- Hermes cannot run commands, read files, browse, or write skills/memory (repeat of H0 against the deployed config).
-- The MCP endpoint rejects unsigned, re-played or altered requests; it is not reachable from the internet.
-- Failed reindex or retrieval check keeps the previous version and alerts the owner.
-- A push to `main` or a force-push from the CEO's key is refused by the hook.
-- Voice: transcript shown to the CEO with "Is this correct?" before the proposal is created.
-
----
-
-## 5. Order of work and rough effort
-
-| Step | Depends on | Effort (estimate) |
+## 5. Order / effort
+| Step | Depends on | Effort |
 |---|---|---|
-| O1–O9 owner tasks | — | can start any time |
-| H0 Hermes lock-down spike | O1 (a test bot) | ½ day |
-| H1 backend proposals + endpoint | M3, M4 | 3–4 days |
-| H2 MCP sidecar | H1 | 1–2 days |
-| H3 approvals bot | H1 | 2 days |
-| H4 Obsidian Git sync | M3 vault | 1–2 days |
-| H5 deployment | M7 compose | 1 day |
-| H6 tests + staging run with the CEO | all | 2 days |
+| O1–O9 | — | any time |
+| H0 | O1 | ½ day |
+| H1 | M3, M4 | 3–4 d |
+| H2 | H1 | 1–2 d |
+| H3 | H1 | 2 d |
+| H4 | M3 vault | 1–2 d |
+| H5 | M7 compose | 1 d |
+| H6 + staging run with CEO | all | 2 d |
 
-## 6. Fallback if Hermes cannot be locked down (H0 fails)
-
-Keep the same design but replace Bot 1's Hermes with a small Python Telegram bot inside the backend that calls the configured
-LLM for intent detection and OpenAI for transcription. Everything else (proposals, approvals bot, Obsidian sync) is unchanged.
-This needs owner approval, because the owner asked for Hermes and §11 names it.
+## 6. Fallback if H0 fails
+Same design, but Bot 1 = small Python Telegram bot in backend calling configured LLM for intent and OpenAI for transcription; proposals, approvals bot, Obsidian sync unchanged. Needs owner approval (owner asked for Hermes; §11 names it).
 
 ## Sources
-
-- Hermes Agent docs: [Telegram](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram),
-  [Security](https://hermes-agent.nousresearch.com/docs/user-guide/security),
-  [Docker](https://hermes-agent.nousresearch.com/docs/user-guide/docker),
-  [MCP](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp),
-  [Tools](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools),
-  [Toolsets reference](https://hermes-agent.nousresearch.com/docs/reference/toolsets-reference),
-  [Quickstart](https://hermes-agent.nousresearch.com/docs/getting-started/quickstart),
-  [GitHub repository](https://github.com/NousResearch/hermes-agent)
-- Obsidian Git plugin docs: [Start here](https://publish.obsidian.md/git-doc/Start+here)
-- Telegram Bot API: [core.telegram.org/bots/api](https://core.telegram.org/bots/api)
+Hermes docs (hermes-agent.nousresearch.com/docs): user-guide/messaging/telegram, user-guide/security, user-guide/docker, user-guide/features/mcp, user-guide/features/tools, reference/toolsets-reference, getting-started/quickstart; github.com/NousResearch/hermes-agent. Obsidian Git: publish.obsidian.md/git-doc/Start+here. Telegram: core.telegram.org/bots/api.

@@ -1,13 +1,10 @@
 # Quixotic Brain — backend
+Python + FastAPI (PRD §49; § numbers in this file follow the old PRD). Built from `PRODUCT.md`; undefined items in [PRD_GAPS.md](PRD_GAPS.md) (read before deploying).
 
-Python + FastAPI (PRD §49). Built only from `PRODUCT.md`; anything the PRD does not define is listed in
-[PRD_GAPS.md](PRD_GAPS.md). Read that file before deploying.
-
-## Layout (PRD §50)
-
+## Layout (§50)
 ```
 backend/
-  api/            FastAPI routes (v1/), dependencies, service wiring, workflow helper
+  api/            FastAPI routes (v1/), deps, service wiring, workflow helper
   auth/           password hashing, signed tokens, API keys, rate limit        (§40, §41)
   permissions/    roles & capabilities (§9), department scope (§42), approval workflow (§12.3)
   ingestion/      validate → extract → clean → chunk → embed → store; S3/SQS adapters   (§13, §46, §47)
@@ -18,51 +15,31 @@ backend/
   database/       pool + migrations runner, SQL stores (PostgreSQL + pgvector)         (§45)
   analytics/      dashboard (§34), knowledge health (§36), audit events (§53)
 workers/          SQS consumer (document.process, knowledge.index, discord.import, reindex)   (§47)
-evaluation/       §58 question set, Recall@5/@10 and MRR runner                              (§59)
+evaluation/       §58 question set, Recall@5/@10 + MRR runner                                 (§59)
 migrations/       001_init.sql
-tests/            pytest suite
+tests/            pytest
 ```
 
-## Request flow for `POST /v1/ask` (PRD §7)
-
-authenticate (Bearer token, or `X-API-Key` + `user_id`) → role check → **department scope** (administrator: all; others:
-authorized departments; API key: intersection) → query normalization (original kept) → keyword + vector search, filtered
-by `status = active` and scope **inside the SQL** → candidates (20–40) → reranker → best 5–8 → *(no evidence or low
-confidence ⇒ PRD §29/§32 message, no LLM call)* → LLM with PRD rules → answer, confidence label, sources, historical cases.
+## `POST /v1/ask` flow (§7)
+authenticate (Bearer, or `X-API-Key`+`user_id`) -> role check -> **department scope** (admin: all; others: authorized depts; API key: intersection) -> query normalization (original kept) -> keyword+vector search filtered by `status = active` and scope **inside the SQL** -> 20–40 candidates -> reranker -> best 5–8 -> (no evidence/low confidence => §29/§32 message, no LLM call) -> LLM with PRD rules -> answer, confidence label, sources, historical cases.
 
 ## Endpoints
+§37 core: `POST /v1/ask`, `POST /v1/search`, `POST|GET /v1/documents`, `DELETE /v1/documents/{id}`, `POST /v1/sales-memory`, `POST /v1/feedback`, `GET /v1/health`.
+Added (names ours, PRD_GAPS §3): `/v1/auth/login|me`, `/v1/knowledge…` (create, list, edit draft, transitions, new version), `/v1/sales-memory/imports`, `/v1/users`, `/v1/departments`, `/v1/api-keys`, `/v1/jobs`, `/v1/admin/reindex`, `/v1/dashboard`, `/v1/failed-questions`, `/v1/knowledge-health`, `/v1/audit-logs`. Docs at `/docs`.
 
-PRD §37 core: `POST /v1/ask`, `POST /v1/search`, `POST|GET /v1/documents`, `DELETE /v1/documents/{id}`,
-`POST /v1/sales-memory`, `POST /v1/feedback`, `GET /v1/health`.
-Added to support the PRD's modules (names are this implementation's — see PRD_GAPS §3): `/v1/auth/login|me`, `/v1/knowledge…`
-(create, list, edit draft, transitions, new version), `/v1/sales-memory/imports`, `/v1/users`, `/v1/departments`, `/v1/api-keys`,
-`/v1/jobs`, `/v1/admin/reindex`, `/v1/dashboard`, `/v1/failed-questions`, `/v1/knowledge-health`, `/v1/audit-logs`.
-Interactive docs at `/docs` when running.
+## Stack
+Frontend Next.js+Tailwind on Vercel · backend FastAPI on ECS Fargate · RDS PostgreSQL+pgvector · S3 docs · SQS · ECS worker · BGE-M3 CPU embeddings · pgvector+keyword hybrid · multilingual BGE reranker · generation Gemini/OpenAI/Claude (Bedrock later) · JWT (Cognito later) · AWS Secrets Manager · CloudWatch. Not used: Kubernetes, GPUs, microservices, vector cluster. One image runs API and worker. (Current deploy: single EC2, see DEPLOYMENT.md.)
 
-## Stack (as decided)
-
-Frontend Next.js + Tailwind on Vercel · **Backend** Python FastAPI on ECS Fargate · **DB** RDS PostgreSQL + pgvector · documents S3 · queue SQS ·
-background processing ECS worker · embeddings BGE-M3 on CPU · retrieval pgvector + keyword/hybrid · reranker multilingual BGE reranker ·
-generation Gemini / OpenAI / Claude (Bedrock later) · auth JWT (Cognito later) · secrets AWS Secrets Manager · monitoring CloudWatch.
-Not used: Kubernetes, GPUs, microservices, a vector cluster. One image runs both the API and the worker.
-
-## Quick start on your machine
-
+## Quick start
 ```bash
 docker compose up -d postgres          # database (once)
 python scripts/dev_up.py               # local S3/SQS stand-in + migrations + API + worker -> http://localhost:8000
 python -m backend.cli create-user --employee-id admin --email you@your-company.com --name "Your Name" --role administrator
 ```
-Open **http://localhost:8000** (never the `index.html` file directly: the page needs the API behind it). New people either use
-*Create an account* on the login page (an approver then grants access) or are added by an administrator under *Users*. Settings live
-in `.env` (git-ignored; template: `.env.example` — keep comments on their own lines).
+Open **http://localhost:8000** (never `index.html` directly). New people use *Create an account* (approver grants access) or an admin adds them under *Users*. Settings in git-ignored `.env` (template `.env.example`; comments on their own lines).
 
-## Windows quick start (PowerShell)
-
-Needs Python 3.12+ and Docker Desktop. Docker needs hardware virtualization: if Docker Desktop says *Virtual Machine Platform
-not enabled*, turn on **SVM Mode** (AMD) or **Intel VT-x** in the BIOS, then run `wsl --install --no-distribution` in an
-administrator PowerShell and restart Windows.
-
+## Windows (PowerShell)
+Needs Python 3.12+ and Docker Desktop. If Docker says *Virtual Machine Platform not enabled*: enable **SVM Mode** (AMD) / **Intel VT-x** in BIOS, run `wsl --install --no-distribution` in admin PowerShell, restart.
 ```powershell
 py -3 -m venv .venv                                        # or: python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
@@ -70,17 +47,14 @@ copy .env.example .env                                     # then set QB_SESSION
 docker compose up -d postgres
 .\.venv\Scripts\python.exe scripts\dev_up.py               # moto S3/SQS + migrations + API + worker -> http://localhost:8000
 ```
-In a second PowerShell, create the first administrator (prompts for the password):
+Second PowerShell, first admin (prompts for password):
 ```powershell
 $env:QB_DATABASE_URL="postgresql://quixotic:quixotic@localhost:5432/quixotic_brain"
 .\.venv\Scripts\python.exe -m backend.cli create-user --employee-id admin --email you@your-company.com --name "Your Name" --role administrator --department "Company Wide"
 ```
-Afterwards, start everything by opening Docker Desktop and double-clicking **`Start Quixotic AI.bat`**. The models (BGE-M3 and the
-reranker, ~4.6 GB) download on first start and are cached; `GET /v1/health` shows `"models": "ready"` once loaded (1–2 minutes).
-`scripts/download_models.sh` is optional (bash only); the default `.env.example` loads the models by their Hugging Face ids.
+Later: open Docker Desktop, double-click **`Start Quixotic AI.bat`**. Models (BGE-M3 + reranker, ~4.6 GB) download on first start; `GET /v1/health` shows `"models": "ready"` after 1–2 min. `scripts/download_models.sh` optional (bash); default `.env.example` loads models by HF id.
 
-## Run it locally (step by step)
-
+## Run locally step by step
 ```bash
 pip install -r requirements-dev.txt                 # CPU PyTorch, sentence-transformers, SDKs, test tools
 docker compose up -d postgres                       # PostgreSQL + pgvector (or point QB_DATABASE_URL at RDS)
@@ -92,93 +66,61 @@ QB_NEW_USER_PASSWORD=... python -m backend.cli create-user --employee-id emp_001
 uvicorn backend.main:app                            # API  (docs at /docs)
 python -m workers.worker                            # background worker (documents, indexing, imports, re-index)
 ```
+Tests: `python -m pytest` (unit, no services). Integration (DB up): `QB_TEST_DATABASE_URL=postgresql://quixotic:quixotic@localhost:5432/postgres python -m pytest` (throw-away DB per test). Retrieval quality: `python -m evaluation.run_eval --base-url http://localhost:8000 --api-key qx_live_... --user-id emp_001`.
 
-Tests: `python -m pytest` (unit, no services needed). With the database up, also run the integration suite:
-`QB_TEST_DATABASE_URL=postgresql://quixotic:quixotic@localhost:5432/postgres python -m pytest`
-(creates and drops a throw-away database per test). Retrieval quality:
-`python -m evaluation.run_eval --base-url http://localhost:8000 --api-key qx_live_... --user-id emp_001`.
-
-Sales-memory import needs a `ConversationParser` and `MemoryExtractor` (the PRD defines neither). Pass them to
-`build_services(settings, parser=..., extractor=...)`; until then the import job fails with an explanatory error.
+Sales-memory import needs `ConversationParser` + `MemoryExtractor` (PRD defines neither): pass to `build_services(settings, parser=..., extractor=...)`; until then the import job fails with an explanatory error.
 
 ## Front-end (`web/`)
-
-React + TypeScript + Tailwind on Vite (PRD §11), **no mock data**: every screen reads from or writes to the API and shows an empty state
-when there is nothing yet. The desktop layout follows the two PRD §4 reference screenshots in `UI images/reference/`.
-
+React+TS+Tailwind on Vite (PRD §11), **no mock data** (every screen uses the API, shows empty states). Desktop layout follows the two §4 screenshots in `UI images/reference/`.
 ```bash
 cd web && npm ci && npm run build      # -> web/dist
 ```
-
-Set `QB_FRONTEND_DIR=web/dist` and the API serves it at `/` (same origin); `scripts/dev_up.py` builds it first if `web/dist` is missing.
-For live editing run `npm run dev` in `web/` (port 5173, API calls forwarded to :8000). To host it elsewhere, serve `web/dist`, set
-`window.QB_API` (or `?api=`) to the API URL, and set `QB_CORS_ORIGINS` on the API.
+`QB_FRONTEND_DIR=web/dist` makes the API serve it at `/`; `scripts/dev_up.py` builds it if missing. Live edit: `npm run dev` in `web/` (port 5173, API proxied to :8000). Elsewhere: serve `web/dist`, set `window.QB_API` (or `?api=`) to API URL, set `QB_CORS_ORIGINS` on API.
 
 | Role | Sees |
 |---|---|
-| Employee | **Ask only** — the "Ask Quixotic AI" screen with a ChatGPT-style sidebar: New chat, search chats, previous chats. No dashboard. |
+| Employee | Ask only (ChatGPT-style sidebar: New chat, search, previous chats); no dashboard |
 | Contributor | Ask · Knowledge · Add information · Documents |
 | Manager | + Approvals · Dashboard |
 | Administrator | + Insights · Users · Departments · API keys · System |
 
-Everyone gets the chat sidebar (new chat, previous chats, rename, delete); staff also get a collapsible *Workspace* group.
+Everyone: chat sidebar (new, previous, rename, delete); staff also get collapsible *Workspace* group.
 
-### Visual regression test (PRD §13 AT-08)
+### Visual regression (§13 AT-08)
+`web/tests/visual.spec.ts` (Playwright/Chromium), signs in as employee + admin on the **running local stack**, checks:
+- Home at 1478×907 (employee) / 1468×901 (admin) vs the §4 screenshots (history titles, mascot, Workspace scrollbar masked; <=4 px offsets and anti-aliasing tolerated; self-check proves 10 px drift fails).
+- Employee sidebar has no Workspace/Knowledge/Manage/Administration items (§4.2).
+- Admin sidebar groups/items in exact §4.3 order.
+- At 375 px (drawer closed/open): no horizontal scroll, controls >=44×44 px (§4.4).
 
-`web/tests/visual.spec.ts` (Playwright, Chromium) signs in as an employee and as an administrator against the **running local
-stack** and checks:
-
-- the home screen at 1478 × 907 (employee) and 1468 × 901 (admin) against the two §4 reference screenshots in
-  `UI images/reference/` — chat-history titles, the mascot and the Workspace scrollbar are masked; small offsets (≤ 4 px) and
-  font anti-aliasing are tolerated, and a self-check proves a 10 px layout drift fails the comparison;
-- the employee sidebar has no Workspace / Knowledge / Manage / Administration items (§4.2);
-- the admin sidebar groups and items are in the exact §4.3 order;
-- at 375 px (drawer closed and open): no horizontal scroll and every control is at least 44 × 44 px (§4.4).
-
-It needs one administrator and one employee who is a member of **every** active department (so the card reads "Company Wide", as
-in the screenshot), named `Administrator` and `Employee` like the reference cards. Credentials come from the environment
-(`QA_ADMIN_USER`, `QA_EMPLOYEE_USER`, `QA_PASSWORD`, optional `QA_BASE_URL`, default `http://localhost:8000`) or from a gitignored
-`web/.env.visual` with the same `KEY=value` lines. Never commit them.
-
+Needs one admin and one employee in **every** active department (card reads "Company Wide"), named `Administrator` and `Employee`. Credentials from env (`QA_ADMIN_USER`, `QA_EMPLOYEE_USER`, `QA_PASSWORD`, optional `QA_BASE_URL` default `http://localhost:8000`) or gitignored `web/.env.visual` (`KEY=value`). Never commit.
 ```bash
 python -m backend.cli create-user --employee-id qa_visual_admin --email qa.visual.admin@example.com --name Administrator --role administrator --department "Company Wide"
 ```
-
 ```bash
 cd web && npm ci && npx playwright install chromium && npm run build
 ```
-
 ```bash
 cd web && npm run test:visual
 ```
+(`create-user`: set `QB_NEW_USER_PASSWORD` or type at prompt; employee the same with `--role employee` and one `--department` per active department.) Failures leave `actual`/`expected`/`diff` PNGs in `web/test-results/`, HTML report in `web/playwright-report/`.
 
-(For `create-user`, set `QB_NEW_USER_PASSWORD` or type the password at the prompt; create the employee the same way with
-`--role employee` and one `--department` per active department.) Failures leave `actual`, `expected` and `diff` PNGs in
-`web/test-results/` and an HTML report in `web/playwright-report/`.
+Sales Memory and Product Hub screens removed (backend sales-memory search still powers *Sales coach* mode in Ask).
 
-Sales Memory and Product Hub screens were removed (the backend's sales-memory search still powers the *Sales coach* mode in Ask).
-
-## Your answer-model key (OpenAI / Gemini / Claude)
-
-Put it in the git-ignored **`.env`** file in the project folder, then restart the app:
+## Answer-model key
+In git-ignored `.env`, then restart:
 ```
 QB_GENERATION_PROVIDER=openai        # or gemini / claude
 QB_GENERATION_MODEL_ID=<model name from your account>
 OPENAI_API_KEY=<your key>            # GEMINI_API_KEY / ANTHROPIC_API_KEY for the others (Claude also needs QB_GENERATION_MAX_TOKENS)
 ```
-In AWS, put the key in Secrets Manager and inject it as the same environment variable. Never commit `.env`.
+In AWS: Secrets Manager injected as the same env var. Never commit `.env`.
 
-## Statuses of knowledge (PRD §12.3)
+## Knowledge statuses (§12.3)
+`draft -> submitted -> pending_review -> approved -> active`, plus `rejected`, `archived`, `expired`. Contributors submit; dept manager or admin reviews; only admins archive. Activating archives the previous active (§15). Retrieval sees `active` only unless `include_archived`.
 
-`draft → submitted → pending_review → approved → active`, plus `rejected`, `archived`, `expired`.
-Contributors submit; the department manager or an administrator reviews; only administrators archive. Activating a version
-archives the previous active one (§15). Retrieval sees `active` only unless `include_archived` is sent.
-
-## Production and operations
-
-- Deploying on the EC2 server, backups, Hermes/Telegram/Obsidian setup, updates: **docs/DEPLOYMENT.md**.
-- Every setting with an explanation: **.env.example**.
-- Load test (PRD §13 AT-09): `scripts/load_test.py`. Backups and restore drill: `python -m backend.ops.backup`.
-- Hermes, Telegram and Obsidian design and status: **docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md**.
-- Tests: `python -m pytest` (no database needed); with a PostgreSQL + pgvector: `QB_TEST_DATABASE_URL=postgresql://user:pw@host:5432/postgres python -m pytest tests/integration`;
-  with Redis: `QB_TEST_REDIS_URL=redis://host:6379/0`; UI parity: `cd web && npm run test:visual`.
+## Production and ops
+- EC2 deploy, backups, Hermes/Telegram/Obsidian setup, updates: `docs/DEPLOYMENT.md`. Settings: `.env.example`.
+- Load test (AT-09): `scripts/load_test.py`. Backups/drill: `python -m backend.ops.backup`.
+- Hermes/Telegram/Obsidian design + status: `docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md`.
+- Tests: `python -m pytest`; PostgreSQL+pgvector: `QB_TEST_DATABASE_URL=postgresql://user:pw@host:5432/postgres python -m pytest tests/integration`; Redis: `QB_TEST_REDIS_URL=redis://host:6379/0`; UI parity: `cd web && npm run test:visual`.
