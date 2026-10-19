@@ -55,7 +55,8 @@ def system_overview(_: Principal = Depends(require(P.MANAGE_SYSTEM)), svc: Servi
                      "session_hours": round(s.session_ttl_seconds / 3600, 1)},
         "vault": {"path": s.vault_dir, "head": GitVault(s.vault_dir).head()},
         "integrations": settings_store.get("integrations_health", {}),     # written by the Hermes sidecar heartbeat
-        "backups": settings_store.get("last_backup"),                      # written by scripts/backup.sh (M7)
+        "backups": settings_store.get("last_backup"),                      # written by python -m backend.ops.backup create
+        "restore_drill": settings_store.get("last_restore_drill"),         # PRD §16 (g): written by ... backup drill
         "incident": settings_store.get(INCIDENT_KEY, {"answers_paused": False}),
         "web_search": {"enabled": False, "reason": "PRD §14: Web Search is P1 and needs governance before it can be turned on"},
         "sales_history_answers": s.sales_history_enabled,
@@ -73,6 +74,12 @@ def set_incident(body: Incident, p: Principal = Depends(require(P.MANAGE_SYSTEM)
     svc.system_settings.set(INCIDENT_KEY, {"answers_paused": body.answers_paused, "message": (body.message or "").strip() or None}, p.user_id)
     audit.record(svc.ops, audit.ADMIN_ACTION, p.user_id, p.employee_id, action="incident_control", answers_paused=body.answers_paused)
     return {"answers_paused": body.answers_paused}
+
+
+@router.get("/audit-verify")
+def verify_audit(p: Principal = Depends(require(P.MANAGE_SYSTEM)), svc: Services = Depends(get_services)):
+    """PRD §10: prove the audit log has not been changed (hash chain)."""
+    return svc.ops.verify_audit_chain()
 
 
 @router.get("/audit-export")

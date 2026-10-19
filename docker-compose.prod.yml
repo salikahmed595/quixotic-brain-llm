@@ -1,0 +1,116 @@
+# Production on ONE EC2 server (owner decision 2026-10-17; PRD §11: Dockerized services, HTTPS reverse proxy, Redis + worker
+# queue, backups, logs). Guide: docs/DEPLOYMENT.md.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build                       # Quixotic AI
+#   docker compose -f docker-compose.prod.yml --profile hermes up -d --build      # + Hermes / Telegram (PRD §9, optional)
+#
+# Secrets come from .env on the server (filled from AWS Secrets Manager; never committed). Only Caddy (80/443) is published.
+name: quixotic
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes: ["redisdata:/data"]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+
+  api:
+    build: .
+    image: quixotic-ai:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      QB_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      QB_QUEUE_BACKEND: redis
+      QB_REDIS_URL: redis://redis:6379/0
+      QB_VAULT_DIR: /srv/vault/work
+      HF_HOME: /home/quixotic/.cache/huggingface
+    volumes:
+      - /srv/vault:/srv/vault                    # Git vault (work/) and the bare repository Obsidian syncs with (vault.git)
+      - models:/home/quixotic/.cache/huggingface # BGE-M3 + reranker, downloaded once
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [backend]
+    logging: {driver: json-file, options: {max-size: "20m", max-file: "10"}}
+
+  worker:
+    image: quixotic-ai:latest
+    restart: unless-stopped
+    command: ["python", "-m", "workers.worker"]
+    env_file: .env
+    environment:
+      QB_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      QB_QUEUE_BACKEND: redis
+      QB_REDIS_URL: redis://redis:6379/0
+      QB_VAULT_DIR: /srv/vault/work
+      HF_HOME: /home/quixotic/.cache/huggingface
+    volumes: ["/srv/vault:/srv/vault", "models:/home/quixotic/.cache/huggingface"]
+    depends_on: [api]
+    networks: [backend]
+    logging: {driver: json-file, options: {max-size: "20m", max-file: "10"}}
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      QB_DOMAIN: ${QB_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+    networks: [backend]
+
+  # ---- optional: Hermes + Telegram (PRD §9). docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md ----
+  quixotic-mcp:
+    build: ./integrations/mcp
+    restart: unless-stopped
+    profiles: [hermes]
+    environment:
+      QUIXOTIC_API_URL: http://api:8000
+      QB_HERMES_SHARED_SECRET: ${QB_HERMES_SHARED_SECRET}
+      QUIXOTIC_MCP_TOKEN: ${QUIXOTIC_MCP_TOKEN}
+      QUIXOTIC_DEFAULT_TELEGRAM_USER: ${QUIXOTIC_DEFAULT_TELEGRAM_USER:-}
+    networks: [backend, agent]
+
+  hermes:
+    # Pinned by digest: v0.22.2, verified locked down on 2026-10-17 (only `clarify` + the quixotic tools). Re-verify on upgrade (H0).
+    image: nousresearch/hermes-agent@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
+    restart: unless-stopped
+    profiles: [hermes]
+    command: ["gateway", "run"]
+    volumes: ["/srv/hermes:/opt/data"]          # config.yaml, SOUL.md and .env from deploy/hermes/
+    networks: [agent]                           # reaches quixotic-mcp and the internet (Telegram, OpenAI); never the database
+    deploy: {resources: {limits: {memory: 1536M, cpus: "1.0"}}}
+    logging: {driver: json-file, options: {max-size: "20m", max-file: "5"}}
+
+networks:
+  backend: {}
+  agent: {}
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  models: {}
+  caddy_data: {}
+  caddy_config: {}

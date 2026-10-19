@@ -79,3 +79,33 @@ class SQSQueue:
 
     def delete(self, receipt: str) -> None:
         self._sqs.delete_message(QueueUrl=self._url, ReceiptHandle=receipt)
+
+
+class RedisQueue:
+    """PRD §11 "Redis and worker queue" (owner: one EC2 server, Redis in a container). Reliable-queue pattern: a received job is
+    moved to a processing list and removed only when the worker is done, so a worker that crashes mid-job does not lose it
+    (`requeue_stale` puts such jobs back; the worker calls it on start)."""
+
+    def __init__(self, url: str, name: str = "quixotic:jobs", client=None) -> None:
+        if client is None:
+            import redis
+            client = redis.Redis.from_url(url, decode_responses=True)
+        self._r, self._q, self._p = client, name, f"{name}:processing"
+
+    def send(self, job_id: UUID, job_type: str) -> None:
+        self._r.lpush(self._q, json.dumps({"job_id": str(job_id), "type": job_type}))
+
+    def receive(self, wait_seconds: int = 20) -> Optional[tuple[dict, str]]:
+        raw = (self._r.lmove(self._q, self._p, "RIGHT", "LEFT") if wait_seconds <= 0
+               else self._r.blmove(self._q, self._p, wait_seconds, "RIGHT", "LEFT"))
+        return (json.loads(raw), raw) if raw else None
+
+    def delete(self, receipt: str) -> None:
+        self._r.lrem(self._p, 1, receipt)
+
+    def requeue_stale(self) -> int:
+        """On worker start: jobs left in the processing list by a stopped worker go back to the queue (single worker per server)."""
+        n = 0
+        while self._r.lmove(self._p, self._q, "RIGHT", "LEFT"):
+            n += 1
+        return n

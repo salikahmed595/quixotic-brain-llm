@@ -22,6 +22,7 @@ class BGEM3Embedder:
 
     def __init__(self, model_path: str = "BAAI/bge-m3") -> None:
         self._path, self._model, self._lock = model_path, None, threading.Lock()
+        self._batcher = None
 
     def _load(self):
         with self._lock:               # warm-up thread and a first request must not both load the model
@@ -38,7 +39,13 @@ class BGEM3Embedder:
         return [v.tolist() for v in vecs]
 
     def embed(self, text: str) -> list[float]:
-        return self.embed_many([text])[0]
+        """Single questions from concurrent requests share one model call (batching.py; AT-09 load)."""
+        if self._batcher is None:
+            from .batching import MicroBatcher
+            with self._lock:
+                if self._batcher is None:
+                    self._batcher = MicroBatcher(self.embed_many, name="embed-batcher")
+        return self._batcher.submit([text])[0]
 
 
 def get_embedder(settings: Settings) -> Embedder:

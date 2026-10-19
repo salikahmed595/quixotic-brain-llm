@@ -83,7 +83,7 @@ answered; work that does not depend on them goes first.
 - Responsive + accessibility per §4.4 (drawer, 44 px targets, focus states, keyboard).
 - **Tests:** Playwright visual regression at 1470 × 900 against both screenshots, role-based nav checks (AT-01 end-to-end, AT-08). ✅ `web/tests/visual.spec.ts`, `npm run test:visual` (AT-08).
 
-## M7 — Audit, operations and release readiness
+## M7 — Audit, operations and release readiness — ✅ built 2026-10-18 (audit chain, Redis, Compose + Caddy, backups + drill, load test, docs/DEPLOYMENT.md); AT-09 must be run on the real server
 
 - Audit events for approvals, access-scope changes, document changes, publishing, exports; tamper-resistant (§10; proposed: append-only table + hash chain, to be listed as an implementation necessity).
 - Single EC2 server (owner): Docker Compose with API, worker, PostgreSQL + pgvector, Redis queue (§11, replaces SQS), HTTPS reverse proxy, log collection; staging setup per owner (§11).
@@ -98,7 +98,7 @@ Out of P0 (do not build now): Add information, Approvals UI, Knowledge browser, 
 polish, Vocabulary UI changes, Web Search, voice questions (P1); Hermes + Telegram/Discord (P2). Existing code for
 these stays in place but is not extended until its phase.
 
-## After M3 — Hermes + Telegram knowledge updates (PRD §9; owner decisions in PRD_GAPS §0.7)
+## After M3 — Hermes + Telegram knowledge updates (PRD §9; owner decisions in PRD_GAPS §0.7) — ✅ built 2026-10-17
 
 Starts once M3 is done; must not delay the §16 Phase 1 release. Full research and steps H0–H6: `docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md`.
 

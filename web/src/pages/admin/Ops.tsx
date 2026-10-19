@@ -243,7 +243,9 @@ export function SystemPage() {
             ['Email', s.security.mail_backend === 'smtp' ? 'SMTP' : <span className="chip amber">Console (development)</span>],
             ['Access levels', Object.entries(s.retrieval.sensitivity_levels).map(([k, v]) => `${k}: ${(v as string[]).length} roles`).join(' · ')]]} /></div>
           <div className="card"><b>Knowledge vault and backups</b><KV rows={[['Vault (Git)', s.vault.path], ['Last commit', s.vault.head ? s.vault.head.slice(0, 10) : 'none yet'],
-            ['Last backup', s.backups ? `${fmtDate(s.backups.at)} · ${s.backups.status}` : <span className="chip amber">No backup recorded</span>]]} /></div>
+            ['Last backup', s.backups ? `${fmtDate(s.backups.at)} · ${s.backups.status}${s.backups.s3 ? ' · in S3' : ''}` : <span className="chip amber">No backup recorded</span>],
+            ['Last restore test', s.restore_drill ? <span key="d" className={`chip dot ${s.restore_drill.ok ? 'green' : 'red'}`}>{s.restore_drill.ok ? 'Passed' : 'Failed'} · {fmtDate(s.restore_drill.at)}</span> : <span className="chip amber">Never tested</span>]]} />
+            <button className="btn sm mt-2.5" onClick={async () => { try { const v = await api('/v1/admin/system/audit-verify'); toast(v.ok ? `Audit log intact (${v.entries} entries)` : `Audit log problem: ${v.problems[0]?.problem}`); } catch (e) { toast((e as Error).message); } }}>Verify audit log</button></div>
           <IntegrationsCard />
           <div className="card"><b>Incident controls</b><p className="hint mt-1.5">Stop all answers at once, e.g. if wrong information was published or the AI provider misbehaves. Document search keeps working.</p>
             <button className={`btn mt-2.5 ${s.incident?.answers_paused ? 'good' : 'bad'}`} onClick={pause}>{s.incident?.answers_paused ? 'Resume answers' : 'Pause answers'}</button></div>

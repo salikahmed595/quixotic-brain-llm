@@ -27,9 +27,11 @@ class Settings(BaseSettings):
     tenant_id: str = "quixotic"
 
     # ---- infrastructure (PRD §44–§46) -------------------------------------------------
-    database_url: str                      # RDS PostgreSQL + pgvector
-    s3_bucket: str                         # private bucket; paths per §46
-    sqs_queue_url: str                     # background jobs (§47)
+    database_url: str                      # PostgreSQL + pgvector (PRD §8, §11)
+    s3_bucket: str                         # private object storage for uploaded originals (PRD §11)
+    queue_backend: str                     # PRD §11 "Redis and worker queue": "redis" (EC2, owner) or "sqs" (AWS managed)
+    redis_url: Optional[str] = None        # required for redis, e.g. redis://redis:6379/0
+    sqs_queue_url: Optional[str] = None    # required for sqs
     aws_region: Optional[str] = None
     s3_endpoint_url: Optional[str] = None  # only for local emulators
     sqs_endpoint_url: Optional[str] = None
@@ -197,6 +199,12 @@ class Settings(BaseSettings):
             raise ValueError("sales_history_min_similarity must be between 0 and 1")
         if not 1 <= self.rerank_top_k <= self.candidate_count:
             raise ValueError("require 1 <= rerank_top_k <= candidate_count")
+        if self.queue_backend not in ("redis", "sqs"):
+            raise ValueError("queue_backend must be 'redis' or 'sqs'")
+        if self.queue_backend == "redis" and not self.redis_url:
+            raise ValueError("queue_backend=redis needs redis_url")
+        if self.queue_backend == "sqs" and not self.sqs_queue_url:
+            raise ValueError("queue_backend=sqs needs sqs_queue_url")
         if self.mail_backend == "smtp" and not (self.smtp_host and self.smtp_port and self.mail_from):
             raise ValueError("mail_backend=smtp needs smtp_host, smtp_port and mail_from")
         for name in ("hermes_shared_secret", "telegram_webhook_secret"):

@@ -6,3 +6,10 @@
 web/node_modules/
 web/dist/
 .git/
+.devvault/
+.pytest-vault/
+web/test-results/
+web/playwright-report/
+web/.env.visual
+UI images/
+.pytest_cache/

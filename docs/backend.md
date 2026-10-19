@@ -173,3 +173,12 @@ In AWS, put the key in Secrets Manager and inject it as the same environment var
 `draft → submitted → pending_review → approved → active`, plus `rejected`, `archived`, `expired`.
 Contributors submit; the department manager or an administrator reviews; only administrators archive. Activating a version
 archives the previous active one (§15). Retrieval sees `active` only unless `include_archived` is sent.
+
+## Production and operations
+
+- Deploying on the EC2 server, backups, Hermes/Telegram/Obsidian setup, updates: **docs/DEPLOYMENT.md**.
+- Every setting with an explanation: **.env.example**.
+- Load test (PRD §13 AT-09): `scripts/load_test.py`. Backups and restore drill: `python -m backend.ops.backup`.
+- Hermes, Telegram and Obsidian design and status: **docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md**.
+- Tests: `python -m pytest` (no database needed); with a PostgreSQL + pgvector: `QB_TEST_DATABASE_URL=postgresql://user:pw@host:5432/postgres python -m pytest tests/integration`;
+  with Redis: `QB_TEST_REDIS_URL=redis://host:6379/0`; UI parity: `cd web && npm run test:visual`.

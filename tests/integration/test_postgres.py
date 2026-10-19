@@ -236,3 +236,22 @@ def test_structured_sales_import_list_search_and_undo(stores):          # owner 
     row = ops.sales_memory_imports()[0]
     assert (row["filename"], row["department"], row["stored"], row["status"]) == ("upsellers.json", "Sales", 1, "succeeded")
     assert ops.delete_sales_memory_import(job) == 1 and ops.sales_memory_imports()[0]["stored"] == 0
+
+
+def test_audit_log_is_append_only_and_tampering_is_detected(stores):          # PRD §10, M7
+    ops = stores["ops"]
+    for i in range(5):
+        ops.audit("admin_action", None, f"a{i}", {"n": i})
+    v = ops.verify_audit_chain()
+    assert v["ok"] and v["entries"] >= 5 and v["tip"]
+    with pytest.raises(psycopg.errors.RaiseException), stores["pool"].connection() as c:
+        c.execute("UPDATE audit_logs SET actor_label='forged' WHERE actor_label='a2'")
+    with pytest.raises(psycopg.errors.RaiseException), stores["pool"].connection() as c:
+        c.execute("DELETE FROM audit_logs WHERE actor_label='a3'")
+    # someone with database superpowers switches the protection off and edits a row: the chain shows it
+    with stores["pool"].connection() as c:
+        c.execute("ALTER TABLE audit_logs DISABLE TRIGGER audit_append_only")
+        c.execute("UPDATE audit_logs SET detail='{\"n\": 99}' WHERE actor_label='a2'")
+        c.execute("DELETE FROM audit_logs WHERE actor_label='a3'")
+    bad = ops.verify_audit_chain()
+    assert not bad["ok"] and {p["problem"] for p in bad["problems"]} >= {"content changed", "previous entry missing"}

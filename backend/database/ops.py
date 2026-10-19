@@ -205,6 +205,26 @@ class OpsStore:
                              "WHERE tenant_id=%s AND (%s::text IS NULL OR event=%s) ORDER BY id DESC LIMIT %s",
                              (self.tenant, event, event, limit)).fetchall()
 
+    def verify_audit_chain(self) -> dict:
+        """PRD §10 tamper-resistant audit log: recompute every row's hash and follow the prev_hash links. Any edited, removed or
+        inserted-in-between row breaks it. The tip hash is also written to each backup manifest as an outside anchor."""
+        with self.pool.connection() as c:
+            rows = c.execute("SELECT id, prev_hash, hash, audit_row_hash(prev_hash, tenant_id, at, actor_id, actor_label, event, detail) "
+                             "AS expected FROM audit_logs ORDER BY id").fetchall()
+        problems, hashes, used = [], {r["hash"] for r in rows}, {}
+        for r in rows:
+            if r["hash"] != r["expected"]:
+                problems.append({"id": r["id"], "problem": "content changed"})
+            if r["prev_hash"] != "genesis" and r["prev_hash"] not in hashes:
+                problems.append({"id": r["id"], "problem": "previous entry missing"})
+            if r["prev_hash"] in used:
+                problems.append({"id": r["id"], "problem": f"chain forks (also follows entry {used[r['prev_hash']]})"})
+            used[r["prev_hash"]] = r["id"]
+        tips = [r for r in rows if r["hash"] not in used]
+        if rows and len(tips) != 1:
+            problems.append({"id": None, "problem": f"{len(tips)} chain ends instead of 1"})
+        return {"ok": not problems, "entries": len(rows), "tip": tips[0]["hash"] if len(tips) == 1 else None, "problems": problems[:50]}
+
     def audit_for_user(self, user_id: UUID, limit: int = 100) -> list[dict]:
         """PRD §7 Users "audit history": what this person did and what was done to their account."""
         with self.pool.connection() as c:

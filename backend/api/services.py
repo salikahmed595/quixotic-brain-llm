@@ -22,7 +22,7 @@ from ..generation.base import get_generator
 from ..ingestion.pipeline import IngestionService
 from ..learning.feedback import make_signal_source
 from ..notifications.mail import make_mailer
-from ..ingestion.storage import LocalDirStorage, S3Storage, SQSQueue
+from ..ingestion.storage import LocalDirStorage, RedisQueue, S3Storage, SQSQueue
 from ..reranking.base import get_reranker
 from ..retrieval.ask import AskService
 from ..retrieval.embeddings import get_embedder
@@ -90,7 +90,7 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         search=search, ask=AskService(search, get_generator(settings), settings),
         ingestion=IngestionService(knowledge, storage, embedder, language, settings),
         importer=SalesMemoryImporter(ops, embedder, language, parser, extractor),
-        storage=storage, queue=SQSQueue(settings), language=language, embedder=embedder,
+        storage=storage, queue=RedisQueue(settings.redis_url) if settings.queue_backend == "redis" else SQSQueue(settings), language=language, embedder=embedder,
         limiter=SlidingWindowLimiter(), pool=pool, conversations=ConversationStore(pool, t), models_ready=ready,
         sessions=SessionStore(pool, t), one_time=OneTimeTokenStore(pool), system_settings=SystemSettingsStore(pool, t),
         mailer=make_mailer(settings), gaps=GapStore(pool, t), integrations=IntegrationStore(pool, t))

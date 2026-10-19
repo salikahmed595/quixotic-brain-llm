@@ -3,6 +3,7 @@
 Real: FastAPI app, auth (server-side sessions), PostgreSQL + pgvector, the SQL stores, ingestion, the worker loop.
 Mocked: S3/SQS (moto), the answer model (no LLM key available) and - unless the weights are on disk - the embedder.
 Set QB_TEST_DATABASE_URL to run. Put the models in .models/ (scripts/download_models.sh) to use BGE-M3 and the reranker."""
+import functools
 import os
 from pathlib import Path
 from uuid import UUID
@@ -56,6 +57,12 @@ Refunds are reviewed against order status and delivery date before approval.
 """
 
 
+@functools.lru_cache(maxsize=1)
+def _models():
+    """The real models are loaded once per test run (each copy needs ~4.6 GB of memory)."""
+    return (BGEM3Embedder(str(M3)), CrossEncoderReranker(str(RR))) if REAL_MODELS else (HashEmbedder(), None)
+
+
 @pytest.fixture
 def stack(db, monkeypatch, tmp_path):
     for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
@@ -70,8 +77,7 @@ def stack(db, monkeypatch, tmp_path):
                           reranker_model=str(RR) if REAL_MODELS else None, vault_dir=str(tmp_path / "vault"))
         t = s.tenant_id
         users, knowledge, ops = UserStore(db, t), KnowledgeStore(db, t), OpsStore(db, t)
-        emb = BGEM3Embedder(str(M3)) if REAL_MODELS else HashEmbedder()
-        rr = CrossEncoderReranker(str(RR)) if REAL_MODELS else None
+        emb, rr = _models()
         lang, storage = LanguageService(s.roman_urdu_min_ratio), S3Storage(s)
         search = SearchService(RetrievalSQLStore(db, t), emb, rr, lang, s)
         svc = Services(settings=s, users=users, knowledge=knowledge, ops=ops, analytics=AnalyticsStore(db, t), search=search,

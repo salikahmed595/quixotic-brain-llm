@@ -1,4 +1,5 @@
-"""Background worker (PRD §47): consumes Amazon SQS messages, runs on ECS.
+"""Background worker (PRD §11 "Redis and worker queue for parsing, embedding, indexing, notifications, and retries"):
+consumes the Redis queue (EC2) or Amazon SQS.
 
 Job types: knowledge.process (parse + index a version, PRD §7 Documents), knowledge.publish (§8 controlled publication),
 knowledge.approve_after_index (approved Obsidian import), discord.import (sales chat import), reindex (all versions).
@@ -72,5 +73,9 @@ def run_once(svc: Services, wait_seconds: int = 20) -> bool:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     services = build_services(get_settings(), warm_reranker=False)
+    if hasattr(services.queue, "requeue_stale"):
+        n = services.queue.requeue_stale()                  # jobs a stopped worker left half-done go back to the queue
+        if n:
+            log.info("requeued %s unfinished job(s)", n)
     while True:
         run_once(services)

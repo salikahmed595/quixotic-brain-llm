@@ -23,6 +23,7 @@ class CrossEncoderReranker:
 
     def __init__(self, model_name: str) -> None:
         self._name, self._model, self._lock = model_name, None, threading.Lock()
+        self._batcher = None
 
     def _load(self):
         with self._lock:
@@ -34,8 +35,17 @@ class CrossEncoderReranker:
     def warm(self) -> None:
         self.score("warm up", ["warm up"])
 
+    def _predict(self, pairs: list) -> list[float]:
+        return [float(s) for s in self._load().predict(pairs)]
+
     def score(self, query: str, texts: Sequence[str]) -> list[float]:
-        return [float(s) for s in self._load().predict([(query, t) for t in texts])]
+        """Pairs from concurrent requests share one model call (batching.py; AT-09 load)."""
+        if self._batcher is None:
+            from ..retrieval.batching import MicroBatcher
+            with self._lock:
+                if self._batcher is None:
+                    self._batcher = MicroBatcher(self._predict, name="rerank-batcher")
+        return self._batcher.submit([(query, t) for t in texts])
 
 
 def get_reranker(settings: Settings) -> Optional[Reranker]:

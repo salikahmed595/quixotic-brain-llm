@@ -319,6 +319,21 @@ the model needs a migration + re-index, §24.2) · `sentence-transformers` for B
 `boto3` (S3, SQS, Bedrock Converse API) · CPU-only PyTorch (stack: no GPU) · synchronous endpoints · Docker image `python:3.14-slim` (the version the tests ran on) ·
 `tenant_id` column on business tables (§66) · `jobs` table for background-job progress (§47).
 
+**M7 release readiness (2026-10-18) — veto any of them**
+- Audit log (§10 tamper-resistant): append-only (UPDATE/DELETE refused by a trigger) + SHA-256 hash chain; System → "Verify audit
+  log" / `GET /v1/admin/system/audit-verify`; the chain tip is written into every backup manifest.
+- Job queue (§11): Redis list with a processing list (jobs survive a worker crash); SQS stays possible (`QB_QUEUE_BACKEND`).
+- CPU model micro-batching (`backend/retrieval/batching.py`, 10 ms window, 64 items): concurrent questions share embedder and
+  reranker calls. Measured on a 4-core laptop: 20-request burst p95 4.5 s → 1.7 s.
+- Load (AT-09) measured on that laptop, search only: 160 sessions OK; 40-concurrent baseline p95 4.5 s and 160 burst p95 11.9 s,
+  above the 2 s target → the server must be sized with `scripts/load_test.py` (docs/DEPLOYMENT.md §8).
+- Production: Docker Compose on one EC2 server (owner); Caddy 2.8 for HTTPS (Let's Encrypt) with HSTS and security headers;
+  pgvector 0.8.0-pg16; Redis 7.4 with AOF; container user uid 10001; JSON log rotation 10 × 20 MB.
+- Backups (§16 g): `pg_dump` custom format + vault tar.gz + SHA-256 manifest, uploaded to S3 with AES256; a weekly drill restores
+  into a throw-away database and checks rows, checksums and the audit chain. Retention by the S3 lifecycle rule ❓ (35 days proposed).
+- Hermes image pinned by digest (v0.22.2), verified locked down: only `clarify` + the five quixotic tools (`computer_use` and
+  `connections` had to be disabled explicitly).
+
 **Local development setup (2026-10-07; tooling only, no product behaviour)**
 - `scripts/dev_up.py` drops trailing `# comments` from `.env` values (like python-dotenv) and stops with a clear message when `.env`
   is missing. Before, `QB_SESSION_TTL_SECONDS=28800  # PLACEHOLDER` reached the app verbatim and failed validation.
