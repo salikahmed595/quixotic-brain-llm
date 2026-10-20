@@ -80,7 +80,8 @@ def create(settings, out_dir: Path, to_s3: bool) -> dict:
     _run(["pg_dump", "--format=custom", "--no-owner", "--file", str(dump), settings.database_url])
     vault = out_dir / f"quixotic-{stamp}-vault.tar.gz"
     with tarfile.open(vault, "w:gz") as tar:
-        for p in {Path(settings.vault_dir), Path(settings.vault_remote) if settings.vault_remote else None} - {None}:
+        extra = (settings.vault_remote, getattr(settings, "vault_contributors_dir", None))   # + contributors' private repositories
+        for p in {Path(settings.vault_dir), *(Path(x) for x in extra if x)}:
             if p.exists():
                 tar.add(p, arcname=p.name)
     state = _counts(settings.database_url)

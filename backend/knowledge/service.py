@@ -388,7 +388,7 @@ class KnowledgeService:
         gaps = getattr(self.svc, "gaps", None)
         if gaps and p.get("gap_id"):
             gaps.resolve_by_proposal(p["id"], p["gap_id"], None)
-        if getattr(self.svc.settings, "vault_remote", None) and getattr(self.svc, "integrations", None):
+        if getattr(self.svc.settings, "vault_contributors_dir", None) and getattr(self.svc, "integrations", None):
             from .vault_sync import VaultSync
             VaultSync(self.svc).refresh_branches()
         hook = getattr(self.svc, "on_published", None)
@@ -402,6 +402,9 @@ class KnowledgeService:
     def _may_see(self, actor: Principal, item: dict) -> bool:
         if actor.all_departments:
             return True
+        level = item.get("sensitivity")                       # §8: the access level counts as much as the department
+        if level and actor.role.value not in self.svc.settings.sensitivity_levels.get(level, frozenset()):
+            return False
         return bool(set(item["department_ids"]) & set(actor.department_ids) | set(item["department_ids"]) & set(actor.managed_department_ids))
 
     def diff(self, p: dict) -> dict:

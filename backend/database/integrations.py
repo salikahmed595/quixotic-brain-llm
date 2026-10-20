@@ -46,6 +46,14 @@ class IntegrationStore:
                              "VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
                              (self.tenant, platform, str(event_id), kind, user_id, proposal_id)).rowcount > 0
 
+    def activity(self, platform: str, limit: int = 200) -> list[dict]:
+        """Recent events per linked person (pushes, proposals, view refreshes, conflicts) with the proposal's current state."""
+        with self.pool.connection() as c:
+            return c.execute("SELECT e.kind, e.event_id, e.received_at, e.proposal_id, u.full_name, u.email, p.status AS proposal_status, "
+                             "p.title AS proposal_title, p.kind AS proposal_kind FROM integration_events e LEFT JOIN users u ON u.id=e.user_id "
+                             "LEFT JOIN knowledge_proposals p ON p.id=e.proposal_id WHERE e.tenant_id=%s AND e.platform=%s "
+                             "ORDER BY e.received_at DESC, e.id DESC LIMIT %s", (self.tenant, platform, limit)).fetchall()
+
     # ---- bot messages whose buttons change after a decision ----
     def save_message(self, proposal_id: Optional[UUID], chat_id: str, message_id: int, purpose: str) -> None:
         with self.pool.connection() as c:

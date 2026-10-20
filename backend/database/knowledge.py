@@ -100,6 +100,16 @@ class KnowledgeStore:
             return c.execute(_VERSION_SELECT + " WHERE i.tenant_id=%s AND v.item_id=%s AND v.status='published'",
                              (self.tenant, item_id)).fetchone()
 
+    def published_vault_files(self) -> list[dict]:
+        """Published, in-force notes with their vault file, departments and sensitivity (contributor views, contributors.py).
+        Same date rules as retrieval (§8: only approved, published, unexpired content)."""
+        with self.pool.connection() as c:
+            return c.execute(f"SELECT i.id, i.vault_path, i.sensitivity, {_DEPTS} FROM knowledge_items i "
+                             "JOIN knowledge_versions v ON v.item_id=i.id AND v.status='published' "
+                             "WHERE i.tenant_id=%s AND i.vault_path IS NOT NULL AND i.vault_path NOT LIKE 'Archive/%%' "
+                             "AND (v.effective_date IS NULL OR v.effective_date <= CURRENT_DATE) "
+                             "AND (v.expires_at IS NULL OR v.expires_at > now())", (self.tenant,)).fetchall()
+
     def versions_of(self, item_id: UUID) -> list[dict]:
         with self.pool.connection() as c:
             return c.execute("SELECT v.id, v.version, v.status, v.created_at, v.published_at, v.change_note, v.effective_date, v.expires_at, "

@@ -312,6 +312,24 @@ function IntegrationsCard() {
         <button className="btn primary" disabled={a.busy}>Link</button>
       </form>
       {a.error && <Banner kind="err" className="mt-2">{a.error}</Banner>}
+      {st.obsidian && <ObsidianActivity />}
     </div>
+  );
+}
+
+/* Owner request 2026-10-20: per-contributor activity — pushes, the proposals they became, view refreshes and Git conflicts. */
+type ObsEvent = { contributor: string; kind: string; at: string; note?: string | null; proposal_title?: string | null; proposal_status?: string | null };
+const OBS_KIND: Record<string, string> = { push: 'Pushed notes', proposal: 'Proposal', view_refresh: 'View updated', conflict: 'Conflict: pull and resolve' };
+function ObsidianActivity() {
+  const { data, error } = useLoad(() => api<{ events: ObsEvent[] }>('/v1/admin/integrations/obsidian/activity'));
+  if (error) return <Banner kind="err" className="mt-3">{error}</Banner>;
+  if (!data) return <Loading />;
+  return (
+    <details className="more mt-3"><summary>Obsidian activity ({data.events.length})</summary>
+      {data.events.length ? <div className="table-wrap !border-0 mt-2"><table><thead><tr><th>When</th><th>Contributor</th><th>What</th><th>Note / proposal</th></tr></thead>
+        <tbody>{data.events.slice(0, 100).map((e, k) => <tr key={k}><td>{new Date(e.at).toLocaleString()}</td><td><code>{e.contributor}</code></td>
+          <td>{OBS_KIND[e.kind] || e.kind}</td><td>{e.proposal_title || e.note || '—'}{e.proposal_status && <div className="hint">{e.proposal_status.replace('_', ' ')}</div>}</td></tr>)}</tbody></table></div>
+        : <p className="hint mt-2">No pushes yet.</p>}
+    </details>
   );
 }

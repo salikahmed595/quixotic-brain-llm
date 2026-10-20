@@ -185,7 +185,7 @@ class VaultPush(BaseModel):
 @router.post("/vault/push", status_code=202)
 def vault_push(body: VaultPush, _: bytes = Depends(signed), svc: Services = Depends(get_services)):
     from ...knowledge.vault_sync import VaultSync
-    if not svc.settings.vault_remote:
+    if not svc.settings.vault_contributors_dir:
         raise HTTPException(404, "not found")
     return VaultSync(svc).sync_branch(body.branch, body.commit)
 
@@ -202,7 +202,7 @@ class IdentityIn(BaseModel):
 def list_identities(_=Depends(require(P.MANAGE_SYSTEM)), svc: Services = Depends(get_services)):
     return {"identities": [{**r, "id": str(r["id"]), "user_id": str(r["user_id"])} for r in svc.integrations.identities()],
             "telegram": bool(svc.settings.telegram_bot_token), "hermes": bool(svc.settings.hermes_shared_secret),
-            "obsidian": bool(svc.settings.vault_remote)}
+            "obsidian": bool(svc.settings.vault_contributors_dir)}
 
 
 @admin.post("/identities", status_code=201)
@@ -221,11 +221,32 @@ def add_identity(body: IdentityIn, p=Depends(require(P.MANAGE_SYSTEM)), svc: Ser
         raise HTTPException(409, "this account is already linked")
     audit.record(svc.ops, audit.PERMISSION_CHANGE, p.user_id, p.employee_id, action="integration_identity_linked", platform=body.platform,
                  user=body.user_id)
+    if body.platform == "obsidian":
+        from ...knowledge.vault_sync import queue_view_refresh
+        queue_view_refresh(svc, p.user_id, ext)                    # creates their private repository with their view
     return {"id": str(iid)}
+
+
+@admin.get("/obsidian/activity")
+def obsidian_activity(p=Depends(require(P.MANAGE_SYSTEM)), svc: Services = Depends(get_services)):
+    """Owner request 2026-10-20: per-contributor activity — pushes, the proposals they became (and their review state),
+    view refreshes and Git conflicts. Contributor = `proposals/<name>`."""
+    out = []
+    for r in svc.integrations.activity("obsidian"):
+        eid = r["event_id"]
+        name = (eid.split(":", 2)[1] if r["kind"] in ("view_refresh", "conflict") else eid.split(":", 1)[0].removeprefix("proposals/"))
+        out.append({"contributor": name, "kind": r["kind"], "at": r["received_at"].isoformat(), "person": r["full_name"],
+                    "note": eid.split(":", 2)[2] if r["kind"] == "proposal" else None, "proposal_id": str(r["proposal_id"]) if r["proposal_id"] else None,
+                    "proposal_title": r["proposal_title"], "proposal_status": r["proposal_status"]})
+    return {"enabled": bool(svc.settings.vault_contributors_dir), "events": out}
 
 
 @admin.delete("/identities/{identity_id}", status_code=204)
 def remove_identity(identity_id: UUID, p=Depends(require(P.MANAGE_SYSTEM)), svc: Services = Depends(get_services)):
+    ident = next((i for i in svc.integrations.identities() if i["id"] == identity_id), None)
     if not svc.integrations.remove_identity(identity_id):
         raise HTTPException(404, "not found")
+    if ident and ident["platform"] == "obsidian":
+        from ...knowledge.vault_sync import queue_view_refresh
+        queue_view_refresh(svc, p.user_id, ident["external_id"], empty=True)     # unlinked: their repository keeps no notes
     audit.record(svc.ops, audit.PERMISSION_CHANGE, p.user_id, p.employee_id, action="integration_identity_removed", identity=identity_id)

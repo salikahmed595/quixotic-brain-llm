@@ -1,29 +1,30 @@
-"""Local Obsidian Git sync for testing on one PC (no server, no SSH, no Telegram) — PRD §9 knowledge updates from Obsidian.
+"""Local Obsidian contributors on one PC (no server, no SSH, no Telegram) — the same private-repository model as the server
+(backend/knowledge/contributors.py, docs/DEPLOYMENT.md §7), for testing.
 
-Mirrors deploy/vault (docs/DEPLOYMENT.md §7) with a local bare repository instead of vault@server:
-    python scripts/obsidian_local.py setup --email ceo@company.com --name ceo
-      - creates .obsidian-remote.git (the "server" repository) with local hooks, and connects the backend vault to it
-      - sets QB_VAULT_REMOTE and (if missing) QB_HERMES_SHARED_SECRET in .env   -> restart the app afterwards
-      - links the Obsidian branch `ceo` to that user (same as System -> Integrations)
-      - clones obsidian-vault/ on branch proposals/ceo: open that folder as a vault in Obsidian
-    Then write a note in obsidian-vault/, commit and push (Obsidian Git plugin or `git push`): it becomes a proposal in Approvals.
-    python scripts/obsidian_local.py notify <branch> <commit>     (called by the post-receive hook)"""
+    python scripts/obsidian_local.py setup --contributor ceo=ceo@company.com --contributor sales=lead@company.com ...
+      - sets QB_VAULT_CONTRIBUTORS_DIR (.obsidian-contributors) and, if missing, QB_HERMES_SHARED_SECRET in .env; writes the
+        hooks' hooks.env (app address + secret)                                     -> restart the app after the first run
+      - links each name to that account (System -> Integrations) and builds their private repository with the notes they may see
+      - clones obsidian-vaults/<name>/ on branch proposals/<name> with Obsidian Git settings (auto commit-and-sync every 2 min)
+    Open obsidian-vaults/<name>/ as a vault in Obsidian, install the Obsidian Git community plugin, and write notes."""
 from __future__ import annotations
 
 import argparse
-import hashlib
-import hmac
 import json
 import os
 import secrets
 import subprocess
 import sys
-import time
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REMOTE, CLONE, ENV = ROOT / ".obsidian-remote.git", ROOT / "obsidian-vault", ROOT / ".env"
+CONTRIB, VAULTS, ENV = ROOT / ".obsidian-contributors", ROOT / "obsidian-vaults", ROOT / ".env"
+
+# Obsidian Git plugin settings (data.json; the plugin fills in defaults for anything not listed): commit-and-sync every
+# 2 minutes, pull every 5 minutes and when Obsidian opens, always pull before pushing, merge (never rebase/force).
+OBSIDIAN_GIT = {"autoSaveInterval": 2, "autoPullInterval": 5, "autoPullOnBoot": True, "pullBeforePush": True,
+                "syncMethod": "merge", "disablePush": False, "commitMessage": "Notes: {{date}}",
+                "autoCommitMessage": "Notes: {{date}}", "disablePopups": False}
 
 
 def env_values() -> dict:
@@ -35,103 +36,74 @@ def env_values() -> dict:
     return out
 
 
-def set_env(key: str, value: str) -> None:
-    lines = ENV.read_text(encoding="utf-8").splitlines()
-    lines = [l for l in lines if not l.startswith(f"{key}=")] + [f"{key}={value}"]
+def set_env(key: str, value: str | None) -> None:
+    lines = [l for l in ENV.read_text(encoding="utf-8").splitlines() if not l.startswith(f"{key}=")]
+    if value is not None:
+        lines.append(f"{key}={value}")
     ENV.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def git(*args: str, cwd: Path = ROOT) -> str:
-    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env={**os.environ, "QUIXOTIC_BACKEND": "1"})
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
     if r.returncode:
         raise SystemExit(f"git {' '.join(args)}: {r.stderr.strip()}")
     return r.stdout.strip()
 
 
-PRE_RECEIVE = """#!/bin/sh
-# Local copy of deploy/vault/pre-receive: people may push only proposals/<name>; no deleting, no force-push.
-zero=0000000000000000000000000000000000000000
-while read old new ref; do
-  [ "$QUIXOTIC_BACKEND" = "1" ] && continue
-  case "$ref" in refs/heads/proposals/*) ;; *) echo "Quixotic AI: push to your proposals/<name> branch only" >&2; exit 1 ;; esac
-  [ "$new" = "$zero" ] && { echo "Quixotic AI: deleting your proposals branch is not allowed" >&2; exit 1; }
-  if [ "$old" != "$zero" ] && ! git merge-base --is-ancestor "$old" "$new"; then
-    echo "Quixotic AI: force-push is not allowed; pull first" >&2; exit 1
-  fi
-done
-"""
-
-POST_RECEIVE = """#!/bin/sh
-[ "$QUIXOTIC_BACKEND" = "1" ] && exit 0
-while read old new ref; do
-  case "$ref" in refs/heads/proposals/*) "{python}" "{script}" notify "${{ref#refs/heads/}}" "$new" ;; esac
-done
-"""
-
-
-def setup(email: str, name: str) -> None:
-    vault_dir = Path(env_values().get("QB_VAULT_DIR", ".devvault"))
-    vault_dir = vault_dir if vault_dir.is_absolute() else ROOT / vault_dir
-    if not (vault_dir / ".git").is_dir():
-        raise SystemExit(f"{vault_dir} is not a Git vault yet: start the app once first")
-    if not REMOTE.exists():
-        git("init", "--bare", "-b", "main", str(REMOTE))
-    hooks = REMOTE / "hooks"
-    (hooks / "pre-receive").write_text(PRE_RECEIVE, encoding="utf-8", newline="\n")
-    (hooks / "post-receive").write_text(POST_RECEIVE.format(python=Path(sys.executable).as_posix(),
-                                                            script=Path(__file__).resolve().as_posix()), encoding="utf-8", newline="\n")
-    remotes = git("remote", cwd=vault_dir).split()
-    git("remote", "set-url" if "origin" in remotes else "add", "origin", REMOTE.as_posix(), cwd=vault_dir)
-    git("push", "origin", "main", cwd=vault_dir)                                # publish the approved knowledge to the "server"
-    set_env("QB_VAULT_REMOTE", REMOTE.as_posix())
+def setup(pairs: list[str]) -> None:
+    set_env("QB_VAULT_CONTRIBUTORS_DIR", CONTRIB.as_posix())
+    set_env("QB_VAULT_REMOTE", None)                      # the old single shared repository handed everyone every note
     if len(env_values().get("QB_HERMES_SHARED_SECRET", "")) < 32:
-        set_env("QB_HERMES_SHARED_SECRET", secrets.token_urlsafe(48))         # signs hook -> API calls; never printed
-
-    sys.path.insert(0, str(ROOT))
-    os.environ.setdefault("QB_DATABASE_URL", env_values()["QB_DATABASE_URL"])
-    from backend.config import get_settings
-    from backend.database.integrations import IntegrationStore
-    from backend.database.pool import make_pool
-    from backend.database.users import UserStore
-    s = get_settings()
-    pool = make_pool(s.database_url)
-    user = UserStore(pool, s.tenant_id).get_by_login(email)
-    if not user:
-        raise SystemExit(f"no account {email!r}")
-    store = IntegrationStore(pool, s.tenant_id)
-    if not store.user_for("obsidian", name):
-        store.add_identity("obsidian", name, user["id"], f"local test ({email})", None)
-
-    if not CLONE.exists():
-        git("clone", "--branch", "main", REMOTE.as_posix(), str(CLONE))
-        git("checkout", "-b", f"proposals/{name}", cwd=CLONE)
-        git("push", "-u", "origin", f"proposals/{name}", cwd=CLONE)
-    print(f"Ready. Restart the app, then open {CLONE} as a vault in Obsidian (branch proposals/{name}).")
-
-
-def notify(branch: str, commit: str) -> None:
+        set_env("QB_HERMES_SHARED_SECRET", secrets.token_urlsafe(48))
     e = env_values()
-    body = json.dumps({"branch": branch, "commit": commit}).encode()
-    ts = str(int(time.time()))
-    sig = hmac.new(e["QB_HERMES_SHARED_SECRET"].encode(), f"{ts}.".encode() + body, hashlib.sha256).hexdigest()
-    req = urllib.request.Request(e.get("QB_PUBLIC_URL", "http://localhost:8000").rstrip("/") + "/v1/integrations/vault/push", data=body,
-                                 headers={"Content-Type": "application/json", "X-Quixotic-Timestamp": ts, "X-Quixotic-Signature": sig})
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            res = json.loads(r.read() or b"{}")
-    except Exception as exc:
-        print(f"Quixotic AI: could not reach the app ({exc}); your notes are saved. Push again later.")
-        return
-    for r in res.get("results", []):
-        print(f"Quixotic AI: {r.get('note')}: " + (f"sent for review ({r.get('kind')})" if r.get("proposal") else r.get("error") or r.get("skipped", "")))
-    if res.get("ignored"):
-        print(f"Quixotic AI: {res['ignored']}")
+    CONTRIB.mkdir(exist_ok=True)
+    (CONTRIB / "hooks.env").write_text(f"QUIXOTIC_API_URL={e.get('QB_PUBLIC_URL', 'http://localhost:8000')}\n"
+                                       f"QB_HERMES_SHARED_SECRET={e['QB_HERMES_SHARED_SECRET']}\n", encoding="utf-8", newline="\n")
+    for k in ("QB_VAULT_CONTRIBUTORS_DIR", "QB_HERMES_SHARED_SECRET", "QB_DATABASE_URL"):
+        os.environ[k] = env_values()[k]
+    os.environ.pop("QB_VAULT_REMOTE", None)
+    sys.path.insert(0, str(ROOT))
+    from backend.api.services import build_services
+    from backend.config import get_settings
+    from backend.knowledge.vault import GitVault
+    from backend.knowledge.vault_sync import VaultSync
+    get_settings.cache_clear() if hasattr(get_settings, "cache_clear") else None
+    s = get_settings()
+    GitVault(s.vault_dir).ensure()
+    svc = build_services(s, run_migrations=False, warm_reranker=False)
+    for pair in pairs:
+        name, _, email = pair.partition("=")
+        user = svc.users.get_by_login(email)
+        if not user:
+            raise SystemExit(f"no account {email!r}")
+        current = svc.integrations.user_for("obsidian", name)
+        if current and current["id"] != user["id"]:
+            raise SystemExit(f"{name} is already linked to another account")
+        if not current:
+            svc.integrations.add_identity("obsidian", name, user["id"], f"local test ({email})", None)
+        print(f"{name}: {VaultSync(svc).refresh_views(name)[name]}")
+        clone = VAULTS / name
+        if not clone.exists():
+            VAULTS.mkdir(exist_ok=True)
+            git("clone", "-q", (CONTRIB / f"{name}.git").as_posix(), str(clone))
+            git("config", "user.name", name, cwd=clone)
+            git("config", "user.email", email, cwd=clone)
+            (clone / ".gitignore").write_text(".obsidian/\n.trash/\n", encoding="utf-8")
+            git("checkout", "-q", "-b", f"proposals/{name}", cwd=clone)
+            git("add", ".gitignore", cwd=clone)
+            git("commit", "-q", "-m", "Start my notes", cwd=clone)
+            git("push", "-q", "-u", "origin", f"proposals/{name}", cwd=clone)
+        plug = clone / ".obsidian" / "plugins" / "obsidian-git"
+        plug.mkdir(parents=True, exist_ok=True)
+        (plug / "data.json").write_text(json.dumps(OBSIDIAN_GIT, indent=2), encoding="utf-8")
+        print(f"  open {clone} in Obsidian (branch proposals/{name})")
+    print("Restart the app if this was the first run (new .env values).")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(prog="obsidian_local")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("setup"); s.add_argument("--email", required=True); s.add_argument("--name", default="ceo")
-    n = sub.add_parser("notify"); n.add_argument("branch"); n.add_argument("commit")
+    s = sub.add_parser("setup")
+    s.add_argument("--contributor", action="append", required=True, help="name=email, repeatable (e.g. ceo=ceo@company.com)")
     a = ap.parse_args()
-    setup(a.email, a.name) if a.cmd == "setup" else notify(a.branch, a.commit)
+    setup(a.contributor)

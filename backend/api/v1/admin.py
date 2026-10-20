@@ -127,6 +127,8 @@ def update_user(user_id: UUID, body: UserUpdate, actor: Principal = Depends(requ
     svc.users.update_user(user_id, body.role, body.department_ids, can_publish, name)
     if body.role is not None and body.role.value != user["role"]:
         svc.sessions.revoke_user(user_id)           # a new role takes effect on the next sign-in (and MFA rules with it)
+    from ...knowledge.vault_sync import queue_refresh_for_user
+    queue_refresh_for_user(svc, user_id, actor.user_id)              # their Obsidian view follows their new access
     audit.record(svc.ops, audit.PERMISSION_CHANGE, actor.user_id, actor.employee_id, action="user_updated", user=user_id,
                  role=body.role.value if body.role else None, can_publish=body.can_publish,
                  department_ids=_uuid_list(body.department_ids) if body.department_ids is not None else None)
@@ -148,6 +150,8 @@ def change_status(user_id: UUID, body: StatusChange, actor: Principal = Depends(
     if prev is None:
         raise HTTPException(409, "the account changed meanwhile; reload and try again")
     revoked = svc.sessions.revoke_user(user_id) if body.status != ACTIVE else 0
+    from ...knowledge.vault_sync import queue_refresh_for_user
+    queue_refresh_for_user(svc, user_id, actor.user_id)              # suspended / deactivated: their Obsidian view is emptied
     audit.record(svc.ops, audit.PERMISSION_CHANGE, actor.user_id, actor.employee_id, action="account_status", user=user_id,
                  from_status=prev, to_status=body.status, note=body.note, sessions_revoked=revoked)
     return {"id": str(user_id), "account_status": body.status, "sessions_revoked": revoked}

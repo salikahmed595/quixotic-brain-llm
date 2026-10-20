@@ -1,0 +1,18 @@
+#!/bin/sh
+# SSH forced command for a contributor key (authorized_keys: command="/srv/vault/bin/vault-shell <name>"). Owner request 2026-10-20.
+# The key may run only `git pull` / `git push` (git-upload-pack / git-receive-pack) and only on ITS OWN repository
+# /srv/vault/contributors/<name>.git — never the backend's vault, never another contributor's repository (PRD §3, §10, §15).
+set -eu
+name="${1:-}"
+case "$name" in ''|*[!a-z0-9_-]*) echo "Quixotic AI: bad key configuration" >&2; exit 1 ;; esac
+root="${QUIXOTIC_CONTRIBUTORS_DIR:-/srv/vault/contributors}"
+cmd="${SSH_ORIGINAL_COMMAND:-}"
+verb="${cmd%% *}"; rest="${cmd#* }"
+if [ "$verb" = "git" ]; then verb="git-${rest%% *}"; rest="${rest#* }"; fi
+case "$verb" in git-upload-pack|git-receive-pack) ;; *) echo "Quixotic AI: only git pull and git push are allowed" >&2; exit 1 ;; esac
+path=$(printf '%s' "$rest" | sed "s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/; s#^~/##; s#^/##")
+case "$path" in
+  "contributors/$name.git"|"contributors/$name"|"$name.git"|"$name"|"${root#/}/$name.git"|"${root#/}/$name") ;;
+  *) echo "Quixotic AI: this key may only use $name.git" >&2; exit 1 ;;
+esac
+exec git-shell -c "$verb '$root/$name.git'"

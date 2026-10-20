@@ -64,14 +64,21 @@ docker compose -f docker-compose.prod.yml start api worker
 4. **H0 check (every Hermes upgrade):** `docker compose -f docker-compose.prod.yml run --rm -it hermes tools list --platform telegram` must show only `clarify` + the five `quixotic` tools. Also send a voice note once; confirm transcription.
 5. Each person sends `/start` to Approvals bot, gets Telegram ID; admin links it in System -> Integrations. Same IDs go in `TELEGRAM_ALLOWED_USERS` in `/srv/hermes/.env`.
 
-## 7. Optional: Obsidian sync for CEO
+## 7. Optional: Obsidian contributors (private repository each)
+Each contributor (e.g. CEO + 2) gets a private Git repository: `main` = only the published notes their account may see (departments + sensitivity), refreshed by the app; they may push only `proposals/<name>`. Free, self-hosted (Git over SSH); Obsidian Sync not needed.
 ```bash
-sudo bash deploy/vault/setup-vault-git.sh
-sudo nano /srv/vault/hooks.env                                  # your domain + QB_HERMES_SHARED_SECRET
-sudo bash deploy/vault/add-vault-key.sh ceo "ssh-ed25519 AAAA... ceo-laptop"
-echo "QB_VAULT_REMOTE=/srv/vault/vault.git" >> .env && docker compose -f docker-compose.prod.yml up -d
+sudo bash deploy/vault/setup-vault-git.sh ai.yourcompany.com     # /srv/vault/contributors, SSH wrapper, hooks.env, QB_VAULT_CONTRIBUTORS_DIR
+docker compose -f docker-compose.prod.yml up -d
+sudo bash deploy/vault/add-contributor.sh ceo "ssh-ed25519 AAAA... ceo-laptop"     # once per person / laptop key
 ```
-Link branch `ceo` to CEO's account in System -> Integrations (Obsidian branch). CEO laptop: install Git + Obsidian, `git clone vault@ai.yourcompany.com:/srv/vault/vault.git`, `git checkout -b proposals/ceo`, open as vault, install **Obsidian Git** plugin with auto commit-and-sync. Notes need front matter `departments:` (new notes also `sensitivity:`); each pushed change becomes an Approvals proposal.
+Then System -> Integrations: link `ceo` (Obsidian branch) to the person's account; the app creates `ceo.git` with their view. Each person: an app account (own password + 2-step for admins), an SSH key (`ssh-keygen -t ed25519`), and on the laptop:
+```bash
+git clone vault@ai.yourcompany.com:contributors/ceo.git ceo && cd ceo
+git checkout -b proposals/ceo && printf '.obsidian/
+.trash/
+' > .gitignore && git add .gitignore && git commit -m start && git push -u origin proposals/ceo
+```
+Open the folder in Obsidian, install community plugin **Obsidian Git**: Auto commit-and-sync interval 2 min, Auto pull interval 5 min, Pull on startup on, Pull before push on, Sync method Merge. Notes need `departments:` and `sensitivity:` front matter. Each changed note becomes a proposal (Approvals: approve / reject / ask for changes); only approved notes are published and re-indexed. Activity: System -> Integrations -> Obsidian activity. A push the app missed is picked up within 5 min. Remove a person: unlink in System (their repository is emptied) and delete their key line in `/srv/vault/.ssh/authorized_keys`.
 
 ## 8. Go-live acceptance (§13, §16)
 ```bash
@@ -90,8 +97,8 @@ docker compose -f docker-compose.prod.yml up -d --build          # migrations ru
 ```
 Logs: `docker compose -f docker-compose.prod.yml logs --since 1h api worker` (rotated, 200 MB max/service). Verify audit log: System -> Audit log or `GET /v1/admin/system/audit-verify`.
 
-## 10. Test Obsidian sync on one PC (no server, no Telegram)
+## 10. Test Obsidian contributors on one PC (no server, no Telegram)
 ```bash
-python scripts/obsidian_local.py setup --email you@yourcompany.com --name ceo    # then restart the app
+python scripts/obsidian_local.py setup --contributor ceo=ceo@company.com --contributor sales=lead@company.com --contributor hr=hr@company.com
 ```
-Creates `.obsidian-remote.git` (stands in for the server, same hook rules) and `obsidian-vault/` on `proposals/ceo`; sets `QB_VAULT_REMOTE` + `QB_HERMES_SHARED_SECRET` in `.env`; links branch `ceo` to that user. Open `obsidian-vault/` in Obsidian, add a note with `departments:` + `sensitivity:` front matter, commit + push (Obsidian Git plugin or `git push`) -> Approvals -> approve -> ask.
+Same model as §7 with local folders: `.obsidian-contributors/<name>.git` + `obsidian-vaults/<name>/` (Obsidian Git settings pre-filled). Restart the app after the first run.

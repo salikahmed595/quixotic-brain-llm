@@ -139,47 +139,6 @@ def _git(*args, cwd):
     return r.stdout.strip()
 
 
-def test_obsidian_branch_push_becomes_proposals_and_branch_gets_the_official_note(stack, tmp_path):
-    bare = tmp_path / "vault.git"
-    _git("init", "--bare", "-b", "main", str(bare), cwd=tmp_path)
-    svc, client, tg, sales, ceo, admin = _setup(stack, tmp_path, remote=str(bare))
-    svc.integrations.add_identity("obsidian", "ceo", ceo, "CEO laptop", admin)
-    VaultSync(svc).vault.ensure()                                             # the backend creates main in the shared repo
-    laptop = tmp_path / "laptop"
-    _git("clone", str(bare), str(laptop), cwd=tmp_path)
-    _git("config", "user.email", "ceo@q.ai", cwd=laptop); _git("config", "user.name", "CEO", cwd=laptop)
-    _git("checkout", "-b", "proposals/ceo", cwd=laptop)
-    (laptop / "Sales").mkdir()
-    (laptop / "Sales" / "Upsell script.md").write_text("---\ndepartments: [Sales]\nsensitivity: internal\ncategory: Scripts\n---\n\n"
-                                                       "# Upsell\nOffer the matching frame after the first artwork.\n", encoding="utf-8")
-    (laptop / "Sales" / "No metadata.md").write_text("# Oops\nno front matter", encoding="utf-8")
-    _git("add", ".", cwd=laptop); _git("commit", "-m", "notes", cwd=laptop); _git("push", "origin", "proposals/ceo", cwd=laptop)
-    head = _git("rev-parse", "HEAD", cwd=laptop)
-    r = _signed(client, "/v1/integrations/vault/push", {"branch": "proposals/ceo", "commit": head})
-    assert r.status_code == 202, r.text
-    res = {x["note"]: x for x in r.json()["results"]}
-    assert res["Sales/Upsell script.md"].get("proposal") and "departments" in res["Sales/No metadata.md"]["error"]
-    assert _signed(client, "/v1/integrations/vault/push", {"branch": "proposals/ceo", "commit": head}).json() == {"duplicate": True}
-    pid = res["Sales/Upsell script.md"]["proposal"]
-    drain(svc)
-    assert login(client, "h_admin") and client.post(f"/v1/admin/proposals/{pid}/approve", headers=login(client, "h_admin"), json={}).json()["status"] == "approved"
-    drain(svc)
-    assert svc.knowledge.get_proposal(UUID(pid))["status"] == "published"
-    # main (written only by the backend) has the official note at the CEO's path; the CEO's branch received it
-    official = _git("show", "main:Sales/Upsell script.md", cwd=bare)
-    assert official.startswith("---\nid:") and "approved_by: Adam Admin" in official
-    _git("pull", "origin", "proposals/ceo", cwd=laptop)
-    assert (laptop / "Sales" / "Upsell script.md").read_text(encoding="utf-8").startswith("---\nid:")
-    # the CEO edits the published note: an update proposal for the same document
-    note = (laptop / "Sales" / "Upsell script.md").read_text(encoding="utf-8").replace("matching frame", "matching gold frame")
-    (laptop / "Sales" / "Upsell script.md").write_text(note, encoding="utf-8")
-    _git("commit", "-am", "edit", cwd=laptop); _git("push", "origin", "proposals/ceo", cwd=laptop)
-    r = _signed(client, "/v1/integrations/vault/push", {"branch": "proposals/ceo", "commit": _git("rev-parse", "HEAD", cwd=laptop)}).json()
-    upd = next(x for x in r["results"] if x["note"] == "Sales/Upsell script.md")
-    assert upd["kind"] == "update"
-    assert svc.knowledge.get_proposal(UUID(upd["proposal"]))["item_id"] == svc.knowledge.get_proposal(UUID(pid))["item_id"]
-
-
 def test_admin_links_accounts_and_endpoints_are_off_without_configuration(stack, tmp_path):
     svc, client = stack
     from backend.database.integrations import IntegrationStore as S
@@ -196,31 +155,3 @@ def test_admin_links_accounts_and_endpoints_are_off_without_configuration(stack,
     # not configured: the Hermes and Telegram endpoints do not exist
     assert _signed(client, "/v1/integrations/hermes/search", {"telegram_user_id": "4242", "query": "x"}).status_code == 404
     assert client.post("/v1/integrations/telegram/webhook", json={}).status_code == 404
-
-
-def test_vault_server_hook_lets_people_push_only_their_proposals_branch(tmp_path):
-    import os
-    import shutil
-    from pathlib import Path
-    hook = Path(__file__).resolve().parents[2] / "deploy" / "vault" / "pre-receive"
-    bare = tmp_path / "vault.git"
-    _git("init", "--bare", "-b", "main", str(bare), cwd=tmp_path)
-    shutil.copy(hook, bare / "hooks" / "pre-receive")
-    os.chmod(bare / "hooks" / "pre-receive", 0o755)
-    work = tmp_path / "w"
-    _git("init", "-b", "main", str(work), cwd=tmp_path)
-    _git("config", "user.email", "x@q.ai", cwd=work); _git("config", "user.name", "x", cwd=work)
-    (work / "a.md").write_text("a", encoding="utf-8"); _git("add", ".", cwd=work); _git("commit", "-m", "a", cwd=work)
-    _git("remote", "add", "origin", str(bare), cwd=work)
-
-    def push(*args, **env):
-        e = {**os.environ, **env}
-        e.pop("QUIXOTIC_BACKEND", None) if "QUIXOTIC_BACKEND" not in env else None
-        return subprocess.run(["git", "push", "origin", *args], cwd=work, capture_output=True, text=True, env=e)
-    assert push("main", QUIXOTIC_BACKEND="1").returncode == 0                      # the backend writes main
-    assert push("main:refs/heads/main2", QUIXOTIC_BRANCH="ceo").returncode != 0   # a person cannot
-    assert push("main:refs/heads/proposals/other", QUIXOTIC_BRANCH="ceo").returncode != 0
-    assert push("main:refs/heads/proposals/ceo", QUIXOTIC_BRANCH="ceo").returncode == 0
-    _git("commit", "--amend", "-m", "rewritten", cwd=work)
-    assert push("--force", "HEAD:refs/heads/proposals/ceo", QUIXOTIC_BRANCH="ceo").returncode != 0   # no force-push
-    assert push(":refs/heads/proposals/ceo", QUIXOTIC_BRANCH="ceo").returncode != 0                  # no delete

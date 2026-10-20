@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     telegram_bot_token: Optional[str] = None          # Bot 2 "Quixotic Approvals" (owned by this backend). Unset = no Telegram.
     telegram_webhook_secret: Optional[str] = None     # checked on every webhook call (X-Telegram-Bot-Api-Secret-Token)
     hermes_shared_secret: Optional[str] = None        # HMAC key shared with the quixotic-mcp sidecar. Unset = Hermes endpoints off.
+    # Owner request 2026-10-20: one private repository per Obsidian contributor (backend/knowledge/contributors.py). Unset = off.
+    vault_contributors_dir: Optional[str] = None
     vault_remote: Optional[str] = None                # bare Git repository the CEO's Obsidian syncs with (docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H4)
 
     # ---- ingestion (PRD §13) — PRD gives no sizes ------------------------------------

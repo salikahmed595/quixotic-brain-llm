@@ -16,6 +16,7 @@ from backend.api.services import Services, build_services
 from backend.config import get_settings
 
 log = logging.getLogger("worker")
+RECONCILE_SECONDS = 300            # implementation necessity (docs/PRD_GAPS.md §4): how often missed Obsidian pushes are picked up
 
 
 def handle(svc: Services, job_type: str, job: dict) -> None:
@@ -36,6 +37,13 @@ def handle(svc: Services, job_type: str, job: dict) -> None:
         user = svc.users.get(UUID(payload["user_id"]))
         if prop and user and user["account_status"] == "active":
             ks.decide(svc.users.principal(user), prop["id"], "approve", "approved at Obsidian import")   # queues publication when complete
+    elif job_type == "vault.refresh_views":
+        from backend.knowledge.vault_sync import VaultSync
+        vs = VaultSync(svc)
+        if payload.get("empty") and payload.get("name"):
+            vs.repos.refresh(payload["name"], None)                  # unlinked contributor: no notes left in their repository
+        else:
+            vs.refresh_views(payload.get("name"))
     elif job_type == "discord.import":
         raw = svc.storage.get(payload["s3_key"])
         svc.importer.run(raw, UUID(payload["department_id"]), job["id"],
@@ -78,7 +86,15 @@ if __name__ == "__main__":
         n = services.queue.requeue_stale()                  # jobs a stopped worker left half-done go back to the queue
         if n:
             log.info("requeued %s unfinished job(s)", n)
+    last_reconcile = 0.0
     while True:
+        if services.settings.vault_contributors_dir and time.monotonic() - last_reconcile > RECONCILE_SECONDS:
+            last_reconcile = time.monotonic()
+            try:                                            # Obsidian pushes the hook could not deliver (app down, network)
+                from backend.knowledge.vault_sync import VaultSync
+                VaultSync(services).reconcile()
+            except Exception:
+                log.exception("Obsidian reconcile failed")
         try:
             run_once(services)
         except Exception:                                   # queue/database briefly unreachable: keep the worker alive and retry
