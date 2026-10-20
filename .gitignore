@@ -11,3 +11,4 @@ web/dist/
 .pytest-vault/
 .obsidian-remote.git/
 obsidian-vault/
+backups/
