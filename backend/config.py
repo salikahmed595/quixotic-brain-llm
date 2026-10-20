@@ -92,6 +92,14 @@ class Settings(BaseSettings):
     # Overload protection (QA 2026-10-19): seconds a request may wait for the CPU models before a 503 "busy". Unset = no limit.
     model_queue_timeout_seconds: Optional[float] = None
 
+    # Owner-approved addition 2026-10-20 (docs/PRD_GAPS.md §0): "Translate for client" is offered to members of these departments
+    # (comma-separated names, e.g. "Sales - Upseller,Sales - Fresh Seller"). Unset = the tool is off.
+    translate_departments: Optional[str] = None
+
+    @property
+    def translate_department_names(self) -> frozenset[str]:
+        return frozenset(n.strip().lower() for n in (self.translate_departments or "").split(",") if n.strip())
+
     # Restate Urdu / Roman Urdu / mixed questions as an English search query with one small LLM call (PRD §23). Optional.
     query_interpretation: bool = False
     feedback_learning: bool = True         # owner request: learn from 👍/👎 (retrieval order + personal style); docs/PRD_GAPS.md

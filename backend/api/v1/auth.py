@@ -309,6 +309,9 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=8, max_length=200)
 
 
+from .translate import can_translate  # noqa: E402
+
+
 def _me(p: Principal, svc: Services) -> dict:
     """PRD §5 FR-AUTH-07: name, department(s), effective access scope and account settings."""
     user = svc.users.get(p.user_id)
@@ -317,6 +320,7 @@ def _me(p: Principal, svc: Services) -> dict:
     scope = active if p.all_departments else (p.department_ids & active)
     return {"user_id": str(p.user_id), "employee_id": p.employee_id, "role": p.role.value, "role_label": ROLE_LABELS[p.role],
             "permissions": permissions_of(p.role), "can_publish": p.can_publish,
+            "can_translate": can_translate(p, svc),
             "account_status": user["account_status"], "email_verified": bool(user.get("email_verified_at")),
             "mfa_enabled": bool(user.get("mfa_enabled_at")),
             "full_name": user["full_name"], "email": user["email"], "phone": user.get("phone"), "avatar": user.get("avatar"),

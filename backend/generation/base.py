@@ -45,6 +45,22 @@ class LazyGenerator:
         except Exception:
             return ""
 
+    def translate_for_client(self, text: str) -> str:
+        """Owner-approved addition (docs/PRD_GAPS.md §0). Errors become a clear message; provider details stay in the log."""
+        if self._inner is None:
+            try:
+                self._inner = self._factory()
+            except Exception as exc:
+                raise RuntimeError(f"The answer model is not configured: {exc}") from exc
+        fn = getattr(self._inner, "translate_for_client", None)
+        if fn is None:
+            raise RuntimeError("The configured answer model does not support translation.")
+        try:
+            return fn(text)
+        except Exception as exc:
+            log.exception("translation call failed")
+            raise RuntimeError("Translation is not available right now. Please try again.") from exc
+
 
 # PRD §8, §11: DeepSeek is the default answer LLM, configurable. Owner (2026-10-17): OpenAI until the DeepSeek key is added.
 PROVIDERS = ("deepseek", "openai", "gemini", "claude", "bedrock")

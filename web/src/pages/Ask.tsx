@@ -21,6 +21,8 @@ const BUBBLES = [
   { label: 'SOPs', icon: 'doc', side: 'r', x: 133, y: 110, fill: 'What is the SOP for ' },
 ];
 const MODES = [['general', 'Answer', 'Ask anything within your departments'], ['search', 'Search only', 'Show matching knowledge without writing an answer']];
+// Owner-approved addition 2026-10-20 (docs/PRD_GAPS.md §0): shown only to upsellers and fresh sellers; the server checks again.
+const TRANSLATE_MODE = ['translate', 'Translate for client', 'Urdu / Roman Urdu → polite English to send to a client'];
 const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'] };
 const REASONS = ['Wrong answer', 'Not what I asked', 'Too long', 'Too short', 'Missing information'];
 
@@ -60,7 +62,10 @@ export function Ask({ resetKey }: { resetKey: number }) {
     const m2 = forceMode || mode, body = { question: q, department: scope || undefined, conversation_id: convId || undefined };
     let msg: Msg;
     try {
-      if (m2 === 'search') {
+      if (m2 === 'translate') {                     // not saved to chat history: client messages stay private
+        const r = await api('/v1/translate', { method: 'POST', body: { text: q } });
+        msg = { role: 'ai', kind: 'translate', question: q, english: r.english };
+      } else if (m2 === 'search') {
         const r = await api('/v1/search', { method: 'POST', body });
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
       } else {
@@ -173,7 +178,7 @@ function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
   return (
     <div className={`relative z-[2] w-full bg-white rounded-3xl border border-line px-4 pt-4 pb-3.5 ${compact ? 'shadow-card' : 'shadow-lift'}`}>
       <textarea id="q" ref={ta} rows={compact ? 1 : 2} aria-label="Your question"
-        placeholder="Ask Quixotic AI about scripts, objections, SOPs, and company knowledge..."
+        placeholder={mode === 'translate' ? 'Write your message to the client in Urdu or Roman Urdu…' : 'Ask Quixotic AI about scripts, objections, SOPs, and company knowledge...'}
         className={`w-full border-0 outline-none resize-none bg-transparent px-2 py-1.5 text-base leading-normal placeholder:text-muted max-h-[200px] ${compact ? 'min-h-11' : 'min-h-14'}`}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
       <div ref={box} className="relative flex items-center gap-2.5 mt-1.5">
@@ -186,6 +191,7 @@ function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
           <Icon name="notes" size={17} /><span className="max-sm:hidden max-w-[180px] truncate">{scope || 'Company Knowledge'}</span><Icon name="chevd" size={15} />
         </button>
         {mode === 'search' && <span className="chip orange">Search only</span>}
+        {mode === 'translate' && <span className="chip orange">Translate for client</span>}
         <span className="flex-1" />
         {/* PRD §6 FR-CHAT-02: voice questions are P1 (§14). */}
         <button className="circle-btn" aria-label="Voice input" title="Voice input" onClick={() => toast('Voice questions are coming in a later release.')}><Icon name="mic" size={19} /></button>
@@ -194,7 +200,7 @@ function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
         {pop === 'mode' && (
           <div className="pop">
             <div className="ph">Mode</div>
-            {MODES.map(m => (
+            {(app.me.can_translate ? [...MODES, TRANSLATE_MODE] : MODES).map(m => (
               <button key={m[0]} className={mode === m[0] ? 'sel' : ''} onClick={() => { setMode(m[0]); setPop(null); }}>
                 <span>{m[1]}<small>{m[2]}</small></span>{mode === m[0] && <Icon name="tick" size={16} className="ml-auto text-orange" />}
               </button>
@@ -258,6 +264,14 @@ function Message({ m, i, update, retry, submit }: { m: Msg; i: number; update: (
   if ('error' in m) return wrap(<>
     <Banner kind="err">{m.error}</Banner>
     <button className="btn sm mt-2.5" onClick={() => retry(i, m.question)}><Icon name="refresh" size={15} /> Retry</button>
+  </>);
+  if (m.kind === 'translate') return wrap(<>
+    <div className="label mb-2">English for your client</div>
+    <div className="card !p-4 shadow-none whitespace-pre-wrap">{m.english}</div>
+    <div className="flex items-center gap-2 mt-2.5">
+      <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(m.english); toast('Copied'); }}><Icon name="copy" size={15} /> Copy</button>
+      <small className="text-muted">Check names, prices and dates before sending.</small>
+    </div>
   </>);
   if (m.kind === 'search') return wrap(m.results.length ? (<>
     <div className="label mb-2">Best match</div><Hit r={m.results[0]} k={0} />

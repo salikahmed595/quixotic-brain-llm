@@ -47,3 +47,17 @@ test('employee: chat question gets an answer or the exact refusal', async ({ pag
   await expect(reply).toBeVisible({ timeout: 90_000 });
   expect(problems).toEqual([]);
 });
+
+test('seller: Translate for client turns Roman Urdu into client-ready English (owner addition)', async ({ page }) => {
+  test.setTimeout(90_000);
+  await signIn(page, 'QA_EMPLOYEE_USER');            // the AT-08 employee is in Sales - Upseller / Fresh Seller
+  const problems = watch(page);
+  await page.getByRole('button', { name: 'Answer mode' }).click();
+  await page.getByRole('button', { name: /Translate for client/ }).click();
+  const box = page.getByRole('textbox').last();
+  await box.fill('Sir aap ka logo kal tak ready ho jayega, aap sirf 10 dollar upfront de dein.');
+  await box.press('Enter');
+  await expect(page.getByText('English for your client')).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('.card', { hasText: /logo/i }).last()).toContainText(/10/);
+  expect(problems).toEqual([]);
+});

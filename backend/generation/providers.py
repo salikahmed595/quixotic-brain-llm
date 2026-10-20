@@ -6,15 +6,21 @@ a tiny call that restates an Urdu / Roman Urdu / mixed question as an English se
 from __future__ import annotations
 
 from ..models import AnswerContext
-from .prompt import INTERPRET_PROMPT, SYSTEM_PROMPT, build_interpret_input, build_user_prompt
+from .prompt import (INTERPRET_PROMPT, SYSTEM_PROMPT, TRANSLATE_PROMPT, build_interpret_input, build_translate_input,
+                     build_user_prompt)
 
 
 class _Interprets:
     """Shared `interpret_query` built on each provider's `_complete(system, user, max_tokens)`."""
+    _translate_kwargs: dict = {}                     # extra `_complete` arguments for translation (OpenAI reasoning models)
 
     def interpret_query(self, question: str, history=()) -> str:
         text = self._complete(INTERPRET_PROMPT, build_interpret_input(question, history), 80)
         return " ".join(text.split()).strip(" \"'`")[:300]
+
+    def translate_for_client(self, text: str) -> str:
+        """Owner-approved addition (docs/PRD_GAPS.md §0): Urdu / Roman Urdu -> polite client-ready English."""
+        return self._complete(TRANSLATE_PROMPT, build_translate_input(text), 2000, **self._translate_kwargs).strip().strip('"')
 
 
 class GeminiGenerator(_Interprets):
@@ -47,11 +53,13 @@ class OpenAIGenerator(_Interprets):
         from openai import OpenAI
         self._model, self._client = model, OpenAI()                 # reads OPENAI_API_KEY
         self._effort = reasoning_effort
+        # Translation needs the style rules followed (measured 2026-10-20: "minimal" kept "bhai" -> "brother" and invented "Sir").
+        self._translate_kwargs = {"effort": "low"} if _reasoning_model(model) else {}
 
-    def _complete(self, system: str, user: str, max_tokens: int) -> str:
+    def _complete(self, system: str, user: str, max_tokens: int, effort: str = "minimal") -> str:
         # Short internal tasks (restating a question): with a reasoning model the thinking would use up the small budget and
         # return nothing (measured with gpt-5-nano), so they think minimally.
-        extra = {"reasoning_effort": "minimal"} if _reasoning_model(self._model) else {}
+        extra = {"reasoning_effort": effort} if _reasoning_model(self._model) else {}
         r = self._client.chat.completions.create(
             model=self._model, max_completion_tokens=max_tokens, **extra,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])

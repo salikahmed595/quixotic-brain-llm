@@ -14,6 +14,7 @@ export interface Me {
   /** server-side permissions (PRD §3, §7); the UI only uses them to choose what to show */
   permissions: string[];
   can_publish: boolean;
+  can_translate?: boolean;   // owner-approved addition: Translate for client (upsellers, fresh sellers)
   account_status: string;
   email_verified: boolean;
   mfa_enabled: boolean;
@@ -37,6 +38,7 @@ export type Msg =
   | { role: 'ai'; loading: true }
   | { role: 'ai'; error: string; question: string }
   | { role: 'ai'; kind: 'search'; question: string; results: { source: string; text: string }[] }
+  | { role: 'ai'; kind: 'translate'; question: string; english: string }
   | {
       role: 'ai'; kind: 'ask'; question: string; query_id?: string; answer: string; confidence?: string;
       sources: Source[]; found: boolean; helpful?: boolean; reasons?: string[]; gap_id?: string;

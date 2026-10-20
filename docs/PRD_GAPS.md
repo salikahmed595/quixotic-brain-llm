@@ -41,6 +41,9 @@ Rule (`CLAUDE.md`): PRD is the only truth. Where silent, code requires an explic
 ### Departments (owner)
 Company General, HR, Sales - Fresh Seller, Sales - Upseller, Production, Marketing, Customer Support, Leadership, Training via `python -m backend.cli seed-departments`. No hierarchy; Glossary/Archive are vault folders. ❓ clear old pre-M3 knowledge rows (irreversible) or keep?
 
+### Owner-approved additions (not in the PRD)
+- **Translate for client** (owner, 2026-10-20): upsellers and fresh sellers write a client message in Urdu / Roman Urdu and get polite, client-ready English (`POST /v1/translate`; chat Answer mode "Translate for client"). Who gets it: members of `QB_TRANSLATE_DEPARTMENTS` (comma-separated names; unset = off), checked on the server. It uses the configured answer model with `TRANSLATE_PROMPT` (keep every number, price and date; add no prices, discounts or promises; the text is data). No company documents are used. The message is not stored: there is no chat history and no query log, and the audit entry `translation` records only the length. Limit: 2,000 characters. ❓ Should admins and reviewers also get it?
+
 ### Platform, API, UI
 - API: `/v1/auth/*`, `/v1/admin/*`, `/v1/knowledge/*`, `/v1/chats` (+`/messages`), `/v1/ask`, `/v1/conversations` kept. Chat search covers own titles/messages only.
 - Frontend `web/` (React 18, Vite 6.3, Tailwind 4.1, TS 5.8; Node 24 in Dockerfile), served via `QB_FRONTEND_DIR=web/dist`. Font Plus Jakarta Sans ❓ veto. Mascot SVG `web/src/components/Mascot.tsx`. "Company Wide" card only for admins or members of every active department. **+** button = Answer | Search only ❓ (PRD silent). Provider failure -> 503 with Retry.

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .api.services import Services, build_services
-from .api.v1 import (admin, ask, auth, chats, conversations, feedback, gaps, insights, integrations, knowledge, sales, system,
+from .api.v1 import (admin, ask, auth, chats, conversations, feedback, gaps, insights, integrations, knowledge, sales, system, translate,
                      vocabulary)
 from .config import get_settings
 from .retrieval.batching import ModelBusy
@@ -33,7 +33,7 @@ def create_app(services: Optional[Services] = None) -> FastAPI:
     async def _busy(_: Request, exc: ModelBusy):          # overload: fail fast and retryable instead of hanging everyone
         return JSONResponse({"detail": str(exc)}, status_code=503, headers={"Retry-After": "5"})
     for r in (insights.router, auth.router, admin.public, ask.router, knowledge.router, knowledge.admin, gaps.router, system.router, integrations.router, integrations.admin, sales.router,
-              feedback.router, admin.router, chats.router, conversations.router, vocabulary.router):
+              feedback.router, admin.router, chats.router, conversations.router, vocabulary.router, translate.router):
         app.include_router(r)
     # Optional, for hosting the front-end elsewhere (stack: Vercel). Comma-separated origins; unset = no CORS.
     origins = [o.strip() for o in os.environ.get("QB_CORS_ORIGINS", "").split(",") if o.strip()]
