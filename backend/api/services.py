@@ -82,7 +82,8 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
             for m in ((embedder, reranker) if warm_reranker else (embedder,)):   # the worker never reranks: keep ~2 GB free
                 if m is not None and hasattr(m, "warm"):
                     m.warm()
-        except Exception:
+        except Exception as exc:
+            ready.error = str(exc)[:200]                         # /v1/health reports it instead of "ready"
             logging.getLogger("warmup").exception("model warm-up failed; models will load on first use")
         finally:
             ready.set()

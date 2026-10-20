@@ -56,6 +56,7 @@ services:
     image: quixotic-ai:latest
     restart: unless-stopped
     command: ["python", "-m", "workers.worker"]
+    healthcheck: {disable: true}                # the image's check calls the web port, which the worker does not have
     env_file: .env
     environment:
       QB_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}

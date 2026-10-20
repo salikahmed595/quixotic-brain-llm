@@ -20,7 +20,10 @@ def health(svc: Services = Depends(get_services)):
     with svc.pool.connection() as c:
         c.execute("SELECT 1")
     ev = getattr(svc, "models_ready", None)
-    return {"status": "ok", "database": "ok", "models": "ready" if ev is None or ev.is_set() else "loading"}
+    models = "ready" if ev is None or ev.is_set() else "loading"
+    if getattr(ev, "error", None):
+        models = "error"                                   # warm-up failed (e.g. the model cache is not writable); see the api log
+    return {"status": "ok", "database": "ok", "models": models}
 
 
 @router.get("/dashboard")

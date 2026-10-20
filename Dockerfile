@@ -22,7 +22,7 @@ COPY migrations ./migrations
 COPY scripts ./scripts
 COPY --from=web /web/dist ./web/dist
 ENV QB_FRONTEND_DIR=web/dist PYTHONUNBUFFERED=1
-RUN useradd --create-home --uid 10001 quixotic && mkdir -p /srv/vault /home/quixotic/.cache && chown -R quixotic /srv/vault /home/quixotic
+RUN useradd --create-home --uid 10001 quixotic && mkdir -p /srv/vault /home/quixotic/.cache/huggingface && chown -R quixotic /srv/vault /home/quixotic
 USER quixotic
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s CMD curl -fsS http://127.0.0.1:8000/v1/health || exit 1
