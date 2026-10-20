@@ -7,7 +7,10 @@
 set -euo pipefail
 domain="${1:?usage: setup-vault-git.sh <your domain>}"
 here="$(cd "$(dirname "$0")" && pwd)"
-id -u vault >/dev/null 2>&1 || useradd --system --uid 10001 --create-home --home-dir /srv/vault --shell /usr/bin/git-shell vault
+id -u vault >/dev/null 2>&1 || useradd --system --uid 10001 --create-home --home-dir /srv/vault --shell /bin/sh vault
+# sshd runs every key's forced command through the login shell; git-shell would refuse vault-shell. Each key line has
+# command="/srv/vault/bin/vault-shell <name>" (add-contributor.sh), so no key ever gets an interactive shell.
+usermod -s /bin/sh vault
 install -d -o vault -g vault -m 750 /srv/vault /srv/vault/.ssh /srv/vault/work /srv/vault/contributors /srv/vault/bin
 install -o root -g root -m 755 "$here/vault-shell" /srv/vault/bin/vault-shell
 touch /srv/vault/.ssh/authorized_keys && chown vault:vault /srv/vault/.ssh/authorized_keys && chmod 600 /srv/vault/.ssh/authorized_keys

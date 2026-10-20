@@ -102,3 +102,6 @@ Logs: `docker compose -f docker-compose.prod.yml logs --since 1h api worker` (ro
 python scripts/obsidian_local.py setup --contributor ceo=ceo@company.com --contributor sales=lead@company.com --contributor hr=hr@company.com
 ```
 Same model as §7 with local folders: `.obsidian-contributors/<name>.git` + `obsidian-vaults/<name>/` (Obsidian Git settings pre-filled). Restart the app after the first run.
+
+## 11. Trial without a domain (HTTP by IP)
+`.env`: `QB_DOMAIN=:80`, `QB_PUBLIC_URL=http://<elastic-ip>`; Obsidian hooks: `QUIXOTIC_API_URL=http://127.0.0.1` in `/srv/vault/contributors/hooks.env`. Cookies are not Secure and Telegram webhooks need HTTPS: internal testing only. Under 16 GB RAM add swap (`fallocate -l 8G /swapfile`). Moving to a domain later: DNS A record -> IP, set `QB_DOMAIN`/`QB_PUBLIC_URL` to it, `https://` in hooks.env, `docker compose -f docker-compose.prod.yml up -d`.
