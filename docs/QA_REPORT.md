@@ -33,3 +33,9 @@ Owner to decide:
 - Choose the server size after AT-09.
 - Revoke the Telegram token that was pasted in chat.
 - The dev DB has 160 deactivated `load_*` accounts. Delete them?
+
+## Answer accuracy 2026-10-20 (qa_copy, gpt-5-nano)
+- 18/18 answerable questions correct (10 English, 5 Roman Urdu, 2 Urdu, 1 mixed); the reply language matched the question (§6 FR-CHAT-08). 4/4 unanswerable questions got the exact refusal.
+- Single-user answer time was 6.6–17 s (target p95 < 8 s, §2). Most of that is the answer model.
+- **FIXED:** the first questions after a start got 503 "busy". The overload limit counted model run time, not only queue wait.
+- Translating client messages is NOT a feature (not in the PRD). Text unrelated to company knowledge gets the refusal. Awaiting the owner's decision.

@@ -45,3 +45,13 @@ def test_overloaded_queue_turns_requests_away_and_drops_their_work(monkeypatch):
         b.submit(["late"])                       # waits behind "first", gives up
     gate.set(); first.join(2); time.sleep(0.1)
     assert ran == ["first"]                      # the abandoned request was never computed
+
+
+def test_slow_model_call_is_not_turned_away(monkeypatch):
+    """QA 2026-10-20: the limit is on queue wait only; a request whose model call is already running (e.g. the first, cold
+    call after start) gets its result even when it takes longer than the limit."""
+    import time
+    from backend.retrieval import batching
+    b = batching.MicroBatcher(lambda items: (time.sleep(0.4), items)[1], max_batch=1, max_wait=0)
+    monkeypatch.setattr(batching, "QUEUE_TIMEOUT_SECONDS", 0.1)
+    assert b.submit(["x"]) == ["x"]

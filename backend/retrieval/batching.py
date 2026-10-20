@@ -38,8 +38,9 @@ class MicroBatcher:
         try:
             return fut.result(timeout=QUEUE_TIMEOUT_SECONDS)
         except FutureTimeout:
-            fut.cancel()                                 # still queued: the model never runs it
-            raise ModelBusy("The system is busy right now. Please try again in a moment.") from None
+            if fut.cancel():                             # still queued: turned away, and the model never runs it
+                raise ModelBusy("The system is busy right now. Please try again in a moment.") from None
+            return fut.result()                          # already running: the limit is on queue wait, not on model time
 
     def _loop(self) -> None:
         while True:
