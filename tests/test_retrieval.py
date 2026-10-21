@@ -528,3 +528,10 @@ def test_prompt_asks_follow_up_questions_and_gives_three_options():
     from backend.generation.prompt import GENERAL_SYSTEM_PROMPT
     for phrase in ("follow-up questions", "Ask only once per situation", "outcome \"closed\" means the sale closed", "Option 3"):
         assert phrase in GENERAL_SYSTEM_PROMPT
+
+
+def test_figures_the_user_gave_are_not_treated_as_invented():
+    """Server 2026-10-21: the user wrote '$40 is left', the answer repeated it, and the guard forced a 107 s rewrite."""
+    ask, gen = _general_ask(FakeStore(vec=[]), "Option 1 - Gentle reminder\n>> Just a reminder that the remaining $40 payment is due.")
+    r = ask.ask("He paid $10 upfront and $40 is left, he is silent. What should I send?", DEPT, levels=LV)
+    assert "$40" in r.answer and len(gen.calls) == 1

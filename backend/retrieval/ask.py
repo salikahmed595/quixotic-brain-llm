@@ -52,10 +52,12 @@ SAFE_MISSING = ("That is not in the company knowledge base yet, so I can't give 
                 "before telling the client.")
 
 
-def _invented_money(text: str, knowledge) -> bool:
+def _invented_money(text: str, knowledge, user_text: str = "") -> bool:
+    """`user_text`: what the user wrote in this chat; figures they gave (e.g. "$40 is left") are facts of their case, not invented."""
     if not _COMMERCIAL.search(text):
         return False
-    allowed = {m.group(0).replace(" ", "").lower() for c in knowledge for m in _MONEY.finditer(c.text or "")}
+    sources = [c.text or "" for c in knowledge] + [user_text]
+    allowed = {m.group(0).replace(" ", "").lower() for t in sources for m in _MONEY.finditer(t)}
     return any(m.group(0).replace(" ", "").lower() not in allowed for m in _MONEY.finditer(text))
 
 
@@ -71,26 +73,26 @@ ASK_TEAM_LEAD = ("Payment plans, discounts and similar options are not in the co
                  "which options are approved.")
 
 
-def _unapproved_terms(text: str, knowledge) -> set:
-    allowed = " ".join((c.text or "") for c in knowledge).lower()
+def _unapproved_terms(text: str, knowledge, user_text: str = "") -> set:
+    allowed = (" ".join((c.text or "") for c in knowledge) + " " + user_text).lower()     # the user's own facts count too
     return {m.group(0).lower() for m in _TERMS.finditer(text) if m.group(0).lower() not in allowed}
 
 
-def _drop_term_offers(text: str, knowledge) -> str:
+def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
     """A client message (>>) offering an unapproved term is dropped together with its "Option N" heading; only if fewer than two
     messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
     line, e.g. '- Offer a payment plan') becomes one 'ask your team lead' line. 'Why:' lines are kept."""
     out, tip_done, dropped, skip_msg = [], False, False, False
     for line in text.splitlines():
         stripped = line.lstrip()
-        if re.match(r"option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge):
+        if re.match(r"option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge, user_text):
             skip_msg = dropped = True                        # "Option 2 - Payment plan": heading and its message go
             continue
         if skip_msg and stripped.startswith(">>"):
             skip_msg = False
             continue
         skip_msg = False
-        if stripped.lower().startswith("why:") or not _unapproved_terms(line, knowledge):
+        if stripped.lower().startswith("why:") or not _unapproved_terms(line, knowledge, user_text):
             out.append(line)
         elif stripped.startswith(">>"):
             dropped = True
@@ -223,15 +225,16 @@ class AskService:
                                 preferences=preferences or {}, general_mode=True,
                                 user_language=getattr(out.query, "language", "") or "")
         text = self.generator.generate_answer(context, out.query.original).strip()
-        if _invented_money(text, knowledge):                 # PRD §1: never invent prices/discounts -> one strict retry
+        user_text = " ".join([out.query.original, *(h[0] for h in history)])
+        if _invented_money(text, knowledge, user_text):      # PRD §1: never invent prices/discounts -> one strict retry
             text = self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip()
-            if _invented_money(text, knowledge):
+            if _invented_money(text, knowledge, user_text):
                 text = f"{SAFE_MISSING}\n{MISSING_COMPANY_INFO}"
         if text.startswith(OFF_TOPIC) or text.strip(" .") == OFF_TOPIC:
             return AskResult(answer=OFF_TOPIC_TEXT, found=True, confidence="general", confidence_score=out.confidence_score,
                              query=out.query, retrieved=out.candidates)
         text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)
-        text = _drop_term_offers(text, knowledge)            # payment plans, discounts ... only when knowledge allows   # format labels are not for the reader
+        text = _drop_term_offers(text, knowledge, user_text)            # payment plans, discounts ... only when knowledge allows   # format labels are not for the reader
         missing = MISSING_COMPANY_INFO in text
         text = "\n".join(l for l in text.replace(MISSING_COMPANY_INFO, "").splitlines()).strip()
         for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE, OFF_TOPIC):
