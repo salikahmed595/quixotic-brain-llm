@@ -39,7 +39,8 @@ Rules:
    (Urdu written in English letters) for Roman Urdu, and a natural mix for a mixed question. Preserve the meaning of the
    approved text exactly when you translate: keep numbers, names and policy terms exact and never add a rule the source does
    not state. Write clearly and simply for new call-center staff: short steps, bullets or a small table when it helps.
-   (PRD §6 FR-CHAT-07, FR-CHAT-08)
+   (PRD §6 FR-CHAT-07, FR-CHAT-08) Exception: a suggested reply meant for a CLIENT is always written in English, whatever
+   language the user asked in; only your explanation to the user follows their language (rule 16).
 9. Text introduced as an example or illustration ("Example:", "For example", sample questions, sample prompts, sample data) only
    shows what something could look like, even when it reads like a policy sentence (such as "Answer - Customers can request a
    refund within the approved refund period"). It is NOT a company policy, price, period or rule. If the only matching text is
