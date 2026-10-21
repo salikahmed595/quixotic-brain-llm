@@ -12,7 +12,7 @@ from uuid import UUID
 
 from ..config import Settings
 from ..generation.base import GenerationProvider
-from ..generation.prompt import MISSING_COMPANY_INFO
+from ..generation.prompt import MISSING_COMPANY_INFO, OFF_TOPIC
 from ..models import AnswerContext, Candidate
 from .language import NormalizedQuery
 from .search import SearchService, confidence_label
@@ -59,6 +59,9 @@ def _invented_money(text: str, knowledge) -> bool:
     return any(m.group(0).replace(" ", "").lower() not in allowed for m in _MONEY.finditer(text))
 
 
+# Owner 2026-10-21 "for our office only": out-of-scope questions get this fixed reply (no gap, no model text).
+OFF_TOPIC_TEXT = ("I'm Quixotic AI, the office assistant, so I only help with Quixotic work: client replies and sales, company "
+                  "policies and SOPs, work messages and translation. What can I help you with at work?")
 SUCCESSFUL_OUTCOME = "closed"        # §16.2 example outcome value; PRD defines no other success rule
 
 
@@ -174,9 +177,12 @@ class AskService:
             text = self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip()
             if _invented_money(text, knowledge):
                 text = f"{SAFE_MISSING}\n{MISSING_COMPANY_INFO}"
+        if text.startswith(OFF_TOPIC) or text.strip(" .") == OFF_TOPIC:
+            return AskResult(answer=OFF_TOPIC_TEXT, found=True, confidence="general", confidence_score=out.confidence_score,
+                             query=out.query, retrieved=out.candidates)
         missing = MISSING_COMPANY_INFO in text
         text = "\n".join(l for l in text.replace(MISSING_COMPANY_INFO, "").splitlines()).strip()
-        for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE):
+        for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE, OFF_TOPIC):
             text = text.replace(marker, "").strip()
         if not text:
             return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)

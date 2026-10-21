@@ -481,3 +481,13 @@ def test_general_assistant_never_keeps_invented_money_figures():
     assert "$10" in ask.ask("what is the upfront?", DEPT, levels=LV).answer
     ask, _ = _general_ask(FakeStore(vec=[]), "Ankara has been the capital since 1923, about 5.8 million people.")
     assert "1923" in ask.ask("capital of Turkey?", DEPT, levels=LV).answer
+
+
+def test_office_only_off_topic_questions_get_the_fixed_reply():
+    """Owner 2026-10-21 'tight the system for our office only': 'i'm hungry' got snack ideas."""
+    from backend.retrieval.ask import OFF_TOPIC_TEXT
+    from backend.generation.prompt import GENERAL_SYSTEM_PROMPT
+    ask, _ = _general_ask(FakeStore(vec=[]), "OFF_TOPIC")
+    r = ask.ask("i'm hungry", DEPT, levels=LV)
+    assert r.answer == OFF_TOPIC_TEXT and r.found and not r.actions          # not a knowledge gap
+    assert "work only" in GENERAL_SYSTEM_PROMPT and "reply with exactly OFF_TOPIC" in GENERAL_SYSTEM_PROMPT
