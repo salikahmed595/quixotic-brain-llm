@@ -65,7 +65,7 @@ OFF_TOPIC_TEXT = ("I'm Quixotic AI, the office assistant, so I only help with Qu
 # Payment terms are company policy too (owner rule). MEASURED on the server: with no policy imported, gpt-5-nano kept offering
 # "a payment plan", "milestones" and "pausing work" despite the prompt, so unapproved term offers are removed in code.
 _TERMS = re.compile(r"payment plan|instal+ments?|milestones?|split (?:the )?(?:payment|work|invoice)|partial payment|"
-                    r"pause (?:the )?(?:work|project)|deposit|upfront|discount|refund|free revision|extra revisions?", re.I)
+                    r"pausw* (?:the )?(?:work|project)|hold (?:the )?(?:work|project)|deposit|upfront|discount|refund|free revision|extra revisions?", re.I)
 CHECK_WITH_TEAM = "Let me check the options with my team and get back to you shortly."
 ASK_TEAM_LEAD = ("Payment plans, discounts and similar options are not in the company knowledge yet: ask your team lead "
                  "which options are approved.")
