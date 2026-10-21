@@ -464,3 +464,20 @@ def test_general_mode_uses_its_own_system_prompt_and_keeps_company_fact_rule():
     assert system_prompt_for(AnswerContext(general_mode=True)) is GENERAL_SYSTEM_PROMPT
     assert system_prompt_for(AnswerContext()) is SYSTEM_PROMPT
     assert "Never invent company-specific facts" in GENERAL_SYSTEM_PROMPT and "never be greedy" in GENERAL_SYSTEM_PROMPT
+
+
+def test_general_assistant_never_keeps_invented_money_figures():
+    """Server live test 2026-10-21: 'what discount can I give?' with no policy produced '5% off, $10-$25'."""
+    class Inventive(FakeGenerator):
+        def generate_answer(self, context, question):
+            self.calls.append((context, question)); return "Give a loyalty discount of 5% or $10-$25 off."
+    _, search, _ = build(FakeStore(vec=[]))
+    object.__setattr__(search.settings, "general_assistant", True)
+    gen = Inventive()
+    r = AskService(search, gen, search.settings).ask("what discount can I give a returning client?", DEPT, levels=LV)
+    assert "$" not in r.answer and "%" not in r.answer and r.actions == NOT_FOUND_ACTIONS and len(gen.calls) == 2
+    # figures that ARE in approved knowledge stay; non-commercial numbers are untouched
+    ask, _ = _general_ask(FakeStore(vec=[cand(score=.95, text="The first-sale upfront is $10.")]), "The upfront is $10.")
+    assert "$10" in ask.ask("what is the upfront?", DEPT, levels=LV).answer
+    ask, _ = _general_ask(FakeStore(vec=[]), "Ankara has been the capital since 1923, about 5.8 million people.")
+    assert "1923" in ask.ask("capital of Turkey?", DEPT, levels=LV).answer

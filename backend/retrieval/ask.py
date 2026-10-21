@@ -41,6 +41,24 @@ _FORBIDDEN_IN_GUIDANCE = re.compile(r"[$€£₨]|\bPKR\b|\bRs\.?\s*\d|\d+\s*%|\
                                     r"|\bdollars?\b", re.I)
 _OFFERS = re.compile(r"\b(?:offer|give|provide|apply|process|start|issue)\w*\s+(?:you\s+|a\s+|an\s+|the\s+|some\s+|your\s+)*"
                      r"(?:discount|refund|price\s+cut|cheaper)", re.I)
+# General assistant (owner 2026-10-21): money figures in a commercial context must come from approved knowledge. MEASURED on the
+# server: asked "what discount can I give a returning client?" with no policy, the model once invented "5% off, $10-$25" tiers.
+_MONEY = re.compile(r"\$\s?\d[\d,.]*|\d+(?:\.\d+)?\s?%|\bPKR\s?\d[\d,]*|\bRs\.?\s?\d[\d,]*|\b\d[\d,]*\s?(?:dollars?|rupees?)\b", re.I)
+_COMMERCIAL = re.compile(r"discount|price|pricing|refund|fee|cost|rate|payment|upfront|commission|salary|package|deposit|charge",
+                         re.I)
+STRICT_RETRY_NOTE = ("\n\n(System check: do not state ANY price, amount, percentage, discount or fee figure. None is approved for "
+                     "this. Say it is not in the company knowledge base and suggest confirming with the team lead.)")
+SAFE_MISSING = ("That is not in the company knowledge base yet, so I can't give you a figure. Please confirm it with your team lead "
+                "before telling the client.")
+
+
+def _invented_money(text: str, knowledge) -> bool:
+    if not _COMMERCIAL.search(text):
+        return False
+    allowed = {m.group(0).replace(" ", "").lower() for c in knowledge for m in _MONEY.finditer(c.text or "")}
+    return any(m.group(0).replace(" ", "").lower() not in allowed for m in _MONEY.finditer(text))
+
+
 SUCCESSFUL_OUTCOME = "closed"        # §16.2 example outcome value; PRD defines no other success rule
 
 
@@ -152,6 +170,10 @@ class AskService:
         context = AnswerContext(knowledge=knowledge, sales_cases=cases, history=list(history), asker=asker or {},
                                 preferences=preferences or {}, general_mode=True)
         text = self.generator.generate_answer(context, out.query.original).strip()
+        if _invented_money(text, knowledge):                 # PRD §1: never invent prices/discounts -> one strict retry
+            text = self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip()
+            if _invented_money(text, knowledge):
+                text = f"{SAFE_MISSING}\n{MISSING_COMPANY_INFO}"
         missing = MISSING_COMPANY_INFO in text
         text = "\n".join(l for l in text.replace(MISSING_COMPANY_INFO, "").splitlines()).strip()
         for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE):
