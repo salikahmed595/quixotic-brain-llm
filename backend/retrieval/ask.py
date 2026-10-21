@@ -67,6 +67,8 @@ OFF_TOPIC_TEXT = ("I'm Quixotic AI, the office assistant, so I only help with Qu
 _TERMS = re.compile(r"payment plan|instal+ments?|milestones?|split (?:the )?(?:payment|work|invoice)|partial payment|"
                     r"pause (?:the )?(?:work|project)|deposit|upfront|discount|refund|free revision|extra revisions?", re.I)
 CHECK_WITH_TEAM = "Let me check the options with my team and get back to you shortly."
+ASK_TEAM_LEAD = ("Payment plans, discounts and similar options are not in the company knowledge yet: ask your team lead "
+                 "which options are approved.")
 
 
 def _unapproved_terms(text: str, knowledge) -> set:
@@ -75,15 +77,20 @@ def _unapproved_terms(text: str, knowledge) -> set:
 
 
 def _drop_term_offers(text: str, knowledge) -> str:
-    """Client messages (>> lines) that offer an unapproved term are replaced by one 'check with my team' message."""
-    out, replaced = [], False
+    """Lines offering an unapproved term are replaced: a client message (>>) by one 'check with my team' message, advice to the
+    user (any other line, e.g. '- Offer a payment plan') by one 'ask your team lead' line. 'Why:' lines are kept."""
+    out, msg_done, tip_done = [], False, False
     for line in text.splitlines():
-        if line.lstrip().startswith(">>") and _unapproved_terms(line, knowledge):
-            if not replaced:
+        stripped = line.lstrip()
+        if stripped.lower().startswith("why:") or not _unapproved_terms(line, knowledge):
+            out.append(line)
+        elif stripped.startswith(">>"):
+            if not msg_done:
                 out.append(f">> {CHECK_WITH_TEAM}")
-                replaced = True
-            continue
-        out.append(line)
+                msg_done = True
+        elif not tip_done:
+            out.append(f"- {ASK_TEAM_LEAD}")
+            tip_done = True
     return "\n".join(out)
 
 

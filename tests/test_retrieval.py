@@ -505,3 +505,11 @@ def test_unapproved_payment_terms_are_removed_from_client_messages():
     ask, _ = _general_ask(FakeStore(vec=[cand(score=.95, text="Clients may pay in instalments via a payment plan.")]),
                           ">> We can set up a payment plan for you.")
     assert "payment plan" in ask.ask("client cannot pay all at once", DEPT, levels=LV).answer    # allowed by policy
+
+
+def test_unapproved_terms_in_advice_bullets_are_replaced_too():
+    from backend.retrieval.ask import ASK_TEAM_LEAD
+    ask, _ = _general_ask(FakeStore(vec=[]), "Ask why.\n- Suggest milestone-based payments.\n- Offer a payment plan.\n- Stay calm.")
+    r = ask.ask("client will not pay", DEPT, levels=LV)
+    assert "milestone" not in r.answer and "payment plan" not in r.answer.split(ASK_TEAM_LEAD)[0]
+    assert r.answer.count(ASK_TEAM_LEAD) == 1 and "Stay calm" in r.answer
