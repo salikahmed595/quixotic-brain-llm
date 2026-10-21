@@ -135,7 +135,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
     <div className="hero-glow relative flex-1 flex flex-col">
       <div className="relative z-[1] flex-1 flex flex-col max-w-[780px] w-full mx-auto px-5">
         <div className="flex-1 flex flex-col gap-[26px] pt-14 pb-6">
-          {thread.map((m, i) => <Message key={i} m={m} i={i} update={update} retry={retry} submit={submit} />)}
+          {thread.map((m, i) => <Message key={i} m={m} i={i} last={i === thread.length - 1} update={update} retry={retry} submit={submit} />)}
           <div ref={threadEnd} />
         </div>
         <div className="sticky bottom-0 pt-2 pb-5 bg-gradient-to-b from-transparent to-canvas to-30%">
@@ -228,29 +228,60 @@ function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
 
 /* Owner 2026-10-21 "2-3 messages, very easy": lines starting with ">> " are messages to send to the client. Each is its own bubble
    with a Copy button (one action per bubble, nothing to select by hand); everything else stays short plain text. */
-function AnswerBody({ text, className = '' }: { text: string; className?: string }) {
-  const blocks: { msg: boolean; lines: string[] }[] = [];
-  for (const line of text.split('\n')) {
-    const msg = line.trimStart().startsWith('>>');
-    const clean = msg ? line.trimStart().replace(/^>>\s?/, '') : line;
-    const last = blocks[blocks.length - 1];
-    if (last && last.msg === msg && !msg) last.lines.push(clean);
-    else blocks.push({ msg, lines: [clean] });
-  }
-  return (
-    <div className={`answer flex flex-col gap-2 ${className}`}>
-      {blocks.map((b, k) => b.msg ? (
-        <div key={k} className="flex items-start gap-2 rounded-2xl border border-line bg-white px-3.5 py-2.5 shadow-sm">
-          <span className="flex-1 whitespace-pre-wrap">{b.lines[0]}</span>
-          <button className="btn ghost sm !px-2 shrink-0" title="Copy message" aria-label="Copy message"
-            onClick={() => { navigator.clipboard?.writeText(b.lines[0]); toast('Copied'); }}><Icon name="copy" size={15} /></button>
-        </div>
-      ) : /^option\s*\d/i.test(b.lines.join('').trim())
-        ? <div key={k} className="text-[13px] font-semibold text-ink-2 mt-1 -mb-1">{b.lines.join(' ').trim()}</div>   /* "Option 1 - Gentle check-in" */
-        : (b.lines.join('\n').trim() ? <div key={k} className="whitespace-pre-wrap">{b.lines.join('\n').trim()}</div> : null))}
-    </div>
-  );
+function Inline({ text }: { text: string }) {
+  /* **bold** like ChatGPT; everything else is plain text (no HTML is ever injected). */
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return <>{parts.map((p, k) => /^\*\*[^*]+\*\*$/.test(p) ? <strong key={k} className="font-semibold text-ink">{p.slice(2, -2)}</strong> : <span key={k}>{p}</span>)}</>;
 }
+
+/* Owner 2026-10-21 "like ChatGPT, bold headings, easy to copy, very simple": bold headings, real lists, and every message to send
+   to the client (lines starting with ">> ") in its own bubble with a Copy button. */
+function AnswerBody({ text, className = '' }: { text: string; className?: string }) {
+  const lines = text.split('\n');
+  const out: React.ReactNode[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+  const flush = () => {
+    if (!list) return;
+    const L = list; list = null;
+    out.push(L.ordered
+      ? <ol key={out.length} className="list-decimal pl-5 space-y-1">{L.items.map((t, k) => <li key={k}><Inline text={t} /></li>)}</ol>
+      : <ul key={out.length} className="list-disc pl-5 space-y-1">{L.items.map((t, k) => <li key={k}><Inline text={t} /></li>)}</ul>);
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { flush(); continue; }
+    if (line.startsWith('>>')) {
+      flush();
+      const msg = line.replace(/^>>\s?/, '');
+      out.push(
+        <div key={out.length} className="flex items-start gap-2 rounded-2xl border border-line bg-white px-3.5 py-2.5 shadow-sm">
+          <span className="flex-1 whitespace-pre-wrap">{msg}</span>
+          <button className="btn ghost sm !px-2 shrink-0" title="Copy message" aria-label="Copy message"
+            onClick={() => { navigator.clipboard?.writeText(msg.replace(/\*\*/g, '')); toast('Copied'); }}><Icon name="copy" size={15} /></button>
+        </div>);
+      continue;
+    }
+    const ul = line.match(/^[-•]\s+(.*)$/), ol = line.match(/^\d+[.)]\s+(.*)$/);
+    if (ul || ol) {
+      const ordered = !!ol;
+      if (!list || list.ordered !== ordered) { flush(); list = { ordered, items: [] }; }
+      list.items.push((ul || ol)![1]);
+      continue;
+    }
+    flush();
+    const heading = /^\*\*[^*]+\*\*:?$/.test(line) || /^option\s*\d/i.test(line);
+    out.push(heading
+      ? <div key={out.length} className="font-semibold text-ink mt-1 -mb-1">{line.replace(/\*\*/g, '').replace(/:$/, '')}</div>
+      : <p key={out.length}><Inline text={line} /></p>);
+  }
+  flush();
+  return <div className={`answer flex flex-col gap-2 !whitespace-normal ${className}`}>{out}</div>;
+}
+
+/* Owner 2026-10-21 "very interactive": one tap refines the last answer in the same chat (the chat remembers the situation). */
+const REFINE = ['Make it shorter', 'Make it friendlier', 'Make it more firm but still polite', 'Write the explanation in Roman Urdu'];
+const REFINE_LABEL: Record<string, string> = { 'Make it shorter': 'Shorter', 'Make it friendlier': 'Friendlier',
+  'Make it more firm but still polite': 'More firm (polite)', 'Write the explanation in Roman Urdu': 'In Roman Urdu' };
 
 function SourceChip({ s, onClick }: { s: Source; onClick: () => void }) {
   return (
@@ -281,7 +312,7 @@ function openSources(sources: Source[]) {
   ));
 }
 
-function Message({ m, i, update, retry, submit }: { m: Msg; i: number; update: (i: number, p: any) => void; retry: (i: number, q: string) => void; submit: (q: string, mode?: string) => void }) {
+function Message({ m, i, last = false, update, retry, submit }: { m: Msg; i: number; last?: boolean; update: (i: number, p: any) => void; retry: (i: number, q: string) => void; submit: (q: string, mode?: string) => void }) {
   const app = useApp();
   if (m.role === 'user') return <div className="msg-u">{m.text}</div>;
   const av = <span className="w-[30px] h-[30px] mt-0.5 rounded-full bg-orange text-white grid place-items-center flex-none"><svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" /></svg></span>;
@@ -342,6 +373,10 @@ function Message({ m, i, update, retry, submit }: { m: Msg; i: number; update: (
         <button className={`btn ghost sm !px-2 ${m.helpful === true ? '!text-good' : ''}`} title="Helpful" aria-label="Helpful" aria-pressed={m.helpful === true} onClick={() => feedback(true)}><Icon name="up" size={15} /></button>
         <button className={`btn ghost sm !px-2 ${m.helpful === false ? '!text-bad' : ''}`} title="Not helpful" aria-label="Not helpful" aria-pressed={m.helpful === false} onClick={() => feedback(false)}><Icon name="down" size={15} /></button>
       </div>
+      {last && (/quick questions|^\s*1[.)]/im.test(m.answer)
+        ? <div className="flex flex-wrap gap-1.5 mt-2.5"><span className="hint w-full">Reply with the details, or:</span>
+            <button className="chipbtn" onClick={() => submit('Skip the questions and just give me 3 options with your best assumptions.')}>Skip, just give me options</button></div>
+        : <div className="flex flex-wrap gap-1.5 mt-2.5">{REFINE.map(r => <button key={r} className="chipbtn" onClick={() => submit(r)}>{REFINE_LABEL[r]}</button>)}</div>)}
       {m.helpful === false && (
         <div className="mt-2.5"><span className="hint">What was wrong? <span className="opacity-80">(optional — it helps me learn)</span></span>
           <div className="flex flex-wrap gap-1.5 mt-1.5">{REASONS.map(r => <button key={r} className={`chipbtn ${(m.reasons || []).includes(r) ? 'on' : ''}`} onClick={() => reason(r)}>{r}</button>)}</div>

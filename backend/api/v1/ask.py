@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from ...permissions.access import PermissionDenied, resolve_department_scope
 from ...permissions.roles import P, can
+from ...retrieval.ask import NOT_FOUND_TEXT
 from ..deps import Caller, api_caller, get_services, resolve_caller
 from ..services import Services
 from .auth import clean_preferences, learned_hints
@@ -62,8 +63,12 @@ def _remember(svc, caller, conversation_id, question, mode, department_id, assis
     return conversation_id
 
 
-def _history(svc, caller, conversation_id, turns: int = 6) -> list[tuple[str, str]]:
-    """The last few (question, answer) pairs of THIS user's chat, oldest first, so a short follow-up can be understood."""
+CHAT_MEMORY_WORDS = 1000          # owner 2026-10-21: "remember ~1000 words within each chat"
+
+
+def _history(svc, caller, conversation_id, words: int = CHAT_MEMORY_WORDS) -> list[tuple[str, str]]:
+    """The latest (question, answer) pairs of THIS user's chat that fit in about `words` words, oldest first, so the assistant
+    understands the whole situation (owner 2026-10-21). The newest pair is always kept."""
     store = getattr(svc, "conversations", None)
     if conversation_id is None or caller.key is not None or store is None:
         return []
@@ -74,10 +79,17 @@ def _history(svc, caller, conversation_id, turns: int = 6) -> list[tuple[str, st
         if m["role"] == "user":
             pending = c.get("text")
         elif pending:
-            answered = c.get("kind") == "ask" and c.get("answer") and not c.get("actions")     # a real answer, not "not found"
-            pairs.append([pending, c["answer"][:800] if answered else "", c.get("query_id") if answered else None])
+            answered = c.get("kind") == "ask" and c.get("answer") and c.get("answer") != NOT_FOUND_TEXT   # not the fixed refusal
+            pairs.append([pending, c["answer"] if answered else "", c.get("query_id") if answered else None])
             pending = None
-    pairs = pairs[-turns:]
+    kept, used = [], 0
+    for p in reversed(pairs):
+        n = len(p[0].split()) + len((p[1] or "").split())
+        if kept and used + n > words:
+            break
+        kept.append(p)
+        used += n
+    pairs = kept[::-1]
     ratings = {}
     if getattr(svc.settings, "feedback_learning", False) and hasattr(svc.ops, "helpful_by_query"):
         try:                                                          # a rejected answer is marked so the model does not repeat it
