@@ -404,7 +404,7 @@ def test_guidance_never_carries_prices_discounts_or_deadlines_and_other_question
 
 
 def test_selling_boundaries_are_in_the_system_prompt():
-    for phrase in ("build trust", "never be greedy", "satisfaction comes first", "ready to paste to the client"):
+    for phrase in ("build trust", "never be greedy", "satisfaction comes first", "starting with \">> \""):
         assert phrase in SYSTEM_PROMPT
 
 

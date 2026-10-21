@@ -226,6 +226,30 @@ function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
   );
 }
 
+/* Owner 2026-10-21 "2-3 messages, very easy": lines starting with ">> " are messages to send to the client. Each is its own bubble
+   with a Copy button (one action per bubble, nothing to select by hand); everything else stays short plain text. */
+function AnswerBody({ text, className = '' }: { text: string; className?: string }) {
+  const blocks: { msg: boolean; lines: string[] }[] = [];
+  for (const line of text.split('\n')) {
+    const msg = line.trimStart().startsWith('>>');
+    const clean = msg ? line.trimStart().replace(/^>>\s?/, '') : line;
+    const last = blocks[blocks.length - 1];
+    if (last && last.msg === msg && !msg) last.lines.push(clean);
+    else blocks.push({ msg, lines: [clean] });
+  }
+  return (
+    <div className={`answer flex flex-col gap-2 ${className}`}>
+      {blocks.map((b, k) => b.msg ? (
+        <div key={k} className="flex items-start gap-2 rounded-2xl border border-line bg-white px-3.5 py-2.5 shadow-sm">
+          <span className="flex-1 whitespace-pre-wrap">{b.lines[0]}</span>
+          <button className="btn ghost sm !px-2 shrink-0" title="Copy message" aria-label="Copy message"
+            onClick={() => { navigator.clipboard?.writeText(b.lines[0]); toast('Copied'); }}><Icon name="copy" size={15} /></button>
+        </div>
+      ) : (b.lines.join('\n').trim() ? <div key={k} className="whitespace-pre-wrap">{b.lines.join('\n').trim()}</div> : null))}
+    </div>
+  );
+}
+
 function SourceChip({ s, onClick }: { s: Source; onClick: () => void }) {
   return (
     <button className="src" onClick={onClick}>
@@ -279,7 +303,8 @@ function Message({ m, i, update, retry, submit }: { m: Msg; i: number; update: (
       <div className="flex flex-col gap-2.5 mt-2">{m.results.slice(1).map((r, k) => <Hit key={k} r={r} k={k + 1} />)}</div></details>}
   </>) : <div className="notice"><b>Nothing found.</b> No approved knowledge matches this search.</div>);
 
-  const low = m.confidence === 'low' || m.found === false;
+  const gap = m.found === false;                                   // offer Report missing information
+  const low = m.confidence !== 'general' && (m.confidence === 'low' || gap);
   const [cl, cc] = CONF[m.confidence || 'low'] || CONF.low;
   const [first, ...rest] = m.answer.split('\n');
   const feedback = async (helpful: boolean) => {
@@ -295,8 +320,8 @@ function Message({ m, i, update, retry, submit }: { m: Msg; i: number; update: (
      People who can add knowledge may also answer it straight away. */
   const report = () => openModal('Report missing information', close => <ReportGap m={m} canAdd={can(app.me, 'propose_knowledge')} close={close} />);
   return wrap(<>
-    {low ? <div className="notice"><b>{first}</b>{rest.length > 0 && <p className="mt-1.5">{rest.join(' ').trim()}</p>}</div>
-      : <div className="answer">{m.answer}</div>}
+    {low ? <div className="notice"><b>{first}</b>{rest.length > 0 && <AnswerBody text={rest.join('\n').trim()} className="mt-1.5" />}</div>
+      : <AnswerBody text={m.answer} />}
     <div className="flex flex-wrap gap-2 items-center mt-3"><span className={`chip dot ${cc}`}>{cl}</span></div>
     {m.sources.length > 0 && (
       <div className="flex flex-wrap gap-2 mt-3">
@@ -304,14 +329,14 @@ function Message({ m, i, update, retry, submit }: { m: Msg; i: number; update: (
         {m.sources.length > 2 && <button className="src !bg-canvas !text-ink-2 border border-line" onClick={() => openSources(m.sources)}>+{m.sources.length - 2} more</button>}
       </div>
     )}
-    {low ? (
+    {gap ? (
       <div className="flex flex-wrap gap-2 mt-3.5">
         <button className="btn sm" onClick={report}><Icon name="plus" size={15} /> Report missing information</button>
         <button className="btn sm" onClick={() => submit(m.question, 'search')}><Icon name="search" size={15} /> Search documents</button>
       </div>
     ) : (<>
       <div className="flex items-center gap-1 mt-3.5 text-muted">
-        <button className="btn ghost sm !px-2" title="Copy" aria-label="Copy answer" onClick={() => { navigator.clipboard?.writeText(m.answer); toast('Copied'); }}><Icon name="copy" size={15} /></button>
+        <button className="btn ghost sm !px-2" title="Copy" aria-label="Copy answer" onClick={() => { navigator.clipboard?.writeText(m.answer.replace(/^>>\s?/gm, '')); toast('Copied'); }}><Icon name="copy" size={15} /></button>
         <button className={`btn ghost sm !px-2 ${m.helpful === true ? '!text-good' : ''}`} title="Helpful" aria-label="Helpful" aria-pressed={m.helpful === true} onClick={() => feedback(true)}><Icon name="up" size={15} /></button>
         <button className={`btn ghost sm !px-2 ${m.helpful === false ? '!text-bad' : ''}`} title="Not helpful" aria-label="Not helpful" aria-pressed={m.helpful === false} onClick={() => feedback(false)}><Icon name="down" size={15} /></button>
       </div>
