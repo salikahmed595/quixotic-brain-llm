@@ -42,7 +42,6 @@ def main() -> int:
     cu.add_argument("--name", required=True)
     cu.add_argument("--role", required=True, choices=[r.value for r in Role])
     cu.add_argument("--department", action="append", default=[], help="department name; repeatable (PRD §10)")
-    sub.add_parser("telegram-webhook", help="register the approvals bot webhook at QB_PUBLIC_URL (production)")
     ba = sub.add_parser("bootstrap-admin")
     ba.add_argument("--email", required=True)
     ba.add_argument("--name", required=True)
@@ -59,16 +58,6 @@ def main() -> int:
             print(("exists " if users.department_by_name(name) else "created"), name)
             if not users.department_by_name(name):
                 users.create_department(name)
-        return 0
-    if a.cmd == "telegram-webhook":
-        from .integrations.telegram import TelegramBot
-        if not (settings.telegram_bot_token and settings.telegram_webhook_secret):
-            raise SystemExit("set QB_TELEGRAM_BOT_TOKEN and QB_TELEGRAM_WEBHOOK_SECRET first")
-        if not settings.public_url.startswith("https://"):
-            raise SystemExit("Telegram webhooks need an https:// QB_PUBLIC_URL; locally run: python -m workers.telegram_poll")
-        TelegramBot(settings.telegram_bot_token).set_webhook(f"{settings.public_url}/v1/integrations/telegram/webhook",
-                                                             settings.telegram_webhook_secret)
-        print("webhook registered")
         return 0
     if a.cmd == "bootstrap-admin":
         if users.system_admin_exists():

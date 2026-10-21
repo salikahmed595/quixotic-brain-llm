@@ -2,7 +2,6 @@
 # queue, backups, logs). Guide: docs/DEPLOYMENT.md.
 #
 #   docker compose -f docker-compose.prod.yml up -d --build                       # Quixotic AI
-#   docker compose -f docker-compose.prod.yml --profile hermes up -d --build      # + Hermes / Telegram (PRD §9, optional)
 #
 # Secrets come from .env on the server (filled from AWS Secrets Manager; never committed). Only Caddy (80/443) is published.
 name: quixotic
@@ -82,32 +81,8 @@ services:
     depends_on: [api]
     networks: [backend]
 
-  # ---- optional: Hermes + Telegram (PRD §9). docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md ----
-  quixotic-mcp:
-    build: ./integrations/mcp
-    restart: unless-stopped
-    profiles: [hermes]
-    environment:
-      QUIXOTIC_API_URL: http://api:8000
-      QB_HERMES_SHARED_SECRET: ${QB_HERMES_SHARED_SECRET}
-      QUIXOTIC_MCP_TOKEN: ${QUIXOTIC_MCP_TOKEN}
-      QUIXOTIC_DEFAULT_TELEGRAM_USER: ${QUIXOTIC_DEFAULT_TELEGRAM_USER:-}
-    networks: [backend, agent]
-
-  hermes:
-    # Pinned by digest: v0.22.2, verified locked down on 2026-10-17 (only `clarify` + the quixotic tools). Re-verify on upgrade (H0).
-    image: nousresearch/hermes-agent@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
-    restart: unless-stopped
-    profiles: [hermes]
-    command: ["gateway", "run"]
-    volumes: ["/srv/hermes:/opt/data"]          # config.yaml, SOUL.md and .env from deploy/hermes/
-    networks: [agent]                           # reaches quixotic-mcp and the internet (Telegram, OpenAI); never the database
-    deploy: {resources: {limits: {memory: 1536M, cpus: "1.0"}}}
-    logging: {driver: json-file, options: {max-size: "20m", max-file: "5"}}
-
 networks:
   backend: {}
-  agent: {}
 
 volumes:
   pgdata: {}

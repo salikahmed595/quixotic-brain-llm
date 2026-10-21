@@ -62,7 +62,7 @@ def parse_note(text: str) -> tuple[dict, str]:
 
 
 class GitVault:
-    """`remote`: optional bare repository shared with the CEO's Obsidian (docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H4). The backend
+    """`remote`: optional bare repository shared with the CEO's Obsidian. The backend
     pushes `main` there after every publication; people push only `proposals/<name>` branches (enforced by the server hook)."""
 
     def __init__(self, root: str, author: str = "Quixotic AI <vault@quixotic.ai>", remote: Optional[str] = None) -> None:

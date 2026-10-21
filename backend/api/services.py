@@ -56,7 +56,6 @@ class Services:
     mailer: Any = None                  # PRD §5 FR-AUTH-02 email
     gaps: Any = None                    # PRD §9 knowledge gaps
     integrations: Any = None            # PRD §9 / §12 integration identities and events
-    approvals_bot: Any = None           # backend-owned Telegram approvals bot (None when Telegram is not configured)
 
 
 def build_services(settings: Settings, parser=None, extractor=None, run_migrations: bool = True,
@@ -97,8 +96,4 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         limiter=SlidingWindowLimiter(), pool=pool, conversations=ConversationStore(pool, t), models_ready=ready,
         sessions=SessionStore(pool, t), one_time=OneTimeTokenStore(pool), system_settings=SystemSettingsStore(pool, t),
         mailer=make_mailer(settings), gaps=GapStore(pool, t), integrations=IntegrationStore(pool, t))
-    if settings.telegram_bot_token:
-        from ..integrations.approvals_bot import ApprovalsBot
-        from ..integrations.telegram import TelegramBot
-        out.approvals_bot = ApprovalsBot(out, TelegramBot(settings.telegram_bot_token))
     return out

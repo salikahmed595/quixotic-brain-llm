@@ -1,5 +1,5 @@
 #!/bin/bash
-# Add one Obsidian contributor's laptop key (owner request 2026-10-20; docs/DEPLOYMENT.md §7).
+# Add one Obsidian contributor's laptop key (owner request 2026-10-20; docs/DEPLOYMENT.md §6).
 #   sudo bash deploy/vault/add-contributor.sh ceo "ssh-ed25519 AAAA... ceo-laptop"
 # The key may only pull/push /srv/vault/contributors/<name>.git (vault-shell). Then link `<name>` to the person's account in
 # System -> Integrations -> Obsidian branch: the app creates the repository with the notes that person may see.

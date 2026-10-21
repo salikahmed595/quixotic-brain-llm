@@ -42,6 +42,8 @@ Rule (`CLAUDE.md`): PRD is the only truth. Where silent, code requires an explic
 Company General, HR, Sales - Fresh Seller, Sales - Upseller, Production, Marketing, Customer Support, Leadership, Training via `python -m backend.cli seed-departments`. No hierarchy; Glossary/Archive are vault folders. ❓ clear old pre-M3 knowledge rows (irreversible) or keep?
 
 ### Owner-approved additions (not in the PRD)
+- **Office assistant mode** (owner, 2026-10-21): approved knowledge (department policies) = primary source; past sales chats = secondary (`QB_SALES_HISTORY_ENABLED=true`, examples of how people handled a situation, never policy). Every suggested client reply follows the owner's selling boundaries (trust, authenticity, not greedy, client satisfaction first; prompt rule 15) and is given in client-ready English with a short why in the user's language (rule 16). "What should I reply?" with no policy and no matching past chat: `QB_GENERAL_GUIDANCE=true` gives advice labelled "General guidance, not company policy", rejected by code if it contains a price, amount, %, discount or time promise; still logged as a gap. Other questions without evidence keep the exact §6 FR-CHAT-04 reply.
+- **Translate for client for everyone** (owner, 2026-10-21): `QB_TRANSLATE_DEPARTMENTS=all`.
 - Visibility check `_may_see` now also requires the access level (§8); before, department alone decided (found in this audit).
 - **Translate for client** (owner, 2026-10-20): upsellers and fresh sellers write a client message in Urdu / Roman Urdu and get polite, client-ready English (`POST /v1/translate`; chat Answer mode "Translate for client"). Who gets it: members of `QB_TRANSLATE_DEPARTMENTS` (comma-separated names; unset = off), checked on the server. It uses the configured answer model with `TRANSLATE_PROMPT` (keep every number, price and date; add no prices, discounts or promises; the text is data). No company documents are used. The message is not stored: there is no chat history and no query log, and the audit entry `translation` records only the length. Limit: 2,000 characters. ❓ Should admins and reviewers also get it?
 
@@ -53,14 +55,12 @@ Company General, HR, Sales - Fresh Seller, Sales - Upseller, Production, Marketi
 - Queue Redis (`QB_QUEUE_BACKEND`, SQS possible). Deployment: one EC2 Compose (`docs/DEPLOYMENT.md`). ❓ staging second instance or same server?
 - Audit log append-only (trigger) + SHA-256 chain; verify `GET /v1/admin/system/audit-verify`. Micro-batching `backend/retrieval/batching.py`.
 - Backups: `pg_dump` + vault tar.gz + manifest to S3 AES256; weekly drill. ❓ retention (35 days proposed).
-- Stack versions: Caddy 2.8, pgvector 0.8.0-pg16, Redis 7.4 AOF, uid 10001, log rotation 10×20 MB, Docker `python:3.14-slim`, Hermes image pinned by digest (v0.22.2; `computer_use`, `connections` disabled).
+- Stack versions: Caddy 2.8, pgvector 0.8.0-pg16, Redis 7.4 AOF, uid 10001, log rotation 10×20 MB, Docker `python:3.14-slim`. Obsidian hook calls signed with `QB_VAULT_HOOK_SECRET` (HMAC-SHA256, >= 32 chars, 5-min window); unset = push endpoint off.
 
-### Hermes/Telegram/Obsidian (§9)
-- Two bots; Hermes skills/memory disabled; CEO pushes to `proposals/ceo` only; `main` backend-written.
-- Every Hermes proposal waits for the linked Telegram account's Confirm; `QUIXOTIC_DEFAULT_TELEGRAM_USER` names the one Hermes user. Telegram approvals follow web rules (CEO = publisher).
+### Obsidian (§9)
+- Hermes agent and Telegram removed by owner 2026-10-21 (PRD §9/§14 Phase 2 channel not used); Obsidian sync kept, hooks signed with QB_VAULT_HOOK_SECRET. Migration 014 withdraws proposals still waiting for a bot confirmation (versions back to draft).
 - Obsidian (owner 2026-10-20, 3 contributors): one private repo per person (`QB_VAULT_CONTRIBUTORS_DIR/<name>.git`); `main` = published, in-force notes their account may see (departments + sensitivity), rewritten after each publication, link, access change; inactive/unlinked = empty. SSH forced command `vault-shell` = only own repo, only pull/push; hooks: push only `proposals/<name>`, no delete/force. Push -> proposal per changed note (create/update/archive); editing a note outside their view refused; same content proposed once; one open change per document; `main` merged into their branch (`-X theirs`), failed merge = `conflict` event, branch untouched. Missed hook calls: worker reconcile every 300 s. Activity: `GET /v1/admin/integrations/obsidian/activity`. Old single shared repo (`QB_VAULT_REMOTE` for contributors) removed: it gave everyone every note.
-- OpenAI speech-to-text for voice. Only backend tools via signed endpoint.
-- ❓ retention of messages/audio; ❓ second approver for high-impact (proposed Knowledge Admin); ❓ rejected Obsidian edit (now stays on branch; proposed revert); ❓ Discord now or later; bot tokens/IDs only in Secrets Manager/env.
+- ❓ second approver for high-impact (proposed Knowledge Admin); ❓ rejected Obsidian edit (now stays on branch; proposed revert); ❓ Discord now or later.
 
 ## 1. Required settings, no default
 | Setting | PRD § | Note |

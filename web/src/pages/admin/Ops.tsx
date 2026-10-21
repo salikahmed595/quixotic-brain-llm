@@ -285,28 +285,28 @@ function IncidentForm({ paused, close, done }: { paused: boolean; close: () => v
 }
 
 
-/* Hermes + Telegram + Obsidian (PRD §9 step 1): only linked accounts of active people can send or approve. */
+/* Obsidian contributors (PRD §9 step 1): only linked accounts of active people can propose from there. */
 type Ident = { id: string; platform: string; external_id: string; label?: string | null; full_name: string; email: string; role: string; account_status: string };
 function IntegrationsCard() {
-  const { data, error, reload } = useLoad(() => Promise.all([api<{ identities: Ident[]; telegram: boolean; hermes: boolean; obsidian: boolean }>('/v1/admin/integrations/identities'),
+  const { data, error, reload } = useLoad(() => Promise.all([api<{ identities: Ident[]; obsidian: boolean }>('/v1/admin/integrations/identities'),
     api<{ users: { id: string; full_name: string; role: string }[] }>('/v1/admin/users?status=active').then(r => r.users)]));
-  const [f, setF] = useState({ platform: 'telegram', external_id: '', user_id: '', label: '' }); const a = useAction();
+  const [f, setF] = useState({ platform: 'obsidian', external_id: '', user_id: '', label: '' }); const a = useAction();
   if (error) return <div className="card"><b>Integrations</b><Banner kind="err" className="mt-2">{error}</Banner></div>;
   if (!data) return <div className="card"><b>Integrations</b><Loading /></div>;
   const [st, users] = data;
   const chip = (on: boolean, label: string) => <span className={`chip dot ${on ? 'green' : ''}`}>{label}: {on ? 'configured' : 'off'}</span>;
   return (
-    <div className="card md:col-span-2"><b>Integrations — Telegram, Hermes, Obsidian</b>
-      <div className="flex flex-wrap gap-2 mt-2">{chip(st.telegram, 'Approvals bot')}{chip(st.hermes, 'Hermes')}{chip(st.obsidian, 'Obsidian sync')}</div>
-      <p className="hint mt-2">Link a person's Telegram ID (they send <code>/start</code> to the Quixotic Approvals bot to see it) or their Obsidian branch name. Only linked, active people can propose or approve from there; every change is still reviewed.</p>
+    <div className="card md:col-span-2"><b>Integrations — Obsidian</b>
+      <div className="flex flex-wrap gap-2 mt-2">{chip(st.obsidian, 'Obsidian sync')}</div>
+      <p className="hint mt-2">Link a person's Obsidian branch name. Only linked, active people can propose from there; every change is still reviewed.</p>
       {st.identities.length > 0 && <div className="table-wrap !border-0 mt-2"><table><thead><tr><th>Where</th><th>Account</th><th>Person</th><th /></tr></thead>
-        <tbody>{st.identities.map(i => <tr key={i.id}><td>{i.platform === 'telegram' ? 'Telegram' : 'Obsidian branch'}</td><td><code>{i.platform === 'obsidian' ? 'proposals/' : ''}{i.external_id}</code>{i.label && <div className="hint">{i.label}</div>}</td>
+        <tbody>{st.identities.map(i => <tr key={i.id}><td>Obsidian branch</td><td><code>proposals/{i.external_id}</code>{i.label && <div className="hint">{i.label}</div>}</td>
           <td>{i.full_name}<div className="hint">{i.role.replace('_', ' ')}{i.account_status !== 'active' ? ' · not active' : ''}</div></td>
-          <td><button className="btn ghost sm" aria-label="Remove link" onClick={() => confirmModal('Remove this link?', 'They can no longer propose or approve from there.', 'Remove', async () => { await api(`/v1/admin/integrations/identities/${i.id}`, { method: 'DELETE' }); reload(); })}><Icon name="trash" size={16} /></button></td></tr>)}</tbody></table></div>}
+          <td><button className="btn ghost sm" aria-label="Remove link" onClick={() => confirmModal('Remove this link?', 'They can no longer propose from there.', 'Remove', async () => { await api(`/v1/admin/integrations/identities/${i.id}`, { method: 'DELETE' }); reload(); })}><Icon name="trash" size={16} /></button></td></tr>)}</tbody></table></div>}
       <form className="grid grid-cols-[150px_1fr_1fr_1fr_auto] gap-2 mt-3 max-md:grid-cols-1" onSubmit={e => { e.preventDefault(); a.run(async () => {
         await api('/v1/admin/integrations/identities', { method: 'POST', body: { ...f, external_id: f.external_id.trim(), label: f.label.trim() || null } }); setF({ ...f, external_id: '', label: '' }); toast('Linked'); reload(); }); }}>
-        <select className="select" value={f.platform} onChange={e => setF({ ...f, platform: e.target.value })} aria-label="Where"><option value="telegram">Telegram</option><option value="obsidian">Obsidian branch</option></select>
-        <input className="input" required value={f.external_id} onChange={e => setF({ ...f, external_id: e.target.value })} placeholder={f.platform === 'telegram' ? 'Telegram ID, e.g. 123456789' : 'Branch name, e.g. ceo'} aria-label="Account" />
+        <span className="self-center">Obsidian branch</span>
+        <input className="input" required value={f.external_id} onChange={e => setF({ ...f, external_id: e.target.value })} placeholder="Branch name, e.g. ceo" aria-label="Account" />
         <select className="select" required value={f.user_id} onChange={e => setF({ ...f, user_id: e.target.value })} aria-label="Person"><option value="" disabled>Person…</option>{users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}</select>
         <input className="input" value={f.label} onChange={e => setF({ ...f, label: e.target.value })} placeholder="Label (optional)" aria-label="Label" />
         <button className="btn primary" disabled={a.busy}>Link</button>

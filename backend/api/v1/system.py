@@ -54,7 +54,6 @@ def system_overview(_: Principal = Depends(require(P.MANAGE_SYSTEM)), svc: Servi
         "security": {"admin_mfa_required": s.admin_mfa_required, "secure_cookies": s.secure_cookies, "mail_backend": s.mail_backend,
                      "session_hours": round(s.session_ttl_seconds / 3600, 1)},
         "vault": {"path": s.vault_dir, "head": GitVault(s.vault_dir).head()},
-        "integrations": settings_store.get("integrations_health", {}),     # written by the Hermes sidecar heartbeat
         "backups": settings_store.get("last_backup"),                      # written by python -m backend.ops.backup create
         "restore_drill": settings_store.get("last_restore_drill"),         # PRD §16 (g): written by ... backup drill
         "incident": settings_store.get(INCIDENT_KEY, {"answers_paused": False}),

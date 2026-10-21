@@ -1,4 +1,4 @@
-"""Integration identities, once-only events and sent bot messages — PRD §9 step 1, §12 `integration_identities`, ingestion events."""
+"""Integration identities (Obsidian) and once-only events — PRD §9 step 1, §12 `integration_identities`, ingestion events."""
 from __future__ import annotations
 
 from typing import Optional
@@ -53,13 +53,3 @@ class IntegrationStore:
                              "p.title AS proposal_title, p.kind AS proposal_kind FROM integration_events e LEFT JOIN users u ON u.id=e.user_id "
                              "LEFT JOIN knowledge_proposals p ON p.id=e.proposal_id WHERE e.tenant_id=%s AND e.platform=%s "
                              "ORDER BY e.received_at DESC, e.id DESC LIMIT %s", (self.tenant, platform, limit)).fetchall()
-
-    # ---- bot messages whose buttons change after a decision ----
-    def save_message(self, proposal_id: Optional[UUID], chat_id: str, message_id: int, purpose: str) -> None:
-        with self.pool.connection() as c:
-            c.execute("INSERT INTO telegram_messages (proposal_id, chat_id, message_id, purpose) VALUES (%s,%s,%s,%s)",
-                      (proposal_id, str(chat_id), message_id, purpose))
-
-    def messages_for(self, proposal_id: UUID) -> list[dict]:
-        with self.pool.connection() as c:
-            return c.execute("SELECT chat_id, message_id, purpose FROM telegram_messages WHERE proposal_id=%s", (proposal_id,)).fetchall()

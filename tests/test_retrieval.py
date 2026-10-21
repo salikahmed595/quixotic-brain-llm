@@ -3,7 +3,7 @@ from uuid import uuid4
 from backend.generation.prompt import SYSTEM_PROMPT, build_user_prompt
 from backend.models import AnswerContext
 from backend.reranking.base import rerank
-from backend.retrieval.ask import (AskService, LOW_CONFIDENCE_ACTIONS, LOW_CONFIDENCE_TEXT, NOT_FOUND_TEXT,
+from backend.retrieval.ask import (AskService, LOW_CONFIDENCE_ACTIONS, LOW_CONFIDENCE_TEXT, NOT_FOUND_ACTIONS, NOT_FOUND_TEXT,
                                    order_by_priority)
 from backend.retrieval.language import LanguageService
 from backend.retrieval.search import SearchService, confidence_label, interleave_merge
@@ -372,3 +372,63 @@ def test_owner_decision_past_sales_chats_are_off_by_default():         # owner (
     ask, _, gen = build(FakeStore(sales=[_case(0.95)]), sales_history_min_similarity=0.5)
     res = ask.ask("customer says it is too expensive", DEPT, levels=LV, include_sales_history=True, sales_department_ids=DEPT)
     assert res.answer == NOT_FOUND_TEXT and not gen.calls and res.historical_cases is None
+
+
+class _Guide(FakeGenerator):
+    """Answers like the model would under the GUIDANCE note (owner 2026-10-21)."""
+    def __init__(self, text): super().__init__(); self.text = text
+    def generate_answer(self, context, question):
+        self.calls.append((context, question))
+        return self.text if context.guidance_only else "NO_APPROVED_ANSWER"
+
+
+def _guided(text, on=True):
+    _, search, _ = build(FakeStore(vec=[]))
+    object.__setattr__(search.settings, "general_guidance", on)
+    return AskService(search, _Guide(text), search.settings)
+
+
+def test_reply_question_without_policy_gets_labelled_careful_guidance():
+    r = _guided("GENERAL_GUIDANCE\nSuggested reply: \"Thank you for your patience! I will confirm this with my team and come "
+                "back to you today.\"").ask("client says the price is too high, what should I reply?", DEPT, levels=LV)
+    assert r.answer.startswith("General guidance, not company policy.") and "confirm this with my team" in r.answer
+    assert not r.found and r.actions == NOT_FOUND_ACTIONS             # still a knowledge gap for admins (§35)
+
+
+def test_guidance_never_carries_prices_discounts_or_deadlines_and_other_questions_keep_the_prd_reply():
+    for bad in ("GENERAL_GUIDANCE\nOffer a 10% discount.", "GENERAL_GUIDANCE\nTell them it costs $50.",
+                "GENERAL_GUIDANCE\nPromise delivery in 3 days.", "NO_APPROVED_ANSWER", "Some answer without the marker"):
+        assert _guided(bad).ask("what should I reply?", DEPT, levels=LV).answer == NOT_FOUND_TEXT, bad
+    off = _guided("GENERAL_GUIDANCE\nBe kind.", on=False).ask("what should I reply?", DEPT, levels=LV)
+    assert off.answer == NOT_FOUND_TEXT                                  # switched off: PRD §6 FR-CHAT-04 exact reply
+
+
+def test_selling_boundaries_are_in_the_system_prompt():
+    for phrase in ("build trust", "never be greedy", "satisfaction comes first", "ready to paste to the client"):
+        assert phrase in SYSTEM_PROMPT
+
+
+class _Says(FakeGenerator):
+    def __init__(self, text): super().__init__(); self.text = text
+    def generate_answer(self, context, question): self.calls.append((context, question)); return self.text
+
+
+def test_past_chat_answers_never_leak_markers_or_offer_discounts_refunds_or_prices():
+    """Live test 2026-10-21: a history-only answer printed NO_APPROVED_ANSWER, offered 'a discount from my side' and promised a
+    refund. Past chats never authorise prices, discounts or refunds (PRD §1, owner boundaries)."""
+    for text in ("NO_APPROVED_ANSWER", "I can offer a discount from my side.", "I will start the refund process for you.",
+                 "The logo costs $50.", "We can deliver in 3 days."):
+        _, search, _ = build(FakeStore(sales=[_case(0.8)]), sales_history_min_similarity=0.6, sales_history_enabled=True)
+        res = AskService(search, _Says(text), search.settings).ask("client says too expensive, what to reply?", DEPT, levels=LV,
+                                                                  sales_department_ids=DEPT)
+        assert res.answer == NOT_FOUND_TEXT, text
+    _, search, _ = build(FakeStore(sales=[_case(0.8)]), sales_history_min_similarity=0.6, sales_history_enabled=True)
+    ok = AskService(search, _Says("Suggested reply: I completely understand. Let me confirm the options with my team."),
+                    search.settings).ask("client says too expensive, what to reply?", DEPT, levels=LV, sales_department_ids=DEPT)
+    assert "confirm the options with my team" in ok.answer
+
+
+def test_prompt_forbids_placeholders_and_history_answers_to_policy_questions():
+    assert "[Client Name]" in SYSTEM_PROMPT and "NEVER authorise a price" in SYSTEM_PROMPT
+    note = build_user_prompt(AnswerContext(knowledge=[], sales_cases=[sales_case()]), "what is the refund policy?")
+    assert "what is the refund policy?" in note and "WHAT a rule, policy, price, refund" in note

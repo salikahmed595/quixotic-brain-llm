@@ -48,3 +48,4 @@ class AnswerContext:
     history: list[tuple[str, str]] = field(default_factory=list)   # earlier (question, answer) pairs of this chat, oldest first
     asker: dict = field(default_factory=dict)         # who is asking, set by the system: {role, departments}
     preferences: dict = field(default_factory=dict)  # the asker's own style choices (Personalization), already sanitised
+    guidance_only: bool = False                       # owner 2026-10-21: no knowledge, no matching past chat -> careful reply advice

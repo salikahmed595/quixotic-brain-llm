@@ -2,7 +2,7 @@
 PRD §11 (Docker, HTTPS proxy, backups, logs), §16 (release only when (a)–(i) pass). Owner decision 2026-10-17: one budget EC2 + Docker Compose; originals in S3.
 
 ## 0. Services
-`docker-compose.prod.yml`: postgres (PG16+pgvector), redis (queue), api (FastAPI+web), worker (parse/index/publish), caddy (HTTPS, Let's Encrypt). `--profile hermes` adds quixotic-mcp + hermes (Telegram, §9, optional). Only 80/443 open. Data: Docker volumes, `/srv/vault` (Git vault), `/srv/hermes`.
+`docker-compose.prod.yml`: postgres (PG16+pgvector), redis (queue), api (FastAPI+web), worker (parse/index/publish), caddy (HTTPS, Let's Encrypt). Only 80/443 open. Data: Docker volumes, `/srv/vault` (Git vault).
 
 ## 1. Server
 1. Ubuntu 24.04, 100 GB gp3, x86_64. Size via AT-09 load test (§8). 4-core laptop: 160 users signed in OK; 40-q baseline p95 4.5 s doc search, 160-q burst 11.9 s (targets 2 s / 8 s); CPU models are the limit. Start **>=16 vCPU / 32 GB** (c7i.4xlarge), adjust. Answers also depend on AI provider.
@@ -50,24 +50,10 @@ docker compose -f docker-compose.prod.yml run --rm api python -m backend.ops.bac
 docker compose -f docker-compose.prod.yml start api worker
 ```
 
-## 6. Optional: Hermes + Telegram (§9)
-1. @BotFather `/newbot` twice: **Quixotic Hermes** (chat) and **Quixotic Approvals** (confirm/approve).
-2. `.env`: `QB_TELEGRAM_BOT_TOKEN` (Approvals bot), `QB_TELEGRAM_WEBHOOK_SECRET`, `QB_HERMES_SHARED_SECRET`, `QUIXOTIC_MCP_TOKEN` (random), optional `QUIXOTIC_DEFAULT_TELEGRAM_USER`.
-3. Hermes settings:
-   ```bash
-   sudo install -d -m 700 /srv/hermes
-   sudo cp deploy/hermes/config.yaml deploy/hermes/SOUL.md /srv/hermes/
-   sudo cp deploy/hermes/hermes.env.example /srv/hermes/.env && sudo nano /srv/hermes/.env    # Hermes bot token, allowed ids, keys
-   docker compose -f docker-compose.prod.yml --profile hermes up -d --build
-   docker compose -f docker-compose.prod.yml exec api python -m backend.cli telegram-webhook
-   ```
-4. **H0 check (every Hermes upgrade):** `docker compose -f docker-compose.prod.yml run --rm -it hermes tools list --platform telegram` must show only `clarify` + the five `quixotic` tools. Also send a voice note once; confirm transcription.
-5. Each person sends `/start` to Approvals bot, gets Telegram ID; admin links it in System -> Integrations. Same IDs go in `TELEGRAM_ALLOWED_USERS` in `/srv/hermes/.env`.
-
-## 7. Optional: Obsidian contributors (private repository each)
+## 6. Optional: Obsidian contributors (private repository each)
 Each contributor (e.g. CEO + 2) gets a private Git repository: `main` = only the published notes their account may see (departments + sensitivity), refreshed by the app; they may push only `proposals/<name>`. Free, self-hosted (Git over SSH); Obsidian Sync not needed.
 ```bash
-sudo bash deploy/vault/setup-vault-git.sh ai.yourcompany.com     # /srv/vault/contributors, SSH wrapper, hooks.env, QB_VAULT_CONTRIBUTORS_DIR
+sudo bash deploy/vault/setup-vault-git.sh ai.yourcompany.com     # needs QB_VAULT_HOOK_SECRET (random >= 32 chars) in .env; writes hooks.env, QB_VAULT_CONTRIBUTORS_DIR
 docker compose -f docker-compose.prod.yml up -d
 sudo bash deploy/vault/add-contributor.sh ceo "ssh-ed25519 AAAA... ceo-laptop"     # once per person / laptop key
 ```
@@ -80,7 +66,7 @@ git checkout -b proposals/ceo && printf '.obsidian/
 ```
 Open the folder in Obsidian, install community plugin **Obsidian Git**: Auto commit-and-sync interval 2 min, Auto pull interval 5 min, Pull on startup on, Pull before push on, Sync method Merge. Notes need `departments:` and `sensitivity:` front matter. Each changed note becomes a proposal (Approvals: approve / reject / ask for changes); only approved notes are published and re-indexed. Activity: System -> Integrations -> Obsidian activity. A push the app missed is picked up within 5 min. Remove a person: unlink in System (their repository is emptied) and delete their key line in `/srv/vault/.ssh/authorized_keys`.
 
-## 8. Go-live acceptance (§13, §16)
+## 7. Go-live acceptance (§13, §16)
 ```bash
 # AT-09 load test from any machine (search = no AI cost; answer = full answers, costs money)
 LOAD_PASSWORD=<random> docker compose -f docker-compose.prod.yml exec -e LOAD_PASSWORD api python scripts/load_test.py prepare --users 160 --department Sales
@@ -90,18 +76,18 @@ docker compose -f docker-compose.prod.yml exec api python scripts/load_test.py c
 ```
 p95 misses: bigger instance, `QB_RERANK_TOP_K=2`, or higher `QB_RERANK_SKIP_MARGIN`; re-run. Rest of §16: AT-08 visual (`cd web && npm run test:visual`), integration suite on a DB copy, restore drill, owner sign-off that AI provider is approved for company data (§10).
 
-## 9. Updates
+## 8. Updates
 ```bash
 cd /opt/quixotic && git pull
 docker compose -f docker-compose.prod.yml up -d --build          # migrations run automatically at start
 ```
 Logs: `docker compose -f docker-compose.prod.yml logs --since 1h api worker` (rotated, 200 MB max/service). Verify audit log: System -> Audit log or `GET /v1/admin/system/audit-verify`.
 
-## 10. Test Obsidian contributors on one PC (no server, no Telegram)
+## 9. Test Obsidian contributors on one PC (no server)
 ```bash
 python scripts/obsidian_local.py setup --contributor ceo=ceo@company.com --contributor sales=lead@company.com --contributor hr=hr@company.com
 ```
-Same model as §7 with local folders: `.obsidian-contributors/<name>.git` + `obsidian-vaults/<name>/` (Obsidian Git settings pre-filled). Restart the app after the first run.
+Same model as §6 with local folders: `.obsidian-contributors/<name>.git` + `obsidian-vaults/<name>/` (Obsidian Git settings pre-filled). Restart the app after the first run.
 
-## 11. Trial without a domain (HTTP by IP)
-`.env`: `QB_DOMAIN=:80`, `QB_PUBLIC_URL=http://<elastic-ip>`; Obsidian hooks: `QUIXOTIC_API_URL=http://127.0.0.1` in `/srv/vault/contributors/hooks.env`. Cookies are not Secure and Telegram webhooks need HTTPS: internal testing only. Under 16 GB RAM add swap (`fallocate -l 8G /swapfile`). Moving to a domain later: DNS A record -> IP, set `QB_DOMAIN`/`QB_PUBLIC_URL` to it, `https://` in hooks.env, `docker compose -f docker-compose.prod.yml up -d`.
+## 10. Trial without a domain (HTTP by IP)
+`.env`: `QB_DOMAIN=:80`, `QB_PUBLIC_URL=http://<elastic-ip>`; Obsidian hooks: `QUIXOTIC_API_URL=http://127.0.0.1` in `/srv/vault/contributors/hooks.env`. Cookies are not Secure: internal testing only. Under 16 GB RAM add swap (`fallocate -l 8G /swapfile`). Moving to a domain later: DNS A record -> IP, set `QB_DOMAIN`/`QB_PUBLIC_URL` to it, `https://` in hooks.env, `docker compose -f docker-compose.prod.yml up -d`.

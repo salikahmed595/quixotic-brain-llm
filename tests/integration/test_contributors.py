@@ -1,19 +1,31 @@
 """Three Obsidian contributors, each with a private repository (owner request 2026-10-20; backend/knowledge/contributors.py).
 End to end on a real PostgreSQL and real Git: filtered views (§10), push -> proposal -> review (approve / request changes) ->
 controlled publication -> RAG (§8, §9), duplicates, conflicts, restricted notes, suspension, missed pushes, SSH key wrapper."""
+import json
 import os
 import subprocess
+import time
 from pathlib import Path
 from uuid import UUID
 
 import pytest
 
+from backend.api.v1.integrations import sign
 from backend.auth.security import hash_password
 from backend.database.integrations import IntegrationStore
 from backend.knowledge.vault_sync import VaultSync
 from backend.permissions.roles import Role
 from tests.integration.test_e2e import drain, login, publish_doc, second_approver, stack  # noqa: F401  (fixture)
-from tests.integration.test_hermes import SECRET, _signed
+
+SECRET = "vault-hook-secret-vault-hook-secret-1234"
+
+
+def _signed(client, path, body: dict, secret=SECRET, ts=None):
+    """A call as the Obsidian Git hook makes it: HMAC-SHA256(QB_VAULT_HOOK_SECRET, "<timestamp>.<body>")."""
+    raw = json.dumps(body).encode()
+    ts = str(int(ts if ts is not None else time.time()))
+    return client.post(path, content=raw, headers={"Content-Type": "application/json", "X-Quixotic-Timestamp": ts,
+                                                   "X-Quixotic-Signature": sign(secret, ts, raw)})
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -39,7 +51,7 @@ NOTE = "---\ndepartments: [{dept}]\nsensitivity: internal\n---\n\n# {title}\n{bo
 @pytest.fixture()
 def world(stack, tmp_path):
     svc, client = stack
-    svc.settings = svc.settings.model_copy(update={"hermes_shared_secret": SECRET, "vault_contributors_dir": str(tmp_path / "contrib")})
+    svc.settings = svc.settings.model_copy(update={"vault_hook_secret": SECRET, "vault_contributors_dir": str(tmp_path / "contrib")})
     svc.integrations = IntegrationStore(svc.pool, svc.settings.tenant_id)
     d = lambda n: svc.users.department_by_name(n)["id"]
     sales, hr = d("Sales"), d("HR")
@@ -214,3 +226,23 @@ def test_ssh_key_wrapper_allows_only_own_repository(tmp_path):
                 "bash -i", "git-upload-pack 'contributors/ceo.git'; rm -rf /", "scp -f x"):
         assert run("ceo", bad).returncode != 0, bad
     assert run("Bad Name", "git-upload-pack 'x'").returncode != 0
+
+
+def test_admin_links_accounts_and_endpoints_are_off_without_configuration(stack, tmp_path):
+    """PRD §9 step 1 (identity mapping, admin only) and deny by default (§3): Obsidian is the only platform; without
+    QB_VAULT_HOOK_SECRET the push endpoint does not exist."""
+    svc, client = stack
+    svc.integrations = IntegrationStore(svc.pool, svc.settings.tenant_id)
+    svc.users.create_user("i_admin", "i_admin@q.ai", "Ivy", hash_password("pw12345"), Role.SYSTEM_ADMIN, [])
+    uid = svc.users.create_user("i_emp", "i_emp@q.ai", "Ed", hash_password("pw12345"), Role.EMPLOYEE, [])
+    h = login(client, "i_admin")
+    link = lambda **kw: client.post("/v1/admin/integrations/identities", headers=h, json={"user_id": str(uid), **kw})  # noqa: E731
+    assert link(platform="discord", external_id="ed").status_code == 422          # Obsidian only
+    assert link(platform="obsidian", external_id="not a branch!").status_code == 422
+    assert link(platform="obsidian", external_id="ed-notes").status_code == 201
+    assert link(external_id="ed-notes").status_code == 409                          # platform defaults to obsidian
+    listed = client.get("/v1/admin/integrations/identities", headers=h).json()
+    assert [i["external_id"] for i in listed["identities"]] == ["ed-notes"] and set(listed) == {"identities", "obsidian"}
+    assert listed["obsidian"] is False
+    assert client.get("/v1/admin/integrations/identities", headers=login(client, "i_emp")).status_code == 403
+    assert _signed(client, "/v1/integrations/vault/push", {"branch": "proposals/ed-notes", "commit": "0" * 40}).status_code == 404

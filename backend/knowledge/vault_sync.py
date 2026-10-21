@@ -135,9 +135,6 @@ class VaultSync:
         lines = [f"{len(ok)} note(s) sent for review."] + [f"Not sent: {r['note']} — {r['error']}" for r in bad]
         lines.append(f"{self.svc.settings.public_url}/#/approvals")
         text = "\n".join(lines)
-        bot = getattr(self.svc, "approvals_bot", None)
-        if bot:
-            bot.notify_user(user, "Obsidian sync", text)
         if getattr(self.svc, "mailer", None):
             from ..notifications.mail import send_safely
             send_safely(self.svc.mailer, user["email"], "Your Obsidian notes were received", text)

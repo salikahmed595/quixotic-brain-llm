@@ -45,8 +45,8 @@ done
 """
 
 POST_RECEIVE = """#!/bin/sh
-# Tells Quixotic AI that proposals/{name} changed; the notes become proposals for review. Signed like every Hermes call:
-# HMAC-SHA256(QB_HERMES_SHARED_SECRET, "<timestamp>.<body>"). If the app is unreachable the worker picks the push up later.
+# Tells Quixotic AI that proposals/{name} changed; the notes become proposals for review. Signed with the vault hook secret:
+# HMAC-SHA256(QB_VAULT_HOOK_SECRET, "<timestamp>.<body>"). If the app is unreachable the worker picks the push up later.
 [ "$QUIXOTIC_BACKEND" = "1" ] && exit 0
 env_file="$(cd "$(git rev-parse --git-dir)/.." && pwd)/hooks.env"
 [ -f "$env_file" ] || {{ echo "Quixotic AI: saved; the server will pick your notes up shortly."; exit 0; }}
@@ -55,7 +55,7 @@ while read old new ref; do
   [ "$ref" = "refs/heads/proposals/{name}" ] || continue
   body=$(printf '{{"branch":"proposals/{name}","commit":"%s"}}' "$new")
   ts=$(date +%s)
-  sig=$(printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$QB_HERMES_SHARED_SECRET" | sed 's/^.* //')
+  sig=$(printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$QB_VAULT_HOOK_SECRET" | sed 's/^.* //')
   if out=$(curl -fsS -m 120 -X POST "$QUIXOTIC_API_URL/v1/integrations/vault/push" -H "Content-Type: application/json" \\
        -H "X-Quixotic-Timestamp: $ts" -H "X-Quixotic-Signature: $sig" --data "$body"); then
     echo "Quixotic AI: your notes were received: $out"

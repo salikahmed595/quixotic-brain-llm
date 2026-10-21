@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     raw_storage_dir: Optional[str] = None  # LOCAL DEVELOPMENT ONLY: keep raw files in this folder instead of S3 (docs/PRD_GAPS.md)
 
     # ---- implementation necessities (not in PRD; see docs/PRD_GAPS.md) ----------------
-    session_secret: str                    # signs service-to-service tokens (Hermes sidecar, PRD §11)
+    session_secret: str                    # HS256 signing key (>= 32 chars)
     session_ttl_seconds: int               # PRD §5 FR-AUTH-06 "session expiry" without a number
 
     # ---- accounts (PRD §5) — values the PRD does not give are required -------------------------------------------
@@ -61,13 +61,11 @@ class Settings(BaseSettings):
     # {"internal": ["employee", ...], "confidential": ["knowledge_admin", "system_admin"]}. Retrieval filters on it (§10).
     sensitivity_levels_json: str
 
-    # ---- Hermes + Telegram + Obsidian (PRD §9; optional Phase 2 integration — off unless configured) ----------------------
-    telegram_bot_token: Optional[str] = None          # Bot 2 "Quixotic Approvals" (owned by this backend). Unset = no Telegram.
-    telegram_webhook_secret: Optional[str] = None     # checked on every webhook call (X-Telegram-Bot-Api-Secret-Token)
-    hermes_shared_secret: Optional[str] = None        # HMAC key shared with the quixotic-mcp sidecar. Unset = Hermes endpoints off.
+    # ---- Obsidian contributors (PRD §9; optional — off unless configured) ----------------------------------------------------
+    vault_hook_secret: Optional[str] = None           # >= 32 chars; signs the Obsidian Git hook calls. Unset = vault/push endpoint off.
     # Owner request 2026-10-20: one private repository per Obsidian contributor (backend/knowledge/contributors.py). Unset = off.
     vault_contributors_dir: Optional[str] = None
-    vault_remote: Optional[str] = None                # bare Git repository the CEO's Obsidian syncs with (docs/HERMES_TELEGRAM_OBSIDIAN_PLAN.md H4)
+    vault_remote: Optional[str] = None                # bare Git repository the CEO's Obsidian syncs with
 
     # ---- ingestion (PRD §13) — PRD gives no sizes ------------------------------------
     max_upload_bytes: int                  # PRD §51 "Upload size limits" without a number
@@ -112,6 +110,9 @@ class Settings(BaseSettings):
     # Owner decision (2026-10-17): past sales chats are OFF — answers come only from approved knowledge (PRD §1, §7, §8).
     # While False, no past chat is retrieved in any mode and `sales_history_min_similarity` has no effect.
     sales_history_enabled: bool = False
+    # Owner 2026-10-21: a "what should I reply to the client?" question with no policy and no matching past chat gets careful,
+    # labelled advice that follows the selling boundaries (never prices/discounts/deadlines). False = PRD §6 FR-CHAT-04 reply.
+    general_guidance: bool = False
 
     # ---- pluggable providers (PRD §24, §27, §28) -------------------------------------
     embedding_provider: str = "bge-m3"     # PRD §24.1 initial model to evaluate
@@ -226,7 +227,7 @@ class Settings(BaseSettings):
             raise ValueError("queue_backend=sqs needs sqs_queue_url")
         if self.mail_backend == "smtp" and not (self.smtp_host and self.smtp_port and self.mail_from):
             raise ValueError("mail_backend=smtp needs smtp_host, smtp_port and mail_from")
-        for name in ("hermes_shared_secret", "telegram_webhook_secret"):
+        for name in ("vault_hook_secret",):
             v = getattr(self, name)
             if v is not None and len(v) < 32:
                 raise ValueError(f"{name} must be at least 32 characters")

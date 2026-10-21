@@ -5,6 +5,7 @@ already-resolved department scope.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
 from uuid import UUID
@@ -30,6 +31,15 @@ NO_APPROVED_ANSWER = "NO_APPROVED_ANSWER"
 NO_RELEVANT_HISTORY = "NO_RELEVANT_HISTORY"
 HISTORY_ONLY_LABEL = ("Based on past sales chats, not an official Quixotic policy. "
                       "No approved policy or SOP covers this yet.")
+# Owner decision 2026-10-21: a "what should I reply?" question with no policy and no matching past chat gets careful advice that
+# follows the selling boundaries, always under this label, never with prices/discounts/deadlines (checked below), still a gap.
+GENERAL_GUIDANCE = "GENERAL_GUIDANCE"
+GENERAL_GUIDANCE_LABEL = ("General guidance, not company policy. No approved policy or past chat covers this yet; "
+                          "check prices, discounts and deadlines with your team lead.")
+_FORBIDDEN_IN_GUIDANCE = re.compile(r"[$€£₨]|\bPKR\b|\bRs\.?\s*\d|\d+\s*%|\b\d+\s*(?:day|days|hour|hours|week|weeks)\b"
+                                    r"|\bdollars?\b", re.I)
+_OFFERS = re.compile(r"\b(?:offer|give|provide|apply|process|start|issue)\w*\s+(?:you\s+|a\s+|an\s+|the\s+|some\s+|your\s+)*"
+                     r"(?:discount|refund|price\s+cut|cheaper)", re.I)
 SUCCESSFUL_OUTCOME = "closed"        # §16.2 example outcome value; PRD defines no other success rule
 
 
@@ -101,19 +111,14 @@ class AskService:
             if min_sim is not None:
                 cases = [c for c in cases if c.similarity >= min_sim]
         if not out.candidates or out.confidence == "low":
-            if cases and min_sim is not None:                                         # owner request: history-only answer
-                res = self._history_only(out, cases, history, asker, preferences)
-                if res is not None:
-                    return res
-            # PRD §6 FR-CHAT-04: no verified answer -> the exact sentence, no LLM call, offer Report missing information
-            return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
+            return self._fallback(out, cases, min_sim, history, asker, preferences, base)
 
         context = AnswerContext(knowledge=order_by_priority(out.candidates, self.settings.priority_tiers),
                                 sales_cases=cases, history=list(history),
                                 asker=asker or {}, preferences=preferences or {})
         answer = self.generator.generate_answer(context, out.query.original)
-        if NO_APPROVED_ANSWER in answer:              # the model found the passages do not answer it: the PRD's exact reply
-            return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
+        if NO_APPROVED_ANSWER in answer:              # the passages do not answer it: past chats / careful guidance / exact reply
+            return self._fallback(out, cases, min_sim, history, asker, preferences, base)
         if recheck is not None:
             used = {c.version_id for c in context.knowledge}
             allowed = recheck(used)
@@ -134,6 +139,32 @@ class AskService:
                 sources.append(source_of(c))
         return AskResult(answer=answer, found=True, sources=sources, historical_cases=hist, **base)
 
+    def _fallback(self, out, cases, min_sim, history, asker, preferences, base) -> AskResult:
+        if cases and min_sim is not None:                                         # owner request: history-only answer
+            res = self._history_only(out, cases, history, asker, preferences)
+            if res is not None:
+                return res
+        if getattr(self.settings, "general_guidance", False):                    # owner 2026-10-21: careful reply advice
+            res = self._guidance_only(out, history, asker, preferences)
+            if res is not None:
+                return res
+        # PRD §6 FR-CHAT-04: no verified answer -> the exact sentence, offer Report missing information
+        return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
+
+    def _guidance_only(self, out, history, asker, preferences) -> Optional[AskResult]:
+        """Only for "what should I reply to the client?" questions (the model decides; anything else -> None). The text must
+        start with GENERAL_GUIDANCE and contain no price, amount, percentage or time promise, else it is discarded (§1)."""
+        context = AnswerContext(knowledge=[], sales_cases=[], history=list(history), asker=asker or {},
+                                preferences=preferences or {}, guidance_only=True)
+        text = self.generator.generate_answer(context, out.query.original).strip()
+        if not text.startswith(GENERAL_GUIDANCE) or NO_APPROVED_ANSWER in text:
+            return None
+        body = text[len(GENERAL_GUIDANCE):].strip(" :\n")
+        if not body or _FORBIDDEN_IN_GUIDANCE.search(body) or _OFFERS.search(body):
+            return None
+        return AskResult(answer=f"{GENERAL_GUIDANCE_LABEL}\n\n{body}", found=False, actions=NOT_FOUND_ACTIONS,
+                         confidence="low", confidence_score=out.confidence_score, query=out.query, retrieved=out.candidates)
+
     def _history_only(self, out, cases, history, asker, preferences) -> Optional[AskResult]:
         """No approved knowledge matched: answer from similar past sales chats only, labelled as such. Still counted as a
         knowledge gap (found=False) so administrators see that a policy/SOP is missing (§35). Confidence comes from how close
@@ -141,7 +172,9 @@ class AskService:
         context = AnswerContext(knowledge=[], sales_cases=cases, history=list(history),
                                 asker=asker or {}, preferences=preferences or {})
         text = self.generator.generate_answer(context, out.query.original)
-        if NO_RELEVANT_HISTORY in text:                      # the past chats are not about this question -> PRD §29/§32 answer
+        if NO_RELEVANT_HISTORY in text or NO_APPROVED_ANSWER in text:   # not about this question -> next fallback
+            return None
+        if _FORBIDDEN_IN_GUIDANCE.search(text) or _OFFERS.search(text):  # past chats never authorise prices/discounts/refunds (§1)
             return None
         answer = f"{HISTORY_ONLY_LABEL}\n\n{text}"
         top = max(c.similarity for c in cases)

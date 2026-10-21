@@ -1,8 +1,8 @@
-"""Local Obsidian contributors on one PC (no server, no SSH, no Telegram) — the same private-repository model as the server
-(backend/knowledge/contributors.py, docs/DEPLOYMENT.md §7), for testing.
+"""Local Obsidian contributors on one PC (no server, no SSH) — the same private-repository model as the server
+(backend/knowledge/contributors.py, docs/DEPLOYMENT.md §6), for testing.
 
     python scripts/obsidian_local.py setup --contributor ceo=ceo@company.com --contributor sales=lead@company.com ...
-      - sets QB_VAULT_CONTRIBUTORS_DIR (.obsidian-contributors) and, if missing, QB_HERMES_SHARED_SECRET in .env; writes the
+      - sets QB_VAULT_CONTRIBUTORS_DIR (.obsidian-contributors) and, if missing, QB_VAULT_HOOK_SECRET in .env; writes the
         hooks' hooks.env (app address + secret)                                     -> restart the app after the first run
       - links each name to that account (System -> Integrations) and builds their private repository with the notes they may see
       - clones obsidian-vaults/<name>/ on branch proposals/<name> with Obsidian Git settings (auto commit-and-sync every 2 min)
@@ -53,13 +53,13 @@ def git(*args: str, cwd: Path = ROOT) -> str:
 def setup(pairs: list[str]) -> None:
     set_env("QB_VAULT_CONTRIBUTORS_DIR", CONTRIB.as_posix())
     set_env("QB_VAULT_REMOTE", None)                      # the old single shared repository handed everyone every note
-    if len(env_values().get("QB_HERMES_SHARED_SECRET", "")) < 32:
-        set_env("QB_HERMES_SHARED_SECRET", secrets.token_urlsafe(48))
+    if len(env_values().get("QB_VAULT_HOOK_SECRET", "")) < 32:
+        set_env("QB_VAULT_HOOK_SECRET", secrets.token_urlsafe(48))
     e = env_values()
     CONTRIB.mkdir(exist_ok=True)
     (CONTRIB / "hooks.env").write_text(f"QUIXOTIC_API_URL={e.get('QB_PUBLIC_URL', 'http://localhost:8000')}\n"
-                                       f"QB_HERMES_SHARED_SECRET={e['QB_HERMES_SHARED_SECRET']}\n", encoding="utf-8", newline="\n")
-    for k in ("QB_VAULT_CONTRIBUTORS_DIR", "QB_HERMES_SHARED_SECRET", "QB_DATABASE_URL"):
+                                       f"QB_VAULT_HOOK_SECRET={e['QB_VAULT_HOOK_SECRET']}\n", encoding="utf-8", newline="\n")
+    for k in ("QB_VAULT_CONTRIBUTORS_DIR", "QB_VAULT_HOOK_SECRET", "QB_DATABASE_URL"):
         os.environ[k] = env_values()[k]
     os.environ.pop("QB_VAULT_REMOTE", None)
     sys.path.insert(0, str(ROOT))

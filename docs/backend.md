@@ -3,7 +3,7 @@ History: git log -p docs/backend.md
 Python+FastAPI. Gaps/choices: `docs/PRD_GAPS.md`. Deploy: `docs/DEPLOYMENT.md`. Settings: `.env.example`.
 
 ## Layout
-`backend/{api,auth,permissions,ingestion,retrieval,reranking,generation,sales_memory,database,analytics,knowledge,integrations,ops}`, `workers/`, `evaluation/`, `migrations/`, `web/` (React+Vite+Tailwind), `integrations/mcp/`, `deploy/`, `scripts/`, `tests/`.
+`backend/{api,auth,permissions,ingestion,retrieval,reranking,generation,sales_memory,database,analytics,knowledge,ops}`, `workers/`, `evaluation/`, `migrations/`, `web/` (React+Vite+Tailwind), `deploy/`, `scripts/`, `tests/`.
 
 ## Ask flow
 auth -> role -> department scope -> query normalization -> keyword+vector search (status/scope filtered in SQL) -> rerank -> best 5 -> (no evidence/low confidence: not-found text, no LLM) -> LLM -> answer + sources. API docs at `/docs`; main routes `/v1/auth/*`, `/v1/admin/*`, `/v1/knowledge/*`, `/v1/chats`, `/v1/ask`, `/v1/search`, `/v1/health`.
