@@ -62,6 +62,31 @@ def _invented_money(text: str, knowledge) -> bool:
 # Owner 2026-10-21 "for our office only": out-of-scope questions get this fixed reply (no gap, no model text).
 OFF_TOPIC_TEXT = ("I'm Quixotic AI, the office assistant, so I only help with Quixotic work: client replies and sales, company "
                   "policies and SOPs, work messages and translation. What can I help you with at work?")
+# Payment terms are company policy too (owner rule). MEASURED on the server: with no policy imported, gpt-5-nano kept offering
+# "a payment plan", "milestones" and "pausing work" despite the prompt, so unapproved term offers are removed in code.
+_TERMS = re.compile(r"payment plan|instal+ments?|milestones?|split (?:the )?(?:payment|work|invoice)|partial payment|"
+                    r"pause (?:the )?(?:work|project)|deposit|upfront|discount|refund|free revision|extra revisions?", re.I)
+CHECK_WITH_TEAM = "Let me check the options with my team and get back to you shortly."
+
+
+def _unapproved_terms(text: str, knowledge) -> set:
+    allowed = " ".join((c.text or "") for c in knowledge).lower()
+    return {m.group(0).lower() for m in _TERMS.finditer(text) if m.group(0).lower() not in allowed}
+
+
+def _drop_term_offers(text: str, knowledge) -> str:
+    """Client messages (>> lines) that offer an unapproved term are replaced by one 'check with my team' message."""
+    out, replaced = [], False
+    for line in text.splitlines():
+        if line.lstrip().startswith(">>") and _unapproved_terms(line, knowledge):
+            if not replaced:
+                out.append(f">> {CHECK_WITH_TEAM}")
+                replaced = True
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
 SUCCESSFUL_OUTCOME = "closed"        # §16.2 example outcome value; PRD defines no other success rule
 
 
@@ -171,7 +196,8 @@ class AskService:
             allowed = recheck({c.version_id for c in knowledge})
             knowledge = [c for c in knowledge if c.version_id in allowed]
         context = AnswerContext(knowledge=knowledge, sales_cases=cases, history=list(history), asker=asker or {},
-                                preferences=preferences or {}, general_mode=True)
+                                preferences=preferences or {}, general_mode=True,
+                                user_language=getattr(out.query, "language", "") or "")
         text = self.generator.generate_answer(context, out.query.original).strip()
         if _invented_money(text, knowledge):                 # PRD §1: never invent prices/discounts -> one strict retry
             text = self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip()
@@ -180,7 +206,8 @@ class AskService:
         if text.startswith(OFF_TOPIC) or text.strip(" .") == OFF_TOPIC:
             return AskResult(answer=OFF_TOPIC_TEXT, found=True, confidence="general", confidence_score=out.confidence_score,
                              query=out.query, retrieved=out.candidates)
-        text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)   # format labels are not for the reader
+        text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)
+        text = _drop_term_offers(text, knowledge)            # payment plans, discounts ... only when knowledge allows   # format labels are not for the reader
         missing = MISSING_COMPANY_INFO in text
         text = "\n".join(l for l in text.replace(MISSING_COMPANY_INFO, "").splitlines()).strip()
         for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE, OFF_TOPIC):

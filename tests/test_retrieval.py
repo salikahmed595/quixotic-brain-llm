@@ -491,3 +491,17 @@ def test_office_only_off_topic_questions_get_the_fixed_reply():
     r = ask.ask("i'm hungry", DEPT, levels=LV)
     assert r.answer == OFF_TOPIC_TEXT and r.found and not r.actions          # not a knowledge gap
     assert "work only" in GENERAL_SYSTEM_PROMPT and "reply with exactly OFF_TOPIC" in GENERAL_SYSTEM_PROMPT
+
+
+def test_unapproved_payment_terms_are_removed_from_client_messages():
+    """Server 2026-10-21: with no policy, client messages offered a payment plan, milestones and pausing work."""
+    from backend.retrieval.ask import CHECK_WITH_TEAM
+    reply = ("Clarify the reason.\n>> I understand. Could you share what is stopping payment?\n"
+             ">> We can set up a payment plan or milestones.\n>> We may need to pause work until paid.\nWhy: keep it calm.")
+    ask, _ = _general_ask(FakeStore(vec=[]), reply)
+    r = ask.ask("client says he will not pay, what should I do?", DEPT, levels=LV)
+    assert "payment plan" not in r.answer and "pause work" not in r.answer
+    assert r.answer.count(CHECK_WITH_TEAM) == 1 and "what is stopping payment" in r.answer
+    ask, _ = _general_ask(FakeStore(vec=[cand(score=.95, text="Clients may pay in instalments via a payment plan.")]),
+                          ">> We can set up a payment plan for you.")
+    assert "payment plan" in ask.ask("client cannot pay all at once", DEPT, levels=LV).answer    # allowed by policy

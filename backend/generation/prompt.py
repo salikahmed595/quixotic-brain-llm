@@ -177,7 +177,10 @@ def build_user_prompt(context: AnswerContext, question: str) -> str:
                      "mention any price, amount, percentage, discount, refund, deadline, delivery time or guarantee; if the client asks "
                      "for one, the reply says you will confirm it with your team.")
     elif context.general_mode:                       # general assistant: past chats are optional context, no gate notes
-        pass
+        lang = {"roman_urdu": "Roman Urdu (Urdu written in English letters) - write your own words in Roman Urdu, NOT Urdu script",
+                "urdu": "Urdu script", "mixed": "a mix of English and Roman Urdu - reply in the same mix, in English letters"}
+        if context.user_language in lang:
+            parts.append(f"The user wrote in {lang[context.user_language]}. Client messages (>>) stay in English.")
     elif not context.sales_cases:
         parts.append("Note: no historical sales conversations were retrieved. Do not claim anything worked in past conversations.")
     elif not context.knowledge:                          # rule 14 gate, placed next to the question where it is followed
