@@ -245,7 +245,9 @@ function AnswerBody({ text, className = '' }: { text: string; className?: string
           <button className="btn ghost sm !px-2 shrink-0" title="Copy message" aria-label="Copy message"
             onClick={() => { navigator.clipboard?.writeText(b.lines[0]); toast('Copied'); }}><Icon name="copy" size={15} /></button>
         </div>
-      ) : (b.lines.join('\n').trim() ? <div key={k} className="whitespace-pre-wrap">{b.lines.join('\n').trim()}</div> : null))}
+      ) : /^option\s*\d/i.test(b.lines.join('').trim())
+        ? <div key={k} className="text-[13px] font-semibold text-ink-2 mt-1 -mb-1">{b.lines.join(' ').trim()}</div>   /* "Option 1 - Gentle check-in" */
+        : (b.lines.join('\n').trim() ? <div key={k} className="whitespace-pre-wrap">{b.lines.join('\n').trim()}</div> : null))}
     </div>
   );
 }

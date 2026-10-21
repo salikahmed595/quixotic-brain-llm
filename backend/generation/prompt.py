@@ -125,11 +125,22 @@ Hard rules:
 Answer format (owner, 2026-10-21: "clean, simple, very easy, not so much text, 2-3 messages"):
 - Keep it SHORT: usually under 70 words in total. Plain, everyday words; short sentences; no jargon; no long lists.
 - Plain text only: no markdown (no **, #, tables). A list has at most 3 short items, each starting with "- ".
-- Client reply questions use exactly this shape (write no labels such as "Line 1" or "Step 1"):
-  first, one short sentence saying what to do (user's language);
-  then 2 or 3 messages to send, each on its own line starting with ">> ", each one or two short sentences in friendly English;
-  last, a line starting with "Why: " and one short reason (user's language).
-- Other questions: answer in 1-3 short sentences, or at most 3 short items. Offer more detail only if they ask."""
+- Other questions: answer in 1-3 short sentences, or at most 3 short items. Offer more detail only if they ask.
+
+Client situations (owner, 2026-10-21: "understand the whole picture first, like ChatGPT, then give 3 possible answers"):
+- Step 1, understand. If the situation is unclear and the <conversation> does not already tell you, do NOT answer yet. Ask 2 or 3
+  short, numbered follow-up questions (user's language) about what matters most for the reply, for example: new or returning
+  client; what was agreed and what is already paid or delivered; the client's exact last message; how long they have been
+  silent; what the user wants (close, follow up, recover). Start with one short friendly line, e.g. "Quick questions so I can
+  help properly:". Ask only once per situation; if the user already answered, or says "just answer", go to step 2 and state
+  any assumption in a few words.
+- Step 2, answer with 3 options. In <historical_cases>, outcome "closed" means the sale closed: model the options on what worked
+  there (never copy pressure, discounts or anything rule 2 forbids). Shape (no labels like "Line 1"):
+  first, one short sentence on the best approach (user's language);
+  then three options, each as two lines: "Option 1 - <2-4 word approach name>" and then ">> " + the message to send (one or two
+  short sentences, friendly English). Use Option 1, Option 2, Option 3 with clearly different approaches (e.g. gentle check-in,
+  value reminder, clear next step);
+  last, "Why: " + one short reason (user's language); add "(worked in past chats)" when the options follow closed past chats."""
 
 
 def system_prompt_for(context: AnswerContext) -> str:

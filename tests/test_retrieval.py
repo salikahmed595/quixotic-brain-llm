@@ -513,3 +513,18 @@ def test_unapproved_terms_in_advice_bullets_are_replaced_too():
     r = ask.ask("client will not pay", DEPT, levels=LV)
     assert "milestone" not in r.answer and "payment plan" not in r.answer.split(ASK_TEAM_LEAD)[0]
     assert r.answer.count(ASK_TEAM_LEAD) == 1 and "Stay calm" in r.answer
+
+
+def test_an_unapproved_option_is_dropped_with_its_heading_and_options_renumbered():
+    reply = ("Be friendly.\nOption 1 - Gentle check-in\n>> Hi, just checking in on the payment.\nOption 2 - Payment plan\n"
+             ">> We can set up a payment plan.\nOption 3 - Clear next step\n>> Could you confirm a date that works?\nWhy: keeps trust.")
+    ask, _ = _general_ask(FakeStore(vec=[]), reply)
+    r = ask.ask("client not answering on payments", DEPT, levels=LV).answer
+    assert "payment plan" not in r.lower() and "Option 2 - Clear next step" in r and "Option 3" not in r
+    assert "check the options with my team" not in r                     # two good options remain: nothing inserted
+
+
+def test_prompt_asks_follow_up_questions_and_gives_three_options():
+    from backend.generation.prompt import GENERAL_SYSTEM_PROMPT
+    for phrase in ("follow-up questions", "Ask only once per situation", "outcome \"closed\" means the sale closed", "Option 3"):
+        assert phrase in GENERAL_SYSTEM_PROMPT

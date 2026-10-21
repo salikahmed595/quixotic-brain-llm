@@ -77,20 +77,37 @@ def _unapproved_terms(text: str, knowledge) -> set:
 
 
 def _drop_term_offers(text: str, knowledge) -> str:
-    """Lines offering an unapproved term are replaced: a client message (>>) by one 'check with my team' message, advice to the
-    user (any other line, e.g. '- Offer a payment plan') by one 'ask your team lead' line. 'Why:' lines are kept."""
-    out, msg_done, tip_done = [], False, False
+    """A client message (>>) offering an unapproved term is dropped together with its "Option N" heading; only if fewer than two
+    messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
+    line, e.g. '- Offer a payment plan') becomes one 'ask your team lead' line. 'Why:' lines are kept."""
+    out, tip_done, dropped, skip_msg = [], False, False, False
     for line in text.splitlines():
         stripped = line.lstrip()
+        if re.match(r"option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge):
+            skip_msg = dropped = True                        # "Option 2 - Payment plan": heading and its message go
+            continue
+        if skip_msg and stripped.startswith(">>"):
+            skip_msg = False
+            continue
+        skip_msg = False
         if stripped.lower().startswith("why:") or not _unapproved_terms(line, knowledge):
             out.append(line)
         elif stripped.startswith(">>"):
-            if not msg_done:
-                out.append(f">> {CHECK_WITH_TEAM}")
-                msg_done = True
+            dropped = True
+            if out and re.match(r"\s*option\s*\d", out[-1], re.I):
+                out.pop()                                     # its heading goes with it
         elif not tip_done:
             out.append(f"- {ASK_TEAM_LEAD}")
             tip_done = True
+    if dropped and sum(l.lstrip().startswith(">>") for l in out) < 2:
+        why = next((i for i, l in enumerate(out) if l.lstrip().lower().startswith("why:")), len(out))
+        out.insert(why, f">> {CHECK_WITH_TEAM}")
+    n = 0                                                     # renumber the remaining options 1, 2, 3
+    for i, l in enumerate(out):
+        m = re.match(r"(\s*option\s*)\d+(.*)", l, re.I)
+        if m:
+            n += 1
+            out[i] = f"{m.group(1)}{n}{m.group(2)}"
     return "\n".join(out)
 
 
