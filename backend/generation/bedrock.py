@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 from ..models import AnswerContext
-from .prompt import SYSTEM_PROMPT, build_user_prompt
+from .prompt import SYSTEM_PROMPT, build_user_prompt, system_prompt_for
 from .providers import _Interprets
 
 
@@ -23,4 +23,4 @@ class BedrockGenerator(_Interprets):
         return self._converse(system, user, inferenceConfig={"maxTokens": max_tokens})
 
     def generate_answer(self, context: AnswerContext, question: str) -> str:
-        return self._converse(SYSTEM_PROMPT, build_user_prompt(context, question))
+        return self._converse(system_prompt_for(context), build_user_prompt(context, question))

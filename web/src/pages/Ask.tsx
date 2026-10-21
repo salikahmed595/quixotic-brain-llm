@@ -23,7 +23,7 @@ const BUBBLES = [
 const MODES = [['general', 'Answer', 'Ask anything within your departments'], ['search', 'Search only', 'Show matching knowledge without writing an answer']];
 // Owner-approved addition 2026-10-20 (docs/PRD_GAPS.md §0): shown only to upsellers and fresh sellers; the server checks again.
 const TRANSLATE_MODE = ['translate', 'Translate for client', 'Urdu / Roman Urdu → polite English to send to a client'];
-const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'] };
+const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'], general: ['General AI answer', ''] };
 const REASONS = ['Wrong answer', 'Not what I asked', 'Too long', 'Too short', 'Missing information'];
 
 function fromStored(c: any): Msg {
@@ -140,7 +140,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
         </div>
         <div className="sticky bottom-0 pt-2 pb-5 bg-gradient-to-b from-transparent to-canvas to-30%">
           {composer(true)}
-          <p className="text-center text-muted text-xs mt-2.5">Answers come only from approved company knowledge.</p>
+          <p className="text-center text-muted text-xs mt-2.5">Company facts come only from approved knowledge; other answers are general AI help.</p>
         </div>
       </div>
     </div>

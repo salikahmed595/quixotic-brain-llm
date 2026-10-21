@@ -12,6 +12,7 @@ from uuid import UUID
 
 from ..config import Settings
 from ..generation.base import GenerationProvider
+from ..generation.prompt import MISSING_COMPANY_INFO
 from ..models import AnswerContext, Candidate
 from .language import NormalizedQuery
 from .search import SearchService, confidence_label
@@ -110,6 +111,8 @@ class AskService:
                                                    sales_department_ids, self.settings.historical_top_k)
             if min_sim is not None:
                 cases = [c for c in cases if c.similarity >= min_sim]
+        if getattr(self.settings, "general_assistant", False):                   # owner 2026-10-21: ChatGPT-like assistant
+            return self._general(out, cases, history, asker, preferences, recheck, base)
         if not out.candidates or out.confidence == "low":
             return self._fallback(out, cases, min_sim, history, asker, preferences, base)
 
@@ -138,6 +141,33 @@ class AskService:
                 seen.add(key)
                 sources.append(source_of(c))
         return AskResult(answer=answer, found=True, sources=sources, historical_cases=hist, **base)
+
+    def _general(self, out, cases, history, asker, preferences, recheck, base) -> AskResult:
+        """General assistant: always answers. Permitted, published knowledge (filters applied before retrieval, §8/§10) and similar
+        past chats are passed as context; weak matches are left out so they cannot mislead. A missing company fact is a gap (§9)."""
+        knowledge = order_by_priority(out.candidates, self.settings.priority_tiers) if out.candidates and out.confidence != "low" else []
+        if knowledge and recheck is not None:
+            allowed = recheck({c.version_id for c in knowledge})
+            knowledge = [c for c in knowledge if c.version_id in allowed]
+        context = AnswerContext(knowledge=knowledge, sales_cases=cases, history=list(history), asker=asker or {},
+                                preferences=preferences or {}, general_mode=True)
+        text = self.generator.generate_answer(context, out.query.original).strip()
+        missing = MISSING_COMPANY_INFO in text
+        text = "\n".join(l for l in text.replace(MISSING_COMPANY_INFO, "").splitlines()).strip()
+        for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE):
+            text = text.replace(marker, "").strip()
+        if not text:
+            return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
+        seen, sources = set(), []
+        for c in knowledge:
+            key = (c.version_id, c.section)
+            if key not in seen:
+                seen.add(key)
+                sources.append(source_of(c))
+        hist = ({"similar": len(cases), "successful": sum(c.outcome == SUCCESSFUL_OUTCOME for c in cases)} if cases else None)
+        return AskResult(answer=text, found=not missing, actions=NOT_FOUND_ACTIONS if missing else [],
+                         confidence=out.confidence if knowledge else "general", confidence_score=out.confidence_score,
+                         query=out.query, retrieved=out.candidates, sources=sources, historical_cases=hist)
 
     def _fallback(self, out, cases, min_sim, history, asker, preferences, base) -> AskResult:
         if cases and min_sim is not None:                                         # owner request: history-only answer

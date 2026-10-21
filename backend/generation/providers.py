@@ -6,7 +6,7 @@ a tiny call that restates an Urdu / Roman Urdu / mixed question as an English se
 from __future__ import annotations
 
 from ..models import AnswerContext
-from .prompt import (INTERPRET_PROMPT, SYSTEM_PROMPT, TRANSLATE_PROMPT, build_interpret_input, build_translate_input,
+from .prompt import (INTERPRET_PROMPT, SYSTEM_PROMPT, system_prompt_for, TRANSLATE_PROMPT, build_interpret_input, build_translate_input,
                      build_user_prompt)
 
 
@@ -38,7 +38,7 @@ class GeminiGenerator(_Interprets):
         from google.genai import types
         r = self._client.models.generate_content(
             model=self._model, contents=build_user_prompt(context, question),
-            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT))
+            config=types.GenerateContentConfig(system_instruction=system_prompt_for(context)))
         return (r.text or "").strip()
 
 
@@ -69,7 +69,7 @@ class OpenAIGenerator(_Interprets):
         extra = {"reasoning_effort": self._effort} if self._effort and _reasoning_model(self._model) else {}
         r = self._client.chat.completions.create(
             model=self._model, **extra,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT},
+            messages=[{"role": "system", "content": system_prompt_for(context)},
                       {"role": "user", "content": build_user_prompt(context, question)}])
         return (r.choices[0].message.content or "").strip()
 
@@ -106,6 +106,6 @@ class ClaudeGenerator(_Interprets):
 
     def generate_answer(self, context: AnswerContext, question: str) -> str:
         r = self._client.messages.create(
-            model=self._model, max_tokens=self._max, system=SYSTEM_PROMPT,
+            model=self._model, max_tokens=self._max, system=system_prompt_for(context),
             messages=[{"role": "user", "content": build_user_prompt(context, question)}])
         return "".join(b.text for b in r.content if getattr(b, "type", "") == "text").strip()

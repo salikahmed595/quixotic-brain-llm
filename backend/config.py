@@ -113,6 +113,9 @@ class Settings(BaseSettings):
     # Owner 2026-10-21: a "what should I reply to the client?" question with no policy and no matching past chat gets careful,
     # labelled advice that follows the selling boundaries (never prices/discounts/deadlines). False = PRD §6 FR-CHAT-04 reply.
     general_guidance: bool = False
+    # Owner 2026-10-21: answer everything like a general assistant; company knowledge, past chats and boundaries are context.
+    # Company facts still only from approved knowledge. False = strict PRD behaviour (§6 FR-CHAT-04).
+    general_assistant: bool = False
 
     # ---- pluggable providers (PRD §24, §27, §28) -------------------------------------
     embedding_provider: str = "bge-m3"     # PRD §24.1 initial model to evaluate

@@ -36,14 +36,14 @@ test('admin: every Workspace page opens without errors', async ({ page }) => {
   }
 });
 
-test('employee: chat question gets an answer or the exact refusal', async ({ page }) => {
+test('employee: chat question gets an answer (approved, general AI answer, or the exact refusal)', async ({ page }) => {
   test.setTimeout(120_000);
   await signIn(page, 'QA_EMPLOYEE_USER');
   const problems = watch(page);         // after sign-in: the signed-out session probe answers 401 by design
   const box = page.getByRole('textbox').last();
   await box.fill('What are the night shift timings?');
   await box.press('Enter');
-  const reply = page.locator('text=/11:00 PM|' + NOT_FOUND.replace(/[.?]/g, '\\$&') + '/').first();
+  const reply = page.locator('text=/11:00 PM|General AI answer|' + NOT_FOUND.replace(/[.?]/g, '\\$&') + '/').first();
   await expect(reply).toBeVisible({ timeout: 90_000 });
   expect(problems).toEqual([]);
 });

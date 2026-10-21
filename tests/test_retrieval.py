@@ -432,3 +432,35 @@ def test_prompt_forbids_placeholders_and_history_answers_to_policy_questions():
     assert "[Client Name]" in SYSTEM_PROMPT and "NEVER authorise a price" in SYSTEM_PROMPT
     note = build_user_prompt(AnswerContext(knowledge=[], sales_cases=[sales_case()]), "what is the refund policy?")
     assert "what is the refund policy?" in note and "WHAT a rule, policy, price, refund" in note
+
+
+# ---- owner 2026-10-21: general assistant (ChatGPT-like) with company knowledge as context ----
+def _general_ask(store, reply):
+    _, search, _ = build(store)
+    object.__setattr__(search.settings, "general_assistant", True)
+    gen = _Says(reply)
+    return AskService(search, gen, search.settings), gen
+
+
+def test_general_assistant_answers_small_talk_without_knowledge():
+    ask, gen = _general_ask(FakeStore(vec=[]), "Hello! How can I help you today?")
+    r = ask.ask("hello", DEPT, levels=LV)
+    assert r.answer == "Hello! How can I help you today?" and r.found and r.actions == [] and r.confidence == "general"
+    ctx = gen.calls[0][0]
+    assert ctx.general_mode and ctx.knowledge == []
+
+
+def test_general_assistant_passes_strong_knowledge_with_sources_and_reports_missing_company_facts():
+    ask, gen = _general_ask(FakeStore(vec=[cand(score=.95)]), "Per the policy ...")
+    r = ask.ask("what is the upfront rule?", DEPT, levels=LV)
+    assert gen.calls[0][0].knowledge and r.sources and r.found
+    ask, _ = _general_ask(FakeStore(vec=[]), "That is not in the company knowledge base yet.\nMISSING_COMPANY_INFO")
+    r = ask.ask("what is our refund policy?", DEPT, levels=LV)
+    assert "MISSING_COMPANY_INFO" not in r.answer and not r.found and r.actions == NOT_FOUND_ACTIONS   # becomes a gap (§9)
+
+
+def test_general_mode_uses_its_own_system_prompt_and_keeps_company_fact_rule():
+    from backend.generation.prompt import GENERAL_SYSTEM_PROMPT, system_prompt_for
+    assert system_prompt_for(AnswerContext(general_mode=True)) is GENERAL_SYSTEM_PROMPT
+    assert system_prompt_for(AnswerContext()) is SYSTEM_PROMPT
+    assert "Never invent company-specific facts" in GENERAL_SYSTEM_PROMPT and "never be greedy" in GENERAL_SYSTEM_PROMPT
