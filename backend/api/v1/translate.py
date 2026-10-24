@@ -5,6 +5,8 @@ It is not a knowledge answer and uses no company documents. The message is not s
 §6 FR-CHAT-09); only an audit entry without the text is kept. Server-side permission check on every call (§3)."""
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -27,9 +29,11 @@ def can_translate(p: Principal, svc: Services) -> bool:
     return any(depts.get(d) in names for d in p.department_ids)
 
 
-# QA 2026-10-24 (QAI-01): the user picks the target language. Implementation choice (docs/PRD_GAPS.md): a fixed list.
+# Owner 2026-10-24: "translate in any language". These are only the suggestions shown in the picker; any language name the user
+# types is accepted (letters, spaces, brackets, hyphen, apostrophe; 2-40 characters) and passed to the model as the target.
 TARGET_LANGUAGES = ("English", "Roman Urdu", "Urdu", "Spanish", "German", "French", "Arabic", "Portuguese", "Italian",
-                    "Turkish", "Hindi", "Chinese")
+                    "Turkish", "Hindi", "Chinese", "Japanese", "Korean", "Russian", "Punjabi", "Persian", "Indonesian")
+_LANGUAGE_NAME = re.compile(r"^[^\W\d_][\w ()'\-]{1,39}$")
 
 
 class TranslateIn(BaseModel):
@@ -49,9 +53,10 @@ def translate(body: TranslateIn, p: Principal = Depends(require(P.ASK)), svc: Se
     gen = svc.ask.generator
     if not hasattr(gen, "translate_for_client"):
         raise HTTPException(503, "The configured answer model does not support translation.")
-    target = next((t for t in TARGET_LANGUAGES if t.lower() == body.target.strip().lower()), None)
-    if target is None:
-        raise HTTPException(422, f"target must be one of: {', '.join(TARGET_LANGUAGES)}")
+    name = " ".join(body.target.split())
+    if not _LANGUAGE_NAME.match(name) or any(ch.isdigit() for ch in name):
+        raise HTTPException(422, "Type the name of a language, e.g. Spanish or Japanese.")
+    target = next((t for t in TARGET_LANGUAGES if t.lower() == name.lower()), name)
     try:
         english = gen.translate_for_client(body.text.strip(), target)
         if _same(english, body.text):                 # QAI-01: came back untranslated -> one firm retry

@@ -547,7 +547,7 @@ def test_qa_2026_10_24_rules_are_in_the_general_prompt():
     for phrase in ("Never ask questions for translation", "never return the original text unchanged",
                    "composition and framing, background, lighting, colour palette", "explicit instructions in THIS message win",
                    'A "mascot logo" stays a mascot logo', "Never invent powers, weapons, abilities or accessories",
-                   '"detailed" = full and specific', "no robotic or stiff phrases", "Use simple English",
+                   '"detailed" = full and thorough', 'no word limit', "no robotic or stiff phrases", "Use simple English",
                    "never copy their concepts", "benefits the client"):
         assert phrase in flat, phrase
 

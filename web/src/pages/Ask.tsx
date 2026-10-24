@@ -22,9 +22,10 @@ const BUBBLES = [
 ];
 const MODES = [['general', 'Answer', 'Ask anything within your departments'], ['search', 'Search only', 'Show matching knowledge without writing an answer']];
 // Owner-approved addition 2026-10-20 (docs/PRD_GAPS.md §0): shown only to upsellers and fresh sellers; the server checks again.
-const TRANSLATE_MODE = ['translate', 'Translate', 'Any language → the language you pick, ready to send'];
+const TRANSLATE_MODE = ['translate', 'Translate', 'Any language → any language you type, ready to send'];
 // QA 2026-10-24 (QAI-01): same list as the server (backend/api/v1/translate.py TARGET_LANGUAGES)
-const TARGETS = ['English', 'Roman Urdu', 'Urdu', 'Spanish', 'German', 'French', 'Arabic', 'Portuguese', 'Italian', 'Turkish', 'Hindi', 'Chinese'];
+const TARGETS = ['English', 'Roman Urdu', 'Urdu', 'Spanish', 'German', 'French', 'Arabic', 'Portuguese', 'Italian', 'Turkish', 'Hindi', 'Chinese',
+  'Japanese', 'Korean', 'Russian', 'Punjabi', 'Persian', 'Indonesian'];
 const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'], general: ['General AI answer', ''] };
 const REASONS = ['Wrong answer', 'Not what I asked', 'Too long', 'Too short', 'Missing information'];
 
@@ -197,9 +198,10 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, scope, setS
         {mode === 'search' && <span className="chip orange gap-1">Search only
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel Search only" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
         {mode === 'translate' && <span className="chip orange gap-1">Translate to
-          <select className="bg-transparent font-semibold outline-none cursor-pointer" aria-label="Translate to" value={target} onChange={e => setTarget(e.target.value)}>
-            {TARGETS.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          {/* owner 2026-10-24: any language - type it, or pick a suggestion */}
+          <input className="bg-transparent font-semibold outline-none w-28 border-b border-current/30" aria-label="Translate to" list="qb-languages"
+            value={target} onChange={e => setTarget(e.target.value)} onFocus={e => e.target.select()} placeholder="Any language" />
+          <datalist id="qb-languages">{TARGETS.map(t => <option key={t} value={t} />)}</datalist>
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel translation mode" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
         <span className="flex-1" />
         {/* PRD §6 FR-CHAT-02: voice questions are P1 (§14). */}
