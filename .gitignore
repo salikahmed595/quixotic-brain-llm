@@ -13,3 +13,5 @@ backups/
 .obsidian-contributors/
 obsidian-vaults/
 knowledge-import/
+web/tests/zz-*.spec.ts
+qa_checklist_results.json
