@@ -463,7 +463,7 @@ def test_general_mode_uses_its_own_system_prompt_and_keeps_company_fact_rule():
     from backend.generation.prompt import GENERAL_SYSTEM_PROMPT, system_prompt_for
     assert system_prompt_for(AnswerContext(general_mode=True)) is GENERAL_SYSTEM_PROMPT
     assert system_prompt_for(AnswerContext()) is SYSTEM_PROMPT
-    assert "Never invent company-specific facts" in GENERAL_SYSTEM_PROMPT and "never be greedy" in GENERAL_SYSTEM_PROMPT
+    assert "Never invent company-specific facts" in GENERAL_SYSTEM_PROMPT and "never greedy or pushy" in GENERAL_SYSTEM_PROMPT
 
 
 def test_general_assistant_never_keeps_invented_money_figures():
@@ -490,7 +490,7 @@ def test_office_only_off_topic_questions_get_the_fixed_reply():
     ask, _ = _general_ask(FakeStore(vec=[]), "OFF_TOPIC")
     r = ask.ask("i'm hungry", DEPT, levels=LV)
     assert r.answer == OFF_TOPIC_TEXT and r.found and not r.actions          # not a knowledge gap
-    assert "work only" in GENERAL_SYSTEM_PROMPT and "reply with exactly OFF_TOPIC" in GENERAL_SYSTEM_PROMPT
+    assert "work only" in GENERAL_SYSTEM_PROMPT and "with exactly OFF_TOPIC" in " ".join(GENERAL_SYSTEM_PROMPT.split())
 
 
 def test_unapproved_payment_terms_are_removed_from_client_messages():
@@ -526,8 +526,9 @@ def test_an_unapproved_option_is_dropped_with_its_heading_and_options_renumbered
 
 def test_prompt_asks_follow_up_questions_and_gives_three_options():
     from backend.generation.prompt import GENERAL_SYSTEM_PROMPT
-    for phrase in ("follow-up questions", "Ask only once per situation", "outcome \"closed\" means the sale closed", "Option 3"):
-        assert phrase in GENERAL_SYSTEM_PROMPT
+    flat = " ".join(GENERAL_SYSTEM_PROMPT.split())
+    for phrase in ("at most 2 short numbered questions", "only once per situation", 'outcome is "closed"', "Option 1, 2, 3"):
+        assert phrase in flat
 
 
 def test_figures_the_user_gave_are_not_treated_as_invented():
@@ -535,3 +536,17 @@ def test_figures_the_user_gave_are_not_treated_as_invented():
     ask, gen = _general_ask(FakeStore(vec=[]), "Option 1 - Gentle reminder\n>> Just a reminder that the remaining $40 payment is due.")
     r = ask.ask("He paid $10 upfront and $40 is left, he is silent. What should I send?", DEPT, levels=LV)
     assert "$40" in r.answer and len(gen.calls) == 1
+
+
+
+def test_qa_2026_10_24_rules_are_in_the_general_prompt():
+    """QAI-01..10: translation without questions, complete artwork ideas, requested format wins, task type kept, no invented
+    character facts, preferences honoured, natural simple client English."""
+    from backend.generation.prompt import GENERAL_SYSTEM_PROMPT
+    flat = " ".join(GENERAL_SYSTEM_PROMPT.split())
+    for phrase in ("Never ask questions for translation", "never return the original text unchanged",
+                   "composition and framing, background, lighting, colour palette", "explicit instructions in THIS message win",
+                   'A "mascot logo" stays a mascot logo', "Never invent powers, weapons, abilities or accessories",
+                   '"detailed" = full and specific', "no robotic or stiff phrases", "Use simple English",
+                   "never copy their concepts", "benefits the client"):
+        assert phrase in flat, phrase

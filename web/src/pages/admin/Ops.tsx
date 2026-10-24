@@ -4,6 +4,7 @@ import { Icon } from '../../icons';
 import { go } from '../../state';
 import type { Department } from '../../types';
 import { Banner, confirmModal, DeptChecks, Empty, fmtDate, Loading, openModal, PageHead, toast, useAction, useLoad, usePoll } from '../../ui';
+import { copyWithToast } from '../../ui';
 
 const prefillAdd = (title: string) => { session.set('qb_prefill', JSON.stringify({ title })); go('add'); };
 const Stat = ({ n, l, sub }: { n: React.ReactNode; l: string; sub?: string }) => <div className="card stat"><span className="n">{n}</span><span className="l">{l}</span>{sub && <span className="hint">{sub}</span>}</div>;
@@ -173,7 +174,7 @@ export function KeysPage() {
       {fresh && (
         <div className="card !border-good mb-4"><b>Your new key{fresh.name && ` “${fresh.name}”`}</b><div className="keybox my-2.5">{fresh.key}</div>
           <p className="hint">Copy it now and store it somewhere safe. You won't be able to see it again.</p>
-          <div className="flex flex-wrap gap-3 my-2.5"><button className="btn sm" onClick={() => { navigator.clipboard?.writeText(fresh.key); toast('Copied'); }}><Icon name="copy" size={15} /> Copy key</button>
+          <div className="flex flex-wrap gap-3 my-2.5"><button className="btn sm" onClick={() => { copyWithToast(fresh.key); }}><Icon name="copy" size={15} /> Copy key</button>
             <span className={`chip ${fresh.expires ? 'amber' : 'green'}`}>{fresh.expires ? 'Expires ' + expiresText(fresh.expires) : 'Never expires'}</span></div>
         </div>
       )}

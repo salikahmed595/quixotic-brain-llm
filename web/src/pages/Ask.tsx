@@ -3,7 +3,7 @@ import { api, session } from '../api';
 import { Icon } from '../icons';
 import { Mascot } from '../components/Mascot';
 import { go, replaceRoute, useApp, useRoute } from '../state';
-import { Banner, can, Loading, openDrawer, openModal, toast, useAction } from '../ui';
+import { Banner, can, copyWithToast, Loading, openDrawer, openModal, toast, useAction } from '../ui';
 import type { Msg, Source } from '../types';
 
 /* PRD §4.1 home screen + §6 chat. Suggestion cards submit example questions; they are never hard-coded answers (FR-CHAT-03). */
@@ -22,7 +22,9 @@ const BUBBLES = [
 ];
 const MODES = [['general', 'Answer', 'Ask anything within your departments'], ['search', 'Search only', 'Show matching knowledge without writing an answer']];
 // Owner-approved addition 2026-10-20 (docs/PRD_GAPS.md §0): shown only to upsellers and fresh sellers; the server checks again.
-const TRANSLATE_MODE = ['translate', 'Translate for client', 'Urdu / Roman Urdu → polite English to send to a client'];
+const TRANSLATE_MODE = ['translate', 'Translate', 'Any language → the language you pick, ready to send'];
+// QA 2026-10-24 (QAI-01): same list as the server (backend/api/v1/translate.py TARGET_LANGUAGES)
+const TARGETS = ['English', 'Roman Urdu', 'Urdu', 'Spanish', 'German', 'French', 'Arabic', 'Portuguese', 'Italian', 'Turkish', 'Hindi', 'Chinese'];
 const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'], general: ['General AI answer', ''] };
 const REASONS = ['Wrong answer', 'Not what I asked', 'Too long', 'Too short', 'Missing information'];
 
@@ -37,6 +39,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
   const [convId, setConvId] = useState<string | null>(null);
   const [scope, setScope] = useState<string | null>(null);
   const [mode, setMode] = useState('general');
+  const [target, setTarget] = useState('English');          // QAI-01: chosen translation language
   const [busy, setBusy] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
@@ -63,8 +66,8 @@ export function Ask({ resetKey }: { resetKey: number }) {
     let msg: Msg;
     try {
       if (m2 === 'translate') {                     // not saved to chat history: client messages stay private
-        const r = await api('/v1/translate', { method: 'POST', body: { text: q } });
-        msg = { role: 'ai', kind: 'translate', question: q, english: r.english };
+        const r = await api('/v1/translate', { method: 'POST', body: { text: q, target } });
+        msg = { role: 'ai', kind: 'translate', question: q, english: r.english, target: r.target };
       } else if (m2 === 'search') {
         const r = await api('/v1/search', { method: 'POST', body });
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
@@ -84,7 +87,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
   const retry = (i: number, question: string) => { setThread(t => t.slice(0, i - 1)); setTimeout(() => submit(question)); };
 
   const composer = (compact: boolean) => (
-    <Composer compact={compact} busy={busy} mode={mode} setMode={setMode} scope={scope} setScope={setScope} onSend={submit} />
+    <Composer compact={compact} busy={busy} mode={mode} setMode={setMode} target={target} setTarget={setTarget} scope={scope} setScope={setScope} onSend={submit} />
   );
 
   if (loadingChat) return <Loading />;
@@ -156,8 +159,8 @@ function Waves() {
 }
 
 /* PRD §4.1 composer: + · Web Search · Company Knowledge on the left; microphone · send on the right. */
-function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
-  compact: boolean; busy: boolean; mode: string; setMode: (m: string) => void; scope: string | null; setScope: (s: string | null) => void; onSend: (q: string) => void;
+function Composer({ compact, busy, mode, setMode, target, setTarget, scope, setScope, onSend }: {
+  compact: boolean; busy: boolean; mode: string; setMode: (m: string) => void; target: string; setTarget: (t: string) => void; scope: string | null; setScope: (s: string | null) => void; onSend: (q: string) => void;
 }) {
   const app = useApp();
   const [text, setText] = useState(''); const [pop, setPop] = useState<'mode' | 'scope' | null>(null);
@@ -178,7 +181,7 @@ function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
   return (
     <div className={`relative z-[2] w-full bg-white rounded-3xl border border-line px-4 pt-4 pb-3.5 ${compact ? 'shadow-card' : 'shadow-lift'}`}>
       <textarea id="q" ref={ta} rows={compact ? 1 : 2} aria-label="Your question"
-        placeholder={mode === 'translate' ? 'Write your message to the client in Urdu or Roman Urdu…' : 'Ask Quixotic AI about scripts, objections, SOPs, and company knowledge...'}
+        placeholder={mode === 'translate' ? `Write the text to translate into ${target}…` : 'Ask Quixotic AI about scripts, objections, SOPs, and company knowledge...'}
         className={`w-full border-0 outline-none resize-none bg-transparent px-2 py-1.5 text-base leading-normal placeholder:text-muted max-h-[200px] ${compact ? 'min-h-11' : 'min-h-14'}`}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
       <div ref={box} className="relative flex items-center gap-2.5 mt-1.5">
@@ -190,8 +193,14 @@ function Composer({ compact, busy, mode, setMode, scope, setScope, onSend }: {
         <button className={`pill max-sm:px-3 ${scope ? 'on' : ''}`} aria-haspopup="listbox" aria-expanded={pop === 'scope'} onClick={() => setPop(pop === 'scope' ? null : 'scope')}>
           <Icon name="notes" size={17} /><span className="max-sm:hidden max-w-[180px] truncate">{scope || 'Company Knowledge'}</span><Icon name="chevd" size={15} />
         </button>
-        {mode === 'search' && <span className="chip orange">Search only</span>}
-        {mode === 'translate' && <span className="chip orange">Translate for client</span>}
+        {/* QAI-12: an X removes the selected mode at once (before, only a page refresh did) */}
+        {mode === 'search' && <span className="chip orange gap-1">Search only
+          <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel Search only" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
+        {mode === 'translate' && <span className="chip orange gap-1">Translate to
+          <select className="bg-transparent font-semibold outline-none cursor-pointer" aria-label="Translate to" value={target} onChange={e => setTarget(e.target.value)}>
+            {TARGETS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel translation mode" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
         <span className="flex-1" />
         {/* PRD §6 FR-CHAT-02: voice questions are P1 (§14). */}
         <button className="circle-btn" aria-label="Voice input" title="Voice input" onClick={() => toast('Voice questions are coming in a later release.')}><Icon name="mic" size={19} /></button>
@@ -257,7 +266,7 @@ function AnswerBody({ text, className = '' }: { text: string; className?: string
         <div key={out.length} className="flex items-start gap-2 rounded-2xl border border-line bg-white px-3.5 py-2.5 shadow-sm">
           <span className="flex-1 whitespace-pre-wrap">{msg}</span>
           <button className="btn ghost sm !px-2 shrink-0" title="Copy message" aria-label="Copy message"
-            onClick={() => { navigator.clipboard?.writeText(msg.replace(/\*\*/g, '')); toast('Copied'); }}><Icon name="copy" size={15} /></button>
+            onClick={() => copyWithToast(msg.replace(/\*\*/g, ''))}><Icon name="copy" size={15} /></button>
         </div>);
       continue;
     }
@@ -323,10 +332,10 @@ function Message({ m, i, last = false, update, retry, submit }: { m: Msg; i: num
     <button className="btn sm mt-2.5" onClick={() => retry(i, m.question)}><Icon name="refresh" size={15} /> Retry</button>
   </>);
   if (m.kind === 'translate') return wrap(<>
-    <div className="label mb-2">English for your client</div>
+    <div className="label mb-2">{m.target || 'English'} translation</div>
     <div className="card !p-4 shadow-none whitespace-pre-wrap">{m.english}</div>
     <div className="flex items-center gap-2 mt-2.5">
-      <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(m.english); toast('Copied'); }}><Icon name="copy" size={15} /> Copy</button>
+      <button className="btn sm" onClick={() => copyWithToast(m.english)}><Icon name="copy" size={15} /> Copy</button>
       <small className="text-muted">Check names, prices and dates before sending.</small>
     </div>
   </>);
@@ -369,7 +378,7 @@ function Message({ m, i, last = false, update, retry, submit }: { m: Msg; i: num
       </div>
     ) : (<>
       <div className="flex items-center gap-1 mt-3.5 text-muted">
-        <button className="btn ghost sm !px-2" title="Copy" aria-label="Copy answer" onClick={() => { navigator.clipboard?.writeText(m.answer.replace(/^>>\s?/gm, '')); toast('Copied'); }}><Icon name="copy" size={15} /></button>
+        <button className="btn ghost sm !px-2" title="Copy" aria-label="Copy answer" onClick={() => copyWithToast(m.answer.replace(/^>>\s?/gm, '').replace(/\*\*/g, ''))}><Icon name="copy" size={15} /></button>
         <button className={`btn ghost sm !px-2 ${m.helpful === true ? '!text-good' : ''}`} title="Helpful" aria-label="Helpful" aria-pressed={m.helpful === true} onClick={() => feedback(true)}><Icon name="up" size={15} /></button>
         <button className={`btn ghost sm !px-2 ${m.helpful === false ? '!text-bad' : ''}`} title="Not helpful" aria-label="Not helpful" aria-pressed={m.helpful === false} onClick={() => feedback(false)}><Icon name="down" size={15} /></button>
       </div>

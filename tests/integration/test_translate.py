@@ -11,7 +11,7 @@ from tests.integration.test_e2e import login, stack  # noqa: F401  (fixture)
 class Translator:
     def __init__(self): self.seen = []
     def generate_answer(self, context, question): return ""
-    def translate_for_client(self, text):
+    def translate_for_client(self, text, target="English"):
         self.seen.append(text); return "Your logo will be ready by tomorrow; you only need to pay the $10 upfront."
 
 

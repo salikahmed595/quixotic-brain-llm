@@ -18,9 +18,10 @@ class _Interprets:
         text = self._complete(INTERPRET_PROMPT, build_interpret_input(question, history), 80)
         return " ".join(text.split()).strip(" \"'`")[:300]
 
-    def translate_for_client(self, text: str) -> str:
-        """Owner-approved addition (docs/PRD_GAPS.md §0): Urdu / Roman Urdu -> polite client-ready English."""
-        return self._complete(TRANSLATE_PROMPT, build_translate_input(text), 2000, **self._translate_kwargs).strip().strip('"')
+    def translate_for_client(self, text: str, target: str = "English") -> str:
+        """Owner-approved addition (docs/PRD_GAPS.md §0): any language -> the selected target language, client-ready."""
+        return self._complete(TRANSLATE_PROMPT, build_translate_input(text, target), 2000,
+                              **self._translate_kwargs).strip().strip('"')
 
 
 class GeminiGenerator(_Interprets):

@@ -38,7 +38,7 @@ export type Msg =
   | { role: 'ai'; loading: true }
   | { role: 'ai'; error: string; question: string }
   | { role: 'ai'; kind: 'search'; question: string; results: { source: string; text: string }[] }
-  | { role: 'ai'; kind: 'translate'; question: string; english: string }
+  | { role: 'ai'; kind: 'translate'; question: string; english: string; target?: string }
   | {
       role: 'ai'; kind: 'ask'; question: string; query_id?: string; answer: string; confidence?: string;
       sources: Source[]; found: boolean; helpful?: boolean; reasons?: string[]; gap_id?: string;

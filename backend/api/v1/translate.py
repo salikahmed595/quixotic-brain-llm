@@ -27,8 +27,19 @@ def can_translate(p: Principal, svc: Services) -> bool:
     return any(depts.get(d) in names for d in p.department_ids)
 
 
+# QA 2026-10-24 (QAI-01): the user picks the target language. Implementation choice (docs/PRD_GAPS.md): a fixed list.
+TARGET_LANGUAGES = ("English", "Roman Urdu", "Urdu", "Spanish", "German", "French", "Arabic", "Portuguese", "Italian",
+                    "Turkish", "Hindi", "Chinese")
+
+
 class TranslateIn(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
+    target: str = "English"
+
+
+def _same(a: str, b: str) -> bool:
+    norm = lambda t: "".join(ch for ch in t.lower() if ch.isalnum())
+    return norm(a) == norm(b)
 
 
 @router.post("/translate")
@@ -38,8 +49,14 @@ def translate(body: TranslateIn, p: Principal = Depends(require(P.ASK)), svc: Se
     gen = svc.ask.generator
     if not hasattr(gen, "translate_for_client"):
         raise HTTPException(503, "The configured answer model does not support translation.")
+    target = next((t for t in TARGET_LANGUAGES if t.lower() == body.target.strip().lower()), None)
+    if target is None:
+        raise HTTPException(422, f"target must be one of: {', '.join(TARGET_LANGUAGES)}")
     try:
-        english = gen.translate_for_client(body.text.strip())
+        english = gen.translate_for_client(body.text.strip(), target)
+        if _same(english, body.text):                 # QAI-01: came back untranslated -> one firm retry
+            english = gen.translate_for_client(f"{body.text.strip()}\n\n(Translate this into {target}; do not repeat the original.)",
+                                               target)
     except RuntimeError as e:                    # clear message from the model wrapper; provider details stay in the log
         raise HTTPException(503, str(e)) from None
     except Exception:
@@ -47,4 +64,4 @@ def translate(body: TranslateIn, p: Principal = Depends(require(P.ASK)), svc: Se
     if not english:
         raise HTTPException(503, "Translation came back empty. Please try again.")
     audit.record(svc.ops, audit.TRANSLATION, p.user_id, p.employee_id, chars=len(body.text))
-    return {"english": english}
+    return {"english": english, "translation": english, "target": target}

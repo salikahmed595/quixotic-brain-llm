@@ -45,7 +45,7 @@ class LazyGenerator:
         except Exception:
             return ""
 
-    def translate_for_client(self, text: str) -> str:
+    def translate_for_client(self, text: str, target: str = "English") -> str:
         """Owner-approved addition (docs/PRD_GAPS.md §0). Errors become a clear message; provider details stay in the log."""
         if self._inner is None:
             try:
@@ -56,7 +56,7 @@ class LazyGenerator:
         if fn is None:
             raise RuntimeError("The configured answer model does not support translation.")
         try:
-            return fn(text)
+            return fn(text, target)
         except Exception as exc:
             log.exception("translation call failed")
             raise RuntimeError("Translation is not available right now. Please try again.") from exc
