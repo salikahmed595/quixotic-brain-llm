@@ -78,7 +78,7 @@ ASK_TEAM_LEAD = ("Payment plans, discounts and similar options are not in the co
 # messages are removed in code like unapproved payment terms (only the >> messages; advice to the employee stays).
 _PROMISES = re.compile(r"\b(?:two|three|four|2|3|4|a few|a couple(?: of)?)"
                        r"\s+(?:quick\s+|free\s+|custom\s+|rough\s+)*(?:\w+\s+){0,2}(?:variants?|variations?|versions?|mock-?ups?|sketch(?:es)?|drafts?|previews?)\b|"
-                       r"\b(?:quick|free)\s+(?:mock-?up|sketch|draft|preview)s?\b|\bprioriti[sz]e\b|\b(?:request|get|give)\s+(?:you\s+)?priority\b|\brush (?:order|delivery)\b", re.I)
+                       r"\b(?:quick|free|temporary)\s+(?:mock-?up|sketch|draft|preview|version)s?\b|\bprioriti[sz]e\b|\b(?:request|get|give)\s+(?:you\s+)?priority\b|\brush (?:order|delivery)\b", re.I)
 
 
 def _unapproved_terms(text: str, knowledge, user_text: str = "", pattern=_TERMS) -> set:
