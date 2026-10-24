@@ -38,3 +38,28 @@ Owner to decide:
 - Single-user answer time was 6.6–17 s (target p95 < 8 s, §2). Most of that is the answer model.
 - **FIXED:** the first questions after a start got 503 "busy". The overload limit counted model run time, not only queue wait.
 - Translating client messages is NOT a feature (not in the PRD). Text unrelated to company knowledge gets the refusal. Awaiting the owner's decision.
+
+## QA 2026-10-24: owner checklist QAI-01..12 (live server http://65.1.137.241, gpt-5-mini)
+All 15 checklist items PASS on the server after fixes (commits 9a7d44d, f8768bb). Evidence = real outputs:
+
+| Item | Result | Evidence |
+|---|---|---|
+| Roman Urdu -> Spanish | PASS | "Señor, su logo estará listo para mañana; solo dé 10 dollar por adelantado." (6 s) |
+| German -> Roman Urdu | PASS | "Aap ka logo kal tayyar ho jayega. Barah-e-meherbani rang aaj shaam tak tasdeeq kar dein." |
+| Selected target honoured | PASS | same text -> German "Ihr Logo wird bis morgen fertig sein…", French "votre logo sera prêt d'ici demain…" |
+| Translation without questions | PASS | chat "Translate into Spanish…" -> "Su pedido ha sido confirmado. Gracias." |
+| One idea = one paragraph | PASS (FIXED) | was 9 separate lines; now 1 paragraph, 197 words |
+| Format and detail followed | PASS | 5/5: pose/action, composition, background, lighting, palette, logo readability |
+| Mascot logo stays mascot logo | PASS | no banner concept |
+| Character facts | PASS | Zoro: three swords (Santoryu), green hair, scar, bandana; nothing invented |
+| No copying of earlier ideas | PASS | 2nd idea: different concept (moon-tail stalker vs badge), concept-word overlap 34% |
+| Natural client messages | PASS | no robotic phrases; e.g. "Thanks — happy to help! Do you have a target date…" |
+| Detailed mode | PASS | answer style "detailed": 323 words, fully described |
+| Questions only when needed | PASS | full context given -> 3 options, no questions |
+| Recommendations explain benefits | PASS | mascot vs text logo answer explains recognition, emotes, versatility |
+| Copy button | PASS (FIXED) | HTTP page (not secure context): copied real text (translation + message bubble); before: "Copied" but nothing copied |
+| Cancel selected mode | PASS (NEW) | X on the mode chip removes it at once |
+
+Also: 149 unit, 7 integration (translate, contributors), 3/3 browser flows locally; on the server the admin-page flow stops at the
+required admin 2-step screen (expected in production). Known limits: answers 6-27 s on the 8 GB server; artwork-idea quality
+is judged by checks + manual review, and character facts depend on the model's knowledge (no web lookup).
