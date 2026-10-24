@@ -550,3 +550,15 @@ def test_qa_2026_10_24_rules_are_in_the_general_prompt():
                    '"detailed" = full and specific', "no robotic or stiff phrases", "Use simple English",
                    "never copy their concepts", "benefits the client"):
         assert phrase in flat, phrase
+
+
+def test_one_paragraph_request_gives_one_paragraph_and_keeps_separate_ideas_apart():
+    """QA 2026-10-24 (QAI-04): 'one paragraph of 8-10 lines' came back as 9 separate lines."""
+    from backend.retrieval.ask import _as_paragraphs
+    lines = "A fox mascot with a sly grin.\nPose is compact.\nBackground is dark.\nPalette: teal and orange."
+    assert _as_paragraphs("Give 1 idea as ONE paragraph of 8-10 lines", lines).count("\n") == 0
+    two = "**Idea 1**\nA fox.\nDark sky.\n\n**Idea 2**\nA bear.\nGold light."
+    out = _as_paragraphs("Give 2 ideas, one paragraph each", two)
+    assert "A fox. Dark sky." in out and "A bear. Gold light." in out and "**Idea 2**" in out
+    assert _as_paragraphs("what should I reply?", lines) == lines                       # no paragraph request: untouched
+    assert _as_paragraphs("one paragraph please", "- a\n- b") == "- a\n- b"             # lists untouched

@@ -78,6 +78,31 @@ def _unapproved_terms(text: str, knowledge, user_text: str = "") -> set:
     return {m.group(0).lower() for m in _TERMS.finditer(text) if m.group(0).lower() not in allowed}
 
 
+_PARAGRAPH_ASK = re.compile(r"\b(?:one|1|single|ek|a)\s+paragraph|paragraph\s+(?:each|form)|in\s+paragraphs?\b", re.I)
+_HEADING = re.compile(r"^\s*(?:\*\*[^*]+\*\*:?\s*$|#+\s|(?:idea|concept|option)\s*\d+\b)", re.I)
+
+
+def _as_paragraphs(question: str, text: str) -> str:
+    """QA 2026-10-24 (QAI-04): when the user asks for paragraphs, each idea is ONE paragraph. Measured: asked for "one paragraph
+    of 8-10 lines", gpt-5-mini put every sentence on its own line. Lines inside a block are joined; blank lines and headings
+    ("**Idea 2**", "Option 3") still separate ideas. Lists and client messages are left alone."""
+    if not _PARAGRAPH_ASK.search(question) or ">>" in text or re.search(r"^\s*(?:[-•]|\d+[.)])\s", text, re.M):
+        return text
+    blocks, cur = [], []
+    for line in text.splitlines():
+        if not line.strip() or _HEADING.match(line):
+            if cur:
+                blocks.append(" ".join(cur))
+                cur = []
+            if line.strip():
+                blocks.append(line.strip())
+            continue
+        cur.append(line.strip())
+    if cur:
+        blocks.append(" ".join(cur))
+    return "\n\n".join(blocks)
+
+
 def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
     """A client message (>>) offering an unapproved term is dropped together with its "Option N" heading; only if fewer than two
     messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
@@ -233,8 +258,9 @@ class AskService:
         if text.startswith(OFF_TOPIC) or text.strip(" .") == OFF_TOPIC:
             return AskResult(answer=OFF_TOPIC_TEXT, found=True, confidence="general", confidence_score=out.confidence_score,
                              query=out.query, retrieved=out.candidates)
-        text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)
-        text = _drop_term_offers(text, knowledge, user_text)            # payment plans, discounts ... only when knowledge allows   # format labels are not for the reader
+        text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)   # format labels are not for the reader
+        text = _drop_term_offers(text, knowledge, user_text)            # payment plans, discounts ... only when knowledge allows
+        text = _as_paragraphs(out.query.original, text)                 # QAI-04: "one paragraph" means one paragraph
         missing = MISSING_COMPANY_INFO in text
         text = "\n".join(l for l in text.replace(MISSING_COMPANY_INFO, "").splitlines()).strip()
         for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE, OFF_TOPIC):
