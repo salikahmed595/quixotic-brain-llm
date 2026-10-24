@@ -165,6 +165,7 @@ class AskResult:
     sources: list[dict] = field(default_factory=list)
     historical_cases: Optional[dict] = None               # §30 "17 similar cases / 12 successful outcomes"
     actions: list[str] = field(default_factory=list)
+    web_sources: list[dict] = field(default_factory=list)  # owner 2026-10-24 Web Search: [{title, url}]
     query: Optional[NormalizedQuery] = None
     retrieved: list[Candidate] = field(default_factory=list)
 
@@ -190,7 +191,7 @@ class AskService:
     def ask(self, question: str, department_ids: frozenset[UUID], include_sales_history: bool = False,
             sales_department_ids: frozenset[UUID] = frozenset(), levels: frozenset[str] = frozenset(),
             history: Sequence[tuple[str, str]] = (), asker: Optional[dict] = None,
-            preferences: Optional[dict] = None, recheck=None) -> AskResult:
+            preferences: Optional[dict] = None, recheck=None, web_search: bool = False) -> AskResult:
         """`history`: earlier (question, answer) pairs of the same chat, oldest first. Used only to understand what a short
         follow-up refers to, never as a source of facts. `recheck(version_ids) -> still allowed ids` re-checks permissions and
         publication right before the answer is returned (PRD §8 "Recheck permissions before providing the final source/answer")."""
@@ -208,6 +209,8 @@ class AskService:
                                                    sales_department_ids, self.settings.historical_top_k)
             if min_sim is not None:
                 cases = [c for c in cases if c.similarity >= min_sim]
+        if web_search:                                                           # owner 2026-10-24: user switched Web Search on
+            return self._web(out, history, asker, preferences, recheck, base)
         if getattr(self.settings, "general_assistant", False):                   # owner 2026-10-21: ChatGPT-like assistant
             return self._general(out, cases, history, asker, preferences, recheck, base)
         if not out.candidates or out.confidence == "low":
@@ -238,6 +241,22 @@ class AskService:
                 seen.add(key)
                 sources.append(source_of(c))
         return AskResult(answer=answer, found=True, sources=sources, historical_cases=hist, **base)
+
+    def _web(self, out, history, asker, preferences, recheck, base) -> AskResult:
+        """Web Search on: current web results (OpenAI web_search tool) + permitted company knowledge for Quixotic's own facts."""
+        if not getattr(self.settings, "web_search_enabled", False):
+            raise RuntimeError("Web Search is not enabled on this server.")
+        knowledge = order_by_priority(out.candidates, self.settings.priority_tiers) if out.candidates and out.confidence != "low" else []
+        if knowledge and recheck is not None:
+            allowed = recheck({c.version_id for c in knowledge})
+            knowledge = [c for c in knowledge if c.version_id in allowed]
+        context = AnswerContext(knowledge=knowledge, history=list(history), asker=asker or {}, preferences=preferences or {},
+                                general_mode=True, web_search=True, user_language=getattr(out.query, "language", "") or "")
+        text, links = self.generator.generate_web_answer(context, out.query.original)
+        if not text.strip():
+            return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
+        return AskResult(answer=text.strip(), found=True, confidence="web", confidence_score=out.confidence_score,
+                         sources=[source_of(c) for c in knowledge][:3], web_sources=links, query=out.query, retrieved=out.candidates)
 
     def _general(self, out, cases, history, asker, preferences, recheck, base) -> AskResult:
         """General assistant: always answers. Permitted, published knowledge (filters applied before retrieval, §8/§10) and similar

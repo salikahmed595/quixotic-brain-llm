@@ -40,6 +40,6 @@ export type Msg =
   | { role: 'ai'; kind: 'search'; question: string; results: { source: string; text: string }[] }
   | { role: 'ai'; kind: 'translate'; question: string; english: string; target?: string }
   | {
-      role: 'ai'; kind: 'ask'; question: string; query_id?: string; answer: string; confidence?: string;
+      role: 'ai'; kind: 'ask'; question: string; query_id?: string; answer: string; confidence?: string; web_sources?: { title: string; url: string }[];
       sources: Source[]; found: boolean; helpful?: boolean; reasons?: string[]; gap_id?: string;
     };

@@ -39,6 +39,7 @@ class AskRequest(_Question):
     department: Optional[str] = None         # PRD §38 (e.g. "sales")
     mode: Literal["general", "sales_coach"] = "general"      # PRD §11.4 (Search Only = /v1/search, Department Brain = `department`)
     conversation_id: Optional[UUID] = None   # continue a saved chat; omit to start a new one (signed-in users only)
+    web_search: bool = False                 # owner 2026-10-24: the user switched Web Search on for this question
 
 
 class SearchRequest(_Question):
@@ -167,7 +168,8 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
     try:
         res = svc.ask.ask(body.question, scope, include_sales_history=body.mode == "sales_coach",
                           sales_department_ids=scope, levels=levels,
-                          history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs, recheck=recheck)
+                          history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs, recheck=recheck,
+                          web_search=body.web_search)
     except RuntimeError as e:                    # e.g. no answer-model API key configured yet
         raise HTTPException(503, str(e))
     gap_id = None
@@ -179,6 +181,8 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         out["sources"] = res.sources
     if res.historical_cases is not None:
         out["historical_cases"] = res.historical_cases
+    if res.web_sources:
+        out["web_sources"] = res.web_sources                               # owner 2026-10-24 Web Search links
     if res.actions:
         out["actions"] = res.actions                                       # §6 FR-CHAT-04: offer Report missing information
     if gap_id:

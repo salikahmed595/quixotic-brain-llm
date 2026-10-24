@@ -57,7 +57,8 @@ def system_overview(_: Principal = Depends(require(P.MANAGE_SYSTEM)), svc: Servi
         "backups": settings_store.get("last_backup"),                      # written by python -m backend.ops.backup create
         "restore_drill": settings_store.get("last_restore_drill"),         # PRD §16 (g): written by ... backup drill
         "incident": settings_store.get(INCIDENT_KEY, {"answers_paused": False}),
-        "web_search": {"enabled": False, "reason": "PRD §14: Web Search is P1 and needs governance before it can be turned on"},
+        "web_search": {"enabled": s.web_search_enabled,                     # owner 2026-10-24: chat toggle, user opt-in per question
+                       "reason": None if s.web_search_enabled else "QB_WEB_SEARCH_ENABLED is off"},
         "sales_history_answers": s.sales_history_enabled,
     }
 

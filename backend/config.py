@@ -116,6 +116,9 @@ class Settings(BaseSettings):
     # Owner 2026-10-21: answer everything like a general assistant; company knowledge, past chats and boundaries are context.
     # Company facts still only from approved knowledge. False = strict PRD behaviour (§6 FR-CHAT-04).
     general_assistant: bool = False
+    # Owner 2026-10-24: a Web Search toggle in the chat. Off by default per question; the user turns it on. Needs the OpenAI
+    # provider (its built-in web_search tool). False = the toggle is refused (PRD §14 keeps Web Search governed).
+    web_search_enabled: bool = False
 
     # ---- pluggable providers (PRD §24, §27, §28) -------------------------------------
     embedding_provider: str = "bge-m3"     # PRD §24.1 initial model to evaluate

@@ -26,7 +26,7 @@ const TRANSLATE_MODE = ['translate', 'Translate', 'Any language → any language
 // QA 2026-10-24 (QAI-01): same list as the server (backend/api/v1/translate.py TARGET_LANGUAGES)
 const TARGETS = ['English', 'Roman Urdu', 'Urdu', 'Spanish', 'German', 'French', 'Arabic', 'Portuguese', 'Italian', 'Turkish', 'Hindi', 'Chinese',
   'Japanese', 'Korean', 'Russian', 'Punjabi', 'Persian', 'Indonesian'];
-const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'], general: ['General AI answer', ''] };
+const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'], general: ['General AI answer', ''], web: ['Web search answer', ''] };
 const REASONS = ['Wrong answer', 'Not what I asked', 'Too long', 'Too short', 'Missing information'];
 
 function fromStored(c: any): Msg {
@@ -41,6 +41,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
   const [scope, setScope] = useState<string | null>(null);
   const [mode, setMode] = useState('general');
   const [target, setTarget] = useState('English');          // QAI-01: chosen translation language
+  const [web, setWeb] = useState(false);                      // owner 2026-10-24: Web Search, off until the user turns it on
   const [busy, setBusy] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
@@ -73,8 +74,8 @@ export function Ask({ resetKey }: { resetKey: number }) {
         const r = await api('/v1/search', { method: 'POST', body });
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
       } else {
-        const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general' } });
-        msg = { role: 'ai', kind: 'ask', question: q, query_id: r.query_id, answer: r.answer, confidence: r.confidence, sources: r.sources || [], found: !r.actions, gap_id: r.gap_id }; saved(r);
+        const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general', web_search: web } });
+        msg = { role: 'ai', kind: 'ask', question: q, query_id: r.query_id, answer: r.answer, confidence: r.confidence, sources: r.sources || [], web_sources: r.web_sources || [], found: !r.actions, gap_id: r.gap_id }; saved(r);
       }
     } catch (e) { msg = { role: 'ai', error: (e as Error).message, question: q }; }
     setThread(t => [...t.slice(0, -1), msg]); setBusy(false);
@@ -88,7 +89,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
   const retry = (i: number, question: string) => { setThread(t => t.slice(0, i - 1)); setTimeout(() => submit(question)); };
 
   const composer = (compact: boolean) => (
-    <Composer compact={compact} busy={busy} mode={mode} setMode={setMode} target={target} setTarget={setTarget} scope={scope} setScope={setScope} onSend={submit} />
+    <Composer compact={compact} busy={busy} mode={mode} setMode={setMode} target={target} setTarget={setTarget} web={web} setWeb={setWeb} scope={scope} setScope={setScope} onSend={submit} />
   );
 
   if (loadingChat) return <Loading />;
@@ -160,8 +161,8 @@ function Waves() {
 }
 
 /* PRD §4.1 composer: + · Web Search · Company Knowledge on the left; microphone · send on the right. */
-function Composer({ compact, busy, mode, setMode, target, setTarget, scope, setScope, onSend }: {
-  compact: boolean; busy: boolean; mode: string; setMode: (m: string) => void; target: string; setTarget: (t: string) => void; scope: string | null; setScope: (s: string | null) => void; onSend: (q: string) => void;
+function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb, scope, setScope, onSend }: {
+  compact: boolean; busy: boolean; mode: string; setMode: (m: string) => void; target: string; setTarget: (t: string) => void; web: boolean; setWeb: (w: boolean) => void; scope: string | null; setScope: (s: string | null) => void; onSend: (q: string) => void;
 }) {
   const app = useApp();
   const [text, setText] = useState(''); const [pop, setPop] = useState<'mode' | 'scope' | null>(null);
@@ -188,7 +189,7 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, scope, setS
       <div ref={box} className="relative flex items-center gap-2.5 mt-1.5">
         <button className="circle-btn" aria-label="Answer mode" title="Answer mode" aria-expanded={pop === 'mode'} onClick={() => setPop(pop === 'mode' ? null : 'mode')}><Icon name="plus" size={20} /></button>
         {/* PRD §6 FR-CHAT-05: Web Search is governed in P1 (§14); until then it is shown but answers stay company-only. */}
-        <button className="pill max-sm:px-3" title="Web Search" onClick={() => toast('Web Search is not enabled yet. Answers come only from approved company knowledge.')}>
+        <button className={`pill max-sm:px-3 ${web ? 'on' : ''}`} title={web ? 'Web Search is ON: answers use the internet. Click to turn off.' : 'Turn on Web Search to use the internet for this chat'} aria-pressed={web} onClick={() => { setWeb(!web); toast(web ? 'Web Search off: office answers only' : 'Web Search on: answers use the internet'); }}>
           <Icon name="globe" size={17} /><span className="max-sm:hidden">Web Search</span>
         </button>
         <button className={`pill max-sm:px-3 ${scope ? 'on' : ''}`} aria-haspopup="listbox" aria-expanded={pop === 'scope'} onClick={() => setPop(pop === 'scope' ? null : 'scope')}>
@@ -367,6 +368,13 @@ function Message({ m, i, last = false, update, retry, submit }: { m: Msg; i: num
     {low ? <div className="notice"><b>{first}</b>{rest.length > 0 && <AnswerBody text={rest.join('\n').trim()} className="mt-1.5" />}</div>
       : <AnswerBody text={m.answer} />}
     <div className="flex flex-wrap gap-2 items-center mt-3"><span className={`chip dot ${cc}`}>{cl}</span></div>
+    {(m as any).web_sources?.length > 0 && (            /* owner 2026-10-24 Web Search: where the answer came from */
+      <div className="flex flex-wrap gap-2 mt-3">
+        {(m as any).web_sources.slice(0, 5).map((w: { title: string; url: string }, k: number) => (
+          <a key={k} className="src" href={w.url} target="_blank" rel="noopener noreferrer nofollow" title={w.url}>
+            <Icon name="globe" size={14} />{(w.title || new URL(w.url).hostname).slice(0, 48)}</a>))}
+      </div>
+    )}
     {m.sources.length > 0 && (
       <div className="flex flex-wrap gap-2 mt-3">
         {m.sources.slice(0, 2).map((s, k) => <SourceChip key={k} s={s} onClick={() => openSources(m.sources)} />)}

@@ -45,6 +45,22 @@ class LazyGenerator:
         except Exception:
             return ""
 
+    def generate_web_answer(self, context: AnswerContext, question: str) -> tuple[str, list[dict]]:
+        """Owner 2026-10-24 Web Search. Only providers with a web search tool support it (OpenAI)."""
+        if self._inner is None:
+            try:
+                self._inner = self._factory()
+            except Exception as exc:
+                raise RuntimeError(f"The answer model is not configured: {exc}") from exc
+        fn = getattr(self._inner, "generate_web_answer", None)
+        if fn is None:
+            raise RuntimeError("Web Search needs the OpenAI answer model.")
+        try:
+            return fn(context, question)
+        except Exception as exc:
+            log.exception("web search answer failed")
+            raise RuntimeError("Web Search is not available right now. Please try again.") from exc
+
     def translate_for_client(self, text: str, target: str = "English") -> str:
         """Owner-approved addition (docs/PRD_GAPS.md §0). Errors become a clear message; provider details stay in the log."""
         if self._inner is None:

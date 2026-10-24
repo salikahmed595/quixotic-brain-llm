@@ -5,6 +5,8 @@ Every provider offers `generate_answer(context, question)` (PRD §28) and, as an
 a tiny call that restates an Urdu / Roman Urdu / mixed question as an English search query (PRD §23 "semantic interpretation")."""
 from __future__ import annotations
 
+import re
+
 from ..models import AnswerContext
 from .prompt import (INTERPRET_PROMPT, SYSTEM_PROMPT, system_prompt_for, TRANSLATE_PROMPT, build_interpret_input, build_translate_input,
                      build_user_prompt)
@@ -73,6 +75,24 @@ class OpenAIGenerator(_Interprets):
             messages=[{"role": "system", "content": system_prompt_for(context)},
                       {"role": "user", "content": build_user_prompt(context, question)}])
         return (r.choices[0].message.content or "").strip()
+
+
+    def generate_web_answer(self, context: AnswerContext, question: str) -> tuple[str, list[dict]]:
+        """Owner 2026-10-24 Web Search: OpenAI Responses API with the built-in web_search tool. Returns (text, [{title, url}])."""
+        r = self._client.responses.create(
+            model=self._model, tools=[{"type": "web_search"}], instructions=system_prompt_for(context),
+            input=build_user_prompt(context, question),
+            **({"reasoning": {"effort": "low"}} if _reasoning_model(self._model) else {}))
+        sources, seen = [], set()
+        for item in r.output or []:
+            for part in getattr(item, "content", None) or []:
+                for a in getattr(part, "annotations", None) or []:
+                    url = (getattr(a, "url", "") or "").replace("?utm_source=openai", "").replace("&utm_source=openai", "")
+                    if getattr(a, "type", "") == "url_citation" and url.startswith(("https://", "http://")) and url not in seen:
+                        seen.add(url)
+                        sources.append({"title": (getattr(a, "title", "") or url)[:120], "url": url})
+        text = re.sub(r"\s*\(\[[^\]]+\]\([^)]+\)\)", "", r.output_text or "").strip()   # inline "([site](url))" -> chips below
+        return text, sources[:6]
 
 
 class DeepSeekGenerator(OpenAIGenerator):
