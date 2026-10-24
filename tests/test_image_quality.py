@@ -137,3 +137,11 @@ def test_a_dropped_offer_takes_its_bold_option_heading_with_it():
             "**Option 3 - Deal**\n>> I can give you a discount today.\nWhy: honest and helpful")
     out = _drop_term_offers(text, [], "")
     assert "Option 3" not in out and "discount" not in out and out.count(">>") == 2
+
+
+def test_what_they_are_asking_bullets_are_not_rewritten_by_the_offer_guard():
+    from backend.retrieval.ask import _drop_term_offers
+    text = ("**What they're asking**\n- A discount on the logo.\n\n**Option 1 - Budget**\n>> What budget did you have in mind?\n"
+            "**Option 2 - Deal**\n>> I can give you a discount today.\n**Option 3 - Scope**\n>> Which parts could we skip?\nWhy: honest")
+    out = _drop_term_offers(text, [], "")
+    assert "- A discount on the logo." in out and "give you a discount" not in out and "Option 3" not in out

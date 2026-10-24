@@ -112,9 +112,17 @@ def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
     messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
     line, e.g. '- Offer a payment plan') becomes one 'ask your team lead' line. 'Why:' lines are kept."""
     # QA 2026-10-25: headings come as "**Option 3 - ...**" too; a dropped message takes its bold heading with it
-    out, tip_done, dropped, skip_msg = [], False, False, False
+    # QA 2026-10-25: the "What they're asking" bullets only describe the client's request ("asks for a discount"), so they stay.
+    out, tip_done, dropped, skip_msg, asks = [], False, False, False, False
     for line in text.splitlines():
         stripped = line.lstrip()
+        if "what they" in stripped.lower() and "asking" in stripped.lower():
+            asks = True
+        elif asks and not stripped.startswith(("- ", "* ", "• ")):
+            asks = False
+        if asks:
+            out.append(line)
+            continue
         if re.match(r"(?:\*\*)?option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge, user_text):
             skip_msg = dropped = True                        # "Option 2 - Payment plan": heading and its message go
             continue
