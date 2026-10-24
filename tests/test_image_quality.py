@@ -122,3 +122,18 @@ def test_several_images_are_numbered_and_reading_rules_exist():
     assert "Image 1 to Image 2" in build_user_prompt(ctx, "compare")
     flat = " ".join(GENERAL_SYSTEM_PROMPT.split())
     assert "[unclear]" in flat and "no \"I'll make a quick mockup now\"" in flat and "**What they're asking**" in flat
+
+
+def test_the_name_asked_for_is_always_in_the_image_prompt():
+    """QA 2026-10-25: the Twitch banner for 'NightOwl' came out saying 'USERNAME'."""
+    gen = _Gen(PLAN | {"asset": "twitch_banner", "background": "opaque", "prompt": "banner with name lettering"}, [_png((1536, 1024))])
+    make_image(_svc(gen), "Create a Twitch banner for a streamer called NightOwl, purple neon", [])
+    assert '"NightOwl" with exactly this spelling and capitalisation' in gen.calls[0]["prompt"]
+
+
+def test_a_dropped_offer_takes_its_bold_option_heading_with_it():
+    from backend.retrieval.ask import _drop_term_offers
+    text = ("**Option 1 - Value**\n>> Happy to explain what's included.\n**Option 2 - Ask**\n>> Which parts matter most to you?\n"
+            "**Option 3 - Deal**\n>> I can give you a discount today.\nWhy: honest and helpful")
+    out = _drop_term_offers(text, [], "")
+    assert "Option 3" not in out and "discount" not in out and out.count(">>") == 2

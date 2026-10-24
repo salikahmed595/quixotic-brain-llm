@@ -111,10 +111,11 @@ def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
     """A client message (>>) offering an unapproved term is dropped together with its "Option N" heading; only if fewer than two
     messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
     line, e.g. '- Offer a payment plan') becomes one 'ask your team lead' line. 'Why:' lines are kept."""
+    # QA 2026-10-25: headings come as "**Option 3 - ...**" too; a dropped message takes its bold heading with it
     out, tip_done, dropped, skip_msg = [], False, False, False
     for line in text.splitlines():
         stripped = line.lstrip()
-        if re.match(r"option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge, user_text):
+        if re.match(r"(?:\*\*)?option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge, user_text):
             skip_msg = dropped = True                        # "Option 2 - Payment plan": heading and its message go
             continue
         if skip_msg and stripped.startswith(">>"):
@@ -125,7 +126,7 @@ def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
             out.append(line)
         elif stripped.startswith(">>"):
             dropped = True
-            if out and re.match(r"\s*option\s*\d", out[-1], re.I):
+            if out and re.match(r"\s*(?:\*\*)?option\s*\d", out[-1], re.I):
                 out.pop()                                     # its heading goes with it
         elif not tip_done:
             out.append(f"- {ASK_TEAM_LEAD}")
@@ -135,7 +136,7 @@ def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
         out.insert(why, f">> {CHECK_WITH_TEAM}")
     n = 0                                                     # renumber the remaining options 1, 2, 3
     for i, l in enumerate(out):
-        m = re.match(r"(\s*option\s*)\d+(.*)", l, re.I)
+        m = re.match(r"(\s*(?:\*\*)?option\s*)\d+(.*)", l, re.I)
         if m:
             n += 1
             out[i] = f"{m.group(1)}{n}{m.group(2)}"

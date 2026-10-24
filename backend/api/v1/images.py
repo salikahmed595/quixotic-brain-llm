@@ -37,6 +37,8 @@ LABELS = {"twitch_emote": "Twitch emote", "twitch_badge": "Twitch sub badge", "d
           "stream_screen": "stream screen", "youtube_banner": "YouTube banner", "youtube_thumbnail": "YouTube thumbnail"}
 FAN_ART_NOTE = ("This is fan art of an existing character: use it for internal reference only, not for client or commercial "
                 "delivery. I can make an original character in the same style instead.")
+# Words the user wants in the picture, when the art director left "text" empty: "called NightOwl", "with the text FOXX", "..."
+_NAMED = re.compile(r"[\"“]([^\"”]{1,40})[\"”]|\b(?:called|named|text|saying|says)\s+([A-Z0-9][\w'-]{0,29})")
 KEEP_IN_FRAME = (" IMPORTANT: the whole subject must be completely inside the frame with wide empty margin on every side; "
                  "nothing may touch or be cut off by the image edges.")
 
@@ -74,6 +76,11 @@ def make_image(svc, request: str, references: list[str], size: str = "auto", fin
     refs = [base64.b64decode(_DATA_URL.match(u).group(2)) for u in references]
     gen = svc.ask.generator
     plan = gen.direct_image(request, bool(refs))
+    named = _NAMED.search(request)
+    text = plan.get("text") or (next(g for g in named.groups() if g) if named else "")
+    if text and f'"{text}"' not in plan["prompt"]:       # QA 2026-10-25: banner said "USERNAME" instead of the name asked for
+        plan["prompt"] += (f' The image must show the text "{text}" with exactly this spelling and capitalisation, as solid opaque '
+                           f'lettering with a contrasting outline; no other words.')
     use_size, background = plan["size"], plan["background"]
     if plan.get("edit") and refs:                        # an edit keeps the source's framing and background
         use_size = image_post.size_like(refs[0])
