@@ -61,7 +61,19 @@ class LazyGenerator:
             log.exception("web search answer failed")
             raise RuntimeError("Web Search is not available right now. Please try again.") from exc
 
-    def generate_image(self, model: str, prompt: str, quality: str, size: str, references: list[bytes]) -> bytes:
+    def direct_image(self, request: str, has_references: bool = False) -> dict:
+        """Owner 2026-10-25 art-director step; any failure falls back to the user's own words."""
+        try:
+            if self._inner is None:
+                self._inner = self._factory()
+            fn = getattr(self._inner, "direct_image", None)
+            return fn(request, has_references) if fn else {"prompt": request, "size": "1024x1024", "background": "opaque"}
+        except Exception:
+            log.exception("art-director step failed; using the request as it is")
+            return {"prompt": request, "size": "1024x1024", "background": "opaque"}
+
+    def generate_image(self, model: str, prompt: str, quality: str, size: str, references: list[bytes],
+                       background: str = "auto") -> bytes:
         """Owner 2026-10-24 image creation (OpenAI image models)."""
         if self._inner is None:
             try:
@@ -72,7 +84,7 @@ class LazyGenerator:
         if fn is None:
             raise RuntimeError("Image creation needs the OpenAI provider.")
         try:
-            return fn(model, prompt, quality, size, references)
+            return fn(model, prompt, quality, size, references, background)
         except Exception as exc:
             log.exception("image generation failed")
             msg = str(exc)

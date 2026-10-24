@@ -166,6 +166,7 @@ class AskResult:
     historical_cases: Optional[dict] = None               # §30 "17 similar cases / 12 successful outcomes"
     actions: list[str] = field(default_factory=list)
     web_sources: list[dict] = field(default_factory=list)  # owner 2026-10-24 Web Search: [{title, url}]
+    image_request: Optional[str] = None                      # owner 2026-10-25: the chat asked for a picture -> create it
     query: Optional[NormalizedQuery] = None
     retrieved: list[Candidate] = field(default_factory=list)
 
@@ -256,6 +257,10 @@ class AskService:
                                 general_mode=True, web_search=True, user_language=getattr(out.query, "language", "") or "",
                                 images=list(images))
         text, links = self.generator.generate_web_answer(context, out.query.original)
+        if text.lstrip().upper().startswith("CREATE_IMAGE"):        # owner 2026-10-25
+            req = text.split(":", 1)[1].strip() if ":" in text else out.query.original
+            return AskResult(answer=req, found=True, confidence="general", confidence_score=out.confidence_score,
+                             query=out.query, retrieved=out.candidates, image_request=req or out.query.original)
         if not text.strip():
             return AskResult(answer=NOT_FOUND_TEXT, found=False, actions=NOT_FOUND_ACTIONS, **base)
         return AskResult(answer=text.strip(), found=True, confidence="web", confidence_score=out.confidence_score,
@@ -277,6 +282,10 @@ class AskService:
             text = self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip()
             if _invented_money(text, knowledge, user_text):
                 text = f"{SAFE_MISSING}\n{MISSING_COMPANY_INFO}"
+        if text.lstrip().upper().startswith("CREATE_IMAGE"):        # owner 2026-10-25: image request in any phrasing
+            req = text.split(":", 1)[1].strip() if ":" in text else out.query.original
+            return AskResult(answer=req, found=True, confidence="general", confidence_score=out.confidence_score,
+                             query=out.query, retrieved=out.candidates, image_request=req or out.query.original)
         if text.startswith(OFF_TOPIC) or text.strip(" .") == OFF_TOPIC:
             return AskResult(answer=OFF_TOPIC_TEXT, found=True, confidence="general", confidence_score=out.confidence_score,
                              query=out.query, retrieved=out.candidates)

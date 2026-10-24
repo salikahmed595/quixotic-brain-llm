@@ -99,7 +99,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
     try {
       if (m2 === 'image') {                           // owner 2026-10-24: create an image (not stored; download it)
         const r = await api('/v1/images', { method: 'POST', body: { prompt: q, references: imgs } });
-        msg = { role: 'ai', kind: 'image', question: q, image: r.image };
+        msg = { role: 'ai', kind: 'image', question: q, image: r.image, prompt: r.prompt };
       } else if (m2 === 'translate') {                     // not saved to chat history: client messages stay private
         const r = await api('/v1/translate', { method: 'POST', body: { text: q, target } });
         msg = { role: 'ai', kind: 'translate', question: q, english: r.english, target: r.target };
@@ -108,6 +108,10 @@ export function Ask({ resetKey }: { resetKey: number }) {
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
       } else {
         const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general', web_search: web, images: imgs } });
+        if (r.image) {                                // owner 2026-10-25: the AI recognised an image request in any wording
+          setThread(t => [...t.slice(0, -1), { role: 'ai', kind: 'image', question: q, image: r.image, prompt: r.image_prompt }]);
+          setBusy(false); saved(r); return;
+        }
         msg = { role: 'ai', kind: 'ask', question: q, query_id: r.query_id, answer: r.answer, confidence: r.confidence, sources: r.sources || [], web_sources: r.web_sources || [], found: !r.actions, gap_id: r.gap_id }; saved(r);
       }
     } catch (e) { msg = { role: 'ai', error: (e as Error).message, question: q }; }
@@ -416,6 +420,10 @@ function Message({ m, i, last = false, update, retry, submit }: { m: Msg; i: num
       <button className="btn sm" onClick={() => submit(m.question, 'image')}><Icon name="refresh" size={15} /> Another version</button>
       <small className="text-muted">Images are not saved. Download the ones you want to keep.</small>
     </div>
+    {m.prompt && <details className="more mt-2"><summary>Prompt used</summary>
+      <div className="flex items-start gap-2 mt-1.5"><p className="flex-1 text-[13.5px] text-ink-2 whitespace-pre-wrap">{m.prompt}</p>
+        <button className="btn ghost sm !px-2" aria-label="Copy prompt" title="Copy prompt" onClick={() => copyWithToast(m.prompt!)}><Icon name="copy" size={15} /></button></div>
+    </details>}
   </>);
   if (m.kind === 'translate') return wrap(<>
     <div className="label mb-2">{m.target || 'English'} translation</div>

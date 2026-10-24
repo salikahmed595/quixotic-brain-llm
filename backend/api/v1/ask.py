@@ -184,6 +184,13 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         gap_id = record_gap(svc, caller.principal, body.question, requested)
     query_id = _log(svc, caller, requested, body.mode, res, res.answer, started, gap_id)
     out = {"query_id": str(query_id), "answer": res.answer, "confidence": res.confidence}   # PRD §38 shape
+    if res.image_request:                                                  # owner 2026-10-25: chat asked for a picture
+        from ...analytics import audit as _audit
+        from .images import make_image
+        made = make_image(svc, res.image_request, body.images)
+        _audit.record(svc.ops, _audit.IMAGE_GENERATION, caller.principal.user_id, caller.principal.employee_id,
+                      chars=len(res.image_request), references=len(body.images), via="chat")
+        out.update({"image": made["image"], "image_prompt": made["prompt"], "answer": f"Image created: {res.image_request}"})
     if can(caller.principal.role, P.VIEW_SOURCES):
         out["sources"] = res.sources
     if res.historical_cases is not None:
@@ -195,8 +202,12 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
     if gap_id:
         out["gap_id"] = str(gap_id)
     stored_q = body.question + (f"\n[{len(body.images)} image(s) attached]" if body.images else "")   # images are not stored
+    if out.get("image"):                     # the picture itself is not stored in chat history (size, privacy)
+        assistant = {k: v for k, v in out.items() if k != "image"}
+    else:
+        assistant = None
     cid = _remember(svc, caller, body.conversation_id, stored_q, body.mode, requested,
-                    {"kind": "ask", "mode": body.mode, "question": body.question, **out})
+                    {"kind": "ask", "mode": body.mode, "question": body.question, **(assistant or out)})
     if cid is not None:
         out["conversation_id"] = str(cid)
     return out

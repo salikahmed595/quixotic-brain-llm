@@ -35,7 +35,7 @@ export interface Source { title: string; section?: string | null; version: numbe
 
 export type Msg =
   | { role: 'user'; text: string; images?: string[] }
-  | { role: 'ai'; kind: 'image'; question: string; image: string }
+  | { role: 'ai'; kind: 'image'; question: string; image: string; prompt?: string }
   | { role: 'ai'; loading: true }
   | { role: 'ai'; error: string; question: string }
   | { role: 'ai'; kind: 'search'; question: string; results: { source: string; text: string }[] }

@@ -32,9 +32,25 @@ def check_data_url(url: str) -> str:
     return url
 
 
+def make_image(svc, request: str, references: list[str], size: str = "auto") -> dict:
+    """Art director (expand + canvas + background), then the image model. Shared by /v1/images and image requests in chat."""
+    s = svc.settings
+    if not s.image_model:
+        raise HTTPException(403, "Image creation is not enabled on this server.")
+    refs = [base64.b64decode(_DATA_URL.match(u).group(2)) for u in references]
+    plan = svc.ask.generator.direct_image(request, bool(refs))
+    use_size = size if size in SIZES and size != "auto" else plan["size"]
+    try:
+        png = svc.ask.generator.generate_image(s.image_model, plan["prompt"], s.image_quality, use_size, refs, plan["background"])
+    except RuntimeError as e:
+        raise HTTPException(503, str(e)) from None
+    return {"image": "data:image/png;base64," + base64.b64encode(png).decode(), "prompt": plan["prompt"], "size": use_size,
+            "background": plan["background"]}
+
+
 class ImageIn(BaseModel):
     prompt: str = Field(min_length=3, max_length=4000)
-    size: str = "1024x1024"
+    size: str = "auto"                       # auto = the art director chooses
     references: list[str] = Field(default_factory=list, max_length=4)
 
     @field_validator("references")
@@ -45,15 +61,8 @@ class ImageIn(BaseModel):
 
 @router.post("/images")
 def create_image(body: ImageIn, p: Principal = Depends(require(P.ASK)), svc: Services = Depends(get_services)):
-    s = svc.settings
-    if not s.image_model:
-        raise HTTPException(403, "Image creation is not enabled on this server.")
     if body.size not in SIZES:
         raise HTTPException(422, f"size must be one of {', '.join(SIZES)}")
-    refs = [base64.b64decode(_DATA_URL.match(u).group(2)) for u in body.references]
-    try:
-        png = svc.ask.generator.generate_image(s.image_model, body.prompt.strip(), s.image_quality, body.size, refs)
-    except RuntimeError as e:
-        raise HTTPException(503, str(e)) from None
-    audit.record(svc.ops, audit.IMAGE_GENERATION, p.user_id, p.employee_id, chars=len(body.prompt), references=len(refs))
-    return {"image": "data:image/png;base64," + base64.b64encode(png).decode(), "prompt": body.prompt.strip()}
+    out = make_image(svc, body.prompt.strip(), body.references, body.size)
+    audit.record(svc.ops, audit.IMAGE_GENERATION, p.user_id, p.employee_id, chars=len(body.prompt), references=len(body.references))
+    return out
