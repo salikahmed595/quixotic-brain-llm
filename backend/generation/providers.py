@@ -51,6 +51,19 @@ def _reasoning_model(model: str) -> bool:
     return m.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
+_WANTS_DETAIL = re.compile(r"\b(detail\w*|step[- ]by[- ]step|explain|in depth|thorough\w*|elaborate|full (?:guide|answer|"
+                           r"explanation|list)|long|comprehensive|tafseel|tafsil|poori? (?:detail|tafseel))\b", re.I)
+
+
+def _verbosity(context: AnswerContext, question: str) -> str:
+    """Owner 2026-10-24 'length follows the request'. MEASURED live: with the 'balanced' style, gpt-5-mini answered 'what colour
+    works best for a gaming logo?' in 342 words despite the prompt; the GPT-5 verbosity setting is the reliable lever."""
+    style = (context.preferences or {}).get("answer_style")
+    if _WANTS_DETAIL.search(question or "") or style == "detailed":
+        return "high"
+    return "low"
+
+
 class OpenAIGenerator(_Interprets):
     def __init__(self, model: str, reasoning_effort: str | None = None) -> None:
         from openai import OpenAI
@@ -70,6 +83,8 @@ class OpenAIGenerator(_Interprets):
 
     def generate_answer(self, context: AnswerContext, question: str) -> str:
         extra = {"reasoning_effort": self._effort} if self._effort and _reasoning_model(self._model) else {}
+        if self._model.startswith("gpt-5"):
+            extra["verbosity"] = _verbosity(context, question)
         r = self._client.chat.completions.create(
             model=self._model, **extra,
             messages=[{"role": "system", "content": system_prompt_for(context)},
@@ -82,7 +97,8 @@ class OpenAIGenerator(_Interprets):
         r = self._client.responses.create(
             model=self._model, tools=[{"type": "web_search"}], instructions=system_prompt_for(context),
             input=build_user_prompt(context, question),
-            **({"reasoning": {"effort": "low"}} if _reasoning_model(self._model) else {}))
+            **({"reasoning": {"effort": "low"}} if _reasoning_model(self._model) else {}),
+            **({"text": {"verbosity": _verbosity(context, question)}} if self._model.startswith("gpt-5") else {}))
         sources, seen = [], set()
         for item in r.output or []:
             for part in getattr(item, "content", None) or []:

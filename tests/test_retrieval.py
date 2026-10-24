@@ -604,3 +604,11 @@ def test_natural_communication_style_is_in_both_prompts():
         for phrase in ("not a corporate chatbot", "Do not automatically agree", "Let's delve into", "1-4 sentences",
                        "Formatting only when it helps", "never invent personal experiences"):
             assert phrase in flat, phrase
+
+
+def test_verbosity_follows_the_request_and_saved_style():
+    from backend.generation.providers import _verbosity
+    assert _verbosity(AnswerContext(preferences={"answer_style": "balanced"}), "What colour works best for a gaming logo?") == "low"
+    assert _verbosity(AnswerContext(), "Explain in full detail, step by step, how to design a mascot") == "high"
+    assert _verbosity(AnswerContext(preferences={"answer_style": "detailed"}), "logo idea for IronBear") == "high"
+    assert _verbosity(AnswerContext(), "mujhe poori tafseel chahiye") == "high"
