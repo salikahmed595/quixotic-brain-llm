@@ -206,7 +206,7 @@ class AskService:
             sales_department_ids: frozenset[UUID] = frozenset(), levels: frozenset[str] = frozenset(),
             history: Sequence[tuple[str, str]] = (), asker: Optional[dict] = None,
             preferences: Optional[dict] = None, recheck=None, web_search: bool = False,
-            images: Sequence[str] = (), images_earlier: bool = False) -> AskResult:
+            images: Sequence[str] = (), images_earlier: bool = False, prefer_image: bool = False) -> AskResult:
         """`history`: earlier (question, answer) pairs of the same chat, oldest first. Used only to understand what a short
         follow-up refers to, never as a source of facts. `recheck(version_ids) -> still allowed ids` re-checks permissions and
         publication right before the answer is returned (PRD §8 "Recheck permissions before providing the final source/answer")."""
@@ -227,9 +227,9 @@ class AskService:
         images = list(images)                                                   # owner 2026-10-24: pasted images (per request)
         earlier = bool(images) and images_earlier                                 # QA 2026-10-25: follow-up about an earlier image
         if web_search:                                                           # owner 2026-10-24: user switched Web Search on
-            return self._web(out, history, asker, preferences, recheck, base, images, earlier)
+            return self._web(out, history, asker, preferences, recheck, base, images, earlier, prefer_image)
         if getattr(self.settings, "general_assistant", False):                   # owner 2026-10-21: ChatGPT-like assistant
-            return self._general(out, cases, history, asker, preferences, recheck, base, images, earlier)
+            return self._general(out, cases, history, asker, preferences, recheck, base, images, earlier, prefer_image)
         if not out.candidates or out.confidence == "low":
             return self._fallback(out, cases, min_sim, history, asker, preferences, base)
 
@@ -259,7 +259,7 @@ class AskService:
                 sources.append(source_of(c))
         return AskResult(answer=answer, found=True, sources=sources, historical_cases=hist, **base)
 
-    def _web(self, out, history, asker, preferences, recheck, base, images=(), earlier=False) -> AskResult:
+    def _web(self, out, history, asker, preferences, recheck, base, images=(), earlier=False, prefer_image=False) -> AskResult:
         """Web Search on: current web results (OpenAI web_search tool) + permitted company knowledge for Quixotic's own facts."""
         if not getattr(self.settings, "web_search_enabled", False):
             raise RuntimeError("Web Search is not enabled on this server.")
@@ -269,7 +269,7 @@ class AskService:
             knowledge = [c for c in knowledge if c.version_id in allowed]
         context = AnswerContext(knowledge=knowledge, history=list(history), asker=asker or {}, preferences=preferences or {},
                                 general_mode=True, web_search=True, user_language=getattr(out.query, "language", "") or "",
-                                images=list(images), images_earlier=earlier)
+                                images=list(images), images_earlier=earlier, prefer_image=prefer_image)
         text, links = self.generator.generate_web_answer(context, out.query.original)
         if text.lstrip().upper().startswith("CREATE_IMAGE"):        # owner 2026-10-25
             req = text.split(":", 1)[1].strip() if ":" in text else out.query.original
@@ -280,7 +280,7 @@ class AskService:
         return AskResult(answer=text.strip(), found=True, confidence="web", confidence_score=out.confidence_score,
                          sources=[source_of(c) for c in knowledge][:3], web_sources=links, query=out.query, retrieved=out.candidates)
 
-    def _general(self, out, cases, history, asker, preferences, recheck, base, images=(), earlier=False) -> AskResult:
+    def _general(self, out, cases, history, asker, preferences, recheck, base, images=(), earlier=False, prefer_image=False) -> AskResult:
         """General assistant: always answers. Permitted, published knowledge (filters applied before retrieval, §8/§10) and similar
         past chats are passed as context; weak matches are left out so they cannot mislead. A missing company fact is a gap (§9)."""
         knowledge = order_by_priority(out.candidates, self.settings.priority_tiers) if out.candidates and out.confidence != "low" else []
@@ -290,7 +290,7 @@ class AskService:
         context = AnswerContext(knowledge=knowledge, sales_cases=cases, history=list(history), asker=asker or {},
                                 preferences=preferences or {}, general_mode=True,
                                 user_language=getattr(out.query, "language", "") or "", images=list(images),
-                                images_earlier=earlier)
+                                images_earlier=earlier, prefer_image=prefer_image)
         text = self.generator.generate_answer(context, out.query.original).strip()
         user_text = " ".join([out.query.original, *(h[0] for h in history)])
         if not context.images and _invented_money(text, knowledge, user_text):   # figures in a pasted screenshot are the user's facts

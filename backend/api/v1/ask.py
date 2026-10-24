@@ -44,6 +44,7 @@ class AskRequest(_Question):
     # QA 2026-10-25: follow-ups keep the picture. The browser resends the chat's last image(s) (nothing is stored on the server)
     # and marks them as shared earlier, so "what about the second line?" or "make it blue" still sees the image.
     images_earlier: bool = False
+    prefer_image: bool = False               # owner 2026-10-25: sent from Create image mode with a picture attached
 
     @field_validator("images")
     @classmethod
@@ -179,7 +180,7 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         res = svc.ask.ask(body.question, scope, include_sales_history=body.mode == "sales_coach",
                           sales_department_ids=scope, levels=levels,
                           history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs, recheck=recheck,
-                          web_search=body.web_search, images=body.images, images_earlier=body.images_earlier)
+                          web_search=body.web_search, images=body.images, images_earlier=body.images_earlier, prefer_image=body.prefer_image)
     except RuntimeError as e:                    # e.g. no answer-model API key configured yet
         raise HTTPException(503, str(e))
     gap_id = None

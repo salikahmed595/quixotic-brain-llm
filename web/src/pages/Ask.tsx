@@ -94,8 +94,10 @@ export function Ask({ resetKey }: { resetKey: number }) {
     const imgs = forceMode ? [] : files;
     const q = text.trim() || (imgs.length ? 'Please look at the attached image and help me with it.' : '');
     if (!q || busy) return;
-    const m2 = forceMode || (mode === 'general' && IMAGE_ASK.test(q) ? 'image' : mode);
-    const reuse = !imgs.length && !forceMode && earlier && earlier.left > 0 && m2 !== 'translate' && m2 !== 'search' ? earlier.images : [];
+    const reuse = !imgs.length && !forceMode && earlier && earlier.left > 0 && mode !== 'translate' && mode !== 'search' ? earlier.images : [];
+    // Owner 2026-10-25: in Create image mode with a picture attached, the AI decides itself whether to draw or to read / reply
+    const decide = !forceMode && mode === 'image' && (imgs.length > 0 || reuse.length > 0);
+    const m2 = forceMode || (decide ? 'general' : mode === 'general' && IMAGE_ASK.test(q) ? 'image' : mode);
     setBusy(true); setFiles([]);
     if (imgs.length) setEarlier({ images: imgs, left: 3 });
     else if (reuse.length) setEarlier(e => e && { ...e, left: e.left - 1 });
@@ -116,7 +118,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
         const r = await api('/v1/search', { method: 'POST', body });
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
       } else {
-        const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general', web_search: web, images: imgs.length ? imgs : reuse, images_earlier: !imgs.length && reuse.length > 0 } });
+        const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general', web_search: web, images: imgs.length ? imgs : reuse, images_earlier: !imgs.length && reuse.length > 0, prefer_image: decide } });
         if (r.image) {                                // owner 2026-10-25: the AI recognised an image request in any wording
           setThread(t => [...t.slice(0, -1), { role: 'ai', kind: 'image', question: q, image: r.image, prompt: r.image_prompt, caption: r.answer, files: r.image_files, references: imgs.length ? imgs : reuse }]);
           setEarlier({ images: [r.image], left: 3 });
@@ -240,6 +242,17 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb
   }, [pop]);
   const send = () => { if ((!text.trim() && !files.length) || busy) return; onSend(text); setText(''); if (ta.current) { ta.current.value = ''; ta.current.style.height = 'auto'; } };
   const fileInput = useRef<HTMLInputElement>(null);
+  const slang = app.me.preferences?.discord_slang === true;
+  const [savingSlang, setSavingSlang] = useState(false);
+  const toggleSlang = async () => {
+    setSavingSlang(true);
+    try {
+      const prefs = await api('/v1/auth/preferences', { method: 'PUT', body: { ...app.me.preferences, discord_slang: !slang } });
+      app.setMe({ ...app.me, preferences: prefs });
+      toast(slang ? 'Slang Mode off: normal style' : 'Slang Mode on: short, casual Discord-style messages');
+    } catch (e) { toast((e as Error).message); }
+    setSavingSlang(false);
+  };
   const [drag, setDrag] = useState(false);
   const addImages = async (list: File[]) => {
     const pics = list.filter(f => f.type.startsWith('image/'));
@@ -289,19 +302,20 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb
         <button className="circle-btn" aria-label="Answer mode" title="Answer mode" aria-expanded={pop === 'mode'} onClick={() => setPop(pop === 'mode' ? null : 'mode')}><Icon name="plus" size={20} /></button>
         <button className="circle-btn" aria-label="Attach image" title="Attach image (or paste with Ctrl+V, or drop it here)" onClick={() => fileInput.current?.click()}><Icon name="image" size={19} /></button>
         <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={e => { addImages(Array.from(e.target.files || [])); e.target.value = ''; }} />
-        {/* PRD §6 FR-CHAT-05: Web Search is governed in P1 (§14); until then it is shown but answers stay company-only. */}
-        <button className={`pill max-sm:px-3 ${web ? 'on' : ''}`} title={web ? 'Web Search is ON: answers use the internet. Click to turn off.' : 'Turn on Web Search to use the internet for this chat'} aria-pressed={web} onClick={() => { setWeb(!web); toast(web ? 'Web Search off: office answers only' : 'Web Search on: answers use the internet'); }}>
-          <Icon name="globe" size={17} /><span className="max-sm:hidden">Web Search</span>
+        {/* Owner 2026-10-24: Discord Slang Mode as a quick toggle (saved per user, same setting as in Personalization) */}
+        <button className={`pill max-sm:px-3 ${slang ? 'on' : ''}`} aria-pressed={slang} disabled={savingSlang}
+          title={slang ? 'Slang Mode is ON: short, casual Discord-style messages. Click to turn off.' : 'Turn on Slang Mode: short, casual Discord-style messages'}
+          onClick={toggleSlang}>
+          <Icon name="msg" size={17} /><span className="max-sm:hidden">Slang Mode</span>
         </button>
-        <button className={`pill max-sm:px-3 ${scope ? 'on' : ''}`} aria-haspopup="listbox" aria-expanded={pop === 'scope'} onClick={() => setPop(pop === 'scope' ? null : 'scope')}>
-          <Icon name="notes" size={17} /><span className="max-sm:hidden max-w-[180px] truncate">{scope || 'Company Knowledge'}</span><Icon name="chevd" size={15} />
+        <button className={`pill max-sm:px-3 ${scope || web ? 'on' : ''}`} aria-haspopup="listbox" aria-expanded={pop === 'scope'} onClick={() => setPop(pop === 'scope' ? null : 'scope')}>
+          <Icon name={web ? 'globe' : 'notes'} size={17} /><span className="max-sm:hidden max-w-[200px] truncate">{(scope || 'Company Knowledge') + (web ? ' + Web' : '')}</span><Icon name="chevd" size={15} />
         </button>
         {/* QAI-12: an X removes the selected mode at once (before, only a page refresh did) */}
         {mode === 'search' && <span className="chip orange gap-1">Search only
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel Search only" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
-        {app.me.preferences?.discord_slang === true && <span className="chip gap-1" title="Discord Slang Mode is on (Personalization)">Discord slang
-          <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Turn off Discord Slang Mode" title="Turn off"
-            onClick={async () => { const prefs = await api('/v1/auth/preferences', { method: 'PUT', body: { ...app.me.preferences, discord_slang: false } }); app.setMe({ ...app.me, preferences: prefs }); toast('Discord Slang Mode off'); }}>✕</button></span>}
+        {web && <span className="chip orange gap-1"><Icon name="globe" size={14} /> Web Search
+          <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Turn off Web Search" title="Turn off" onClick={() => { setWeb(false); toast('Web Search off: office answers only'); }}>✕</button></span>}
         {mode === 'image' && <span className="chip orange gap-1">Create image
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel image creation" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
         {mode === 'translate' && <span className="chip orange gap-1">Translate to
@@ -337,6 +351,10 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb
                 <span>{d.name}</span>{scope === d.name && <Icon name="tick" size={16} className="ml-auto text-orange" />}
               </button>
             ))}
+            <div className="ph">Also use</div>
+            <button role="switch" aria-checked={web} className={web ? 'sel' : ''} onClick={() => { setWeb(!web); setPop(null); toast(web ? 'Web Search off: office answers only' : 'Web Search on: answers use the internet'); }}>
+              <Icon name="globe" size={16} /><span>Web Search<small>Current information from the internet, with links</small></span>{web && <Icon name="tick" size={16} className="ml-auto text-orange" />}
+            </button>
           </div>
         )}
       </div>
