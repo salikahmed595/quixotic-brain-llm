@@ -527,7 +527,7 @@ def test_an_unapproved_option_is_dropped_with_its_heading_and_options_renumbered
 def test_prompt_asks_follow_up_questions_and_gives_three_options():
     from backend.generation.prompt import GENERAL_SYSTEM_PROMPT
     flat = " ".join(GENERAL_SYSTEM_PROMPT.split())
-    for phrase in ("at most 2 short numbered questions", "only once per situation", 'outcome is "closed"', "Option 1, 2, 3"):
+    for phrase in ("at most 2 short numbered questions", "only once per situation", 'with outcome "closed"', "Option 1, 2, 3"):
         assert phrase in flat
 
 

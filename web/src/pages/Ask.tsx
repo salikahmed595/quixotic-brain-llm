@@ -68,12 +68,15 @@ export function Ask({ resetKey }: { resetKey: number }) {
   const [mode, setMode] = useState('general');
   const [target, setTarget] = useState('English');          // QAI-01: chosen translation language
   const [web, setWeb] = useState(false);
-  const [files, setFiles] = useState<string[]>([]);              // owner 2026-10-24: pasted images for the next message                      // owner 2026-10-24: Web Search, off until the user turns it on
+  const [files, setFiles] = useState<string[]>([]);              // owner 2026-10-24: pasted images for the next message
+  // QA 2026-10-25: follow-ups keep seeing the chat's last image (pasted or created) for a few messages; never stored on the server
+  const [earlier, setEarlier] = useState<{ images: string[]; left: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
 
   useEffect(() => { // open a saved chat, or start fresh on "New chat"
+    setEarlier(null);
     if (!route.chat) { setThread([]); setConvId(null); return; }
     if (route.chat === convId) return;
     setLoadingChat(true);
@@ -91,15 +94,21 @@ export function Ask({ resetKey }: { resetKey: number }) {
     const imgs = forceMode ? [] : files;
     const q = text.trim() || (imgs.length ? 'Please look at the attached image and help me with it.' : '');
     if (!q || busy) return;
-    setBusy(true); setFiles([]);
-    setThread(t => [...t, { role: 'user', text: text.trim(), images: imgs }, { role: 'ai', loading: true }]);
     const m2 = forceMode || (mode === 'general' && IMAGE_ASK.test(q) ? 'image' : mode);
+    const reuse = !imgs.length && !forceMode && earlier && earlier.left > 0 && m2 !== 'translate' && m2 !== 'search' ? earlier.images : [];
+    setBusy(true); setFiles([]);
+    if (imgs.length) setEarlier({ images: imgs, left: 3 });
+    else if (reuse.length) setEarlier(e => e && { ...e, left: e.left - 1 });
+    const note = m2 === 'image' ? 'Creating your image… usually 20–40 seconds' : imgs.length || reuse.length ? 'Looking at the image…' : undefined;
+    setThread(t => [...t, { role: 'user', text: text.trim(), images: imgs }, { role: 'ai', loading: true, note }]);
     const body = { question: q, department: scope || undefined, conversation_id: convId || undefined };
     let msg: Msg;
     try {
       if (m2 === 'image') {                           // owner 2026-10-24: create an image (not stored; download it)
-        const r = await api('/v1/images', { method: 'POST', body: { prompt: q, references: imgs } });
-        msg = { role: 'ai', kind: 'image', question: q, image: r.image, prompt: r.prompt };
+        const refs = imgs.length ? imgs : reuse;
+        const r = await api('/v1/images', { method: 'POST', body: { prompt: q, references: refs } });
+        msg = { role: 'ai', kind: 'image', question: q, image: r.image, prompt: r.prompt, caption: r.caption, files: r.files, references: refs, quality: r.quality };
+        setEarlier({ images: [r.image], left: 3 });
       } else if (m2 === 'translate') {                     // not saved to chat history: client messages stay private
         const r = await api('/v1/translate', { method: 'POST', body: { text: q, target } });
         msg = { role: 'ai', kind: 'translate', question: q, english: r.english, target: r.target };
@@ -107,9 +116,10 @@ export function Ask({ resetKey }: { resetKey: number }) {
         const r = await api('/v1/search', { method: 'POST', body });
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
       } else {
-        const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general', web_search: web, images: imgs } });
+        const r = await api('/v1/ask', { method: 'POST', body: { ...body, mode: 'general', web_search: web, images: imgs.length ? imgs : reuse, images_earlier: !imgs.length && reuse.length > 0 } });
         if (r.image) {                                // owner 2026-10-25: the AI recognised an image request in any wording
-          setThread(t => [...t.slice(0, -1), { role: 'ai', kind: 'image', question: q, image: r.image, prompt: r.image_prompt }]);
+          setThread(t => [...t.slice(0, -1), { role: 'ai', kind: 'image', question: q, image: r.image, prompt: r.image_prompt, caption: r.answer, files: r.image_files, references: imgs.length ? imgs : reuse }]);
+          setEarlier({ images: [r.image], left: 3 });
           setBusy(false); saved(r); return;
         }
         msg = { role: 'ai', kind: 'ask', question: q, query_id: r.query_id, answer: r.answer, confidence: r.confidence, sources: r.sources || [], web_sources: r.web_sources || [], found: !r.actions, gap_id: r.gap_id }; saved(r);
@@ -122,11 +132,24 @@ export function Ask({ resetKey }: { resetKey: number }) {
     if (!convId) { setConvId(r.conversation_id); replaceRoute('chat/' + r.conversation_id); }
     app.reloadChats();
   };
+  const imageAgain = async (m: Extract<Msg, { kind: 'image' }>, final: boolean) => {
+    if (busy) return;
+    setBusy(true);
+    setThread(t => [...t, { role: 'ai', loading: true, note: final ? 'Making the final-quality version… up to a minute' : 'Creating another version… usually 20–40 seconds' }]);
+    let msg: Msg;
+    try {
+      const refs = m.references || [];
+      const r = await api('/v1/images', { method: 'POST', body: { prompt: m.question, references: refs, final } });
+      msg = { role: 'ai', kind: 'image', question: m.question, image: r.image, prompt: r.prompt, caption: r.caption, files: r.files, references: refs, quality: r.quality };
+      setEarlier({ images: [r.image], left: 3 });
+    } catch (e) { msg = { role: 'ai', error: (e as Error).message, question: m.question }; }
+    setThread(t => [...t.slice(0, -1), msg]); setBusy(false);
+  };
   const update = (i: number, patch: Partial<Msg>) => setThread(t => t.map((m, k) => (k === i ? ({ ...m, ...patch } as Msg) : m)));
   const retry = (i: number, question: string) => { setThread(t => t.slice(0, i - 1)); setTimeout(() => submit(question)); };
 
   const composer = (compact: boolean) => (
-    <Composer compact={compact} busy={busy} mode={mode} setMode={setMode} target={target} setTarget={setTarget} web={web} setWeb={setWeb} files={files} setFiles={setFiles} scope={scope} setScope={setScope} onSend={submit} />
+    <Composer compact={compact} busy={busy} mode={mode} setMode={setMode} target={target} setTarget={setTarget} web={web} setWeb={setWeb} files={files} setFiles={setFiles} earlier={earlier} clearEarlier={() => setEarlier(null)} scope={scope} setScope={setScope} onSend={submit} />
   );
 
   if (loadingChat) return <Loading />;
@@ -177,7 +200,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
     <div className="hero-glow relative flex-1 flex flex-col">
       <div className="relative z-[1] flex-1 flex flex-col max-w-[780px] w-full mx-auto px-5">
         <div className="flex-1 flex flex-col gap-[26px] pt-14 pb-6">
-          {thread.map((m, i) => <Message key={i} m={m} i={i} last={i === thread.length - 1} update={update} retry={retry} submit={submit} />)}
+          {thread.map((m, i) => <Message key={i} m={m} i={i} last={i === thread.length - 1} update={update} retry={retry} submit={submit} again={imageAgain} />)}
           <div ref={threadEnd} />
         </div>
         <div className="sticky bottom-0 pt-2 pb-5 bg-gradient-to-b from-transparent to-canvas to-30%">
@@ -198,8 +221,8 @@ function Waves() {
 }
 
 /* PRD §4.1 composer: + · Web Search · Company Knowledge on the left; microphone · send on the right. */
-function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb, files, setFiles, scope, setScope, onSend }: {
-  compact: boolean; busy: boolean; mode: string; setMode: (m: string) => void; target: string; setTarget: (t: string) => void; web: boolean; setWeb: (w: boolean) => void; files: string[]; setFiles: (f: string[]) => void; scope: string | null; setScope: (s: string | null) => void; onSend: (q: string) => void;
+function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb, files, setFiles, earlier, clearEarlier, scope, setScope, onSend }: {
+  compact: boolean; busy: boolean; mode: string; setMode: (m: string) => void; target: string; setTarget: (t: string) => void; web: boolean; setWeb: (w: boolean) => void; files: string[]; setFiles: (f: string[]) => void; earlier: { images: string[]; left: number } | null; clearEarlier: () => void; scope: string | null; setScope: (s: string | null) => void; onSend: (q: string) => void;
 }) {
   const app = useApp();
   const [text, setText] = useState(''); const [pop, setPop] = useState<'mode' | 'scope' | null>(null);
@@ -239,11 +262,19 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb
       onDragOver={e => { if (Array.from(e.dataTransfer.items).some(i => i.kind === 'file')) { e.preventDefault(); setDrag(true); } }}
       onDragLeave={() => setDrag(false)}
       onDrop={e => { e.preventDefault(); setDrag(false); addImages(Array.from(e.dataTransfer.files)); }}>
+      {!files.length && earlier && earlier.left > 0 && mode !== 'translate' && (
+        <div className="flex items-center gap-2 mb-2 text-[13px] text-muted" aria-label="Image from earlier in this chat">
+          <img src={earlier.images[0]} alt="" className="h-9 w-9 object-cover rounded-lg border border-line opacity-80" />
+          Follow-ups use the image{earlier.images.length > 1 ? 's' : ''} from earlier
+          <button className="px-1.5 rounded-full hover:bg-canvas" aria-label="Stop using the earlier image" title="Stop using it" onClick={clearEarlier}>✕</button>
+        </div>
+      )}
       {files.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2" aria-label="Attached images">
           {files.map((u, k) => (
             <div key={k} className="relative">
               <img src={u} alt={`Attached image ${k + 1}`} className="h-16 w-16 object-cover rounded-xl border border-line" />
+              {files.length > 1 && <span className="absolute bottom-0.5 left-0.5 px-1.5 rounded-md bg-ink/80 text-white text-[11px] font-bold">{k + 1}</span>}
               <button className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-ink text-white text-xs leading-5" aria-label={`Remove image ${k + 1}`}
                 onClick={() => setFiles(files.filter((_, j) => j !== k))}>✕</button>
             </div>))}
@@ -399,25 +430,52 @@ function openSources(sources: Source[]) {
   ));
 }
 
-function Message({ m, i, last = false, update, retry, submit }: { m: Msg; i: number; last?: boolean; update: (i: number, p: any) => void; retry: (i: number, q: string) => void; submit: (q: string, mode?: string) => void }) {
+/* QA 2026-10-25: click an image to see it full size (on a checkerboard, so transparency is visible) */
+function zoom(src: string) {
+  openDrawer(close => (
+    <div>
+      <div className="flex items-center"><h2 className="text-xl font-extrabold">Image</h2><span className="flex-1" />
+        <a className="btn sm" href={src} download="quixotic-image.png"><Icon name="down" size={15} /> Download</a>
+        <button className="btn ghost sm" onClick={close} aria-label="Close"><Icon name="x" size={18} /></button></div>
+      <div className="checker rounded-2xl mt-4"><img src={src} alt="" className="w-full rounded-2xl border border-line" /></div>
+    </div>
+  ));
+}
+
+function Message({ m, i, last = false, update, retry, submit, again }: { m: Msg; i: number; last?: boolean; update: (i: number, p: any) => void; retry: (i: number, q: string) => void; submit: (q: string, mode?: string) => void; again: (m: Extract<Msg, { kind: 'image' }>, final: boolean) => void }) {
   const app = useApp();
   if (m.role === 'user') return (
     <div className="msg-u">
-      {m.images && m.images.length > 0 && <div className="flex flex-wrap gap-2 mb-1.5 justify-end">{m.images.map((u, k) => <img key={k} src={u} alt="" className="h-24 max-w-[180px] object-cover rounded-xl" />)}</div>}
+      {m.images && m.images.length > 0 && <div className="flex flex-wrap gap-2 mb-1.5 justify-end">{m.images.map((u, k) => (
+        <button key={k} className="relative" aria-label={`Open image ${k + 1}`} title="Open" onClick={() => zoom(u)}>
+          <img src={u} alt="" className="h-24 max-w-[180px] object-cover rounded-xl" />
+          {m.images!.length > 1 && <span className="absolute bottom-1 left-1 px-1.5 rounded-md bg-ink/80 text-white text-[11px] font-bold">Image {k + 1}</span>}
+        </button>))}</div>}
       {m.text}
     </div>);
   const av = <span className="w-[30px] h-[30px] mt-0.5 rounded-full bg-orange text-white grid place-items-center flex-none"><svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" /></svg></span>;
   const wrap = (body: React.ReactNode) => <div className="flex gap-3 items-start">{av}<div className="flex-1 min-w-0">{body}</div></div>;
-  if ('loading' in m) return wrap(<div className="typing" aria-label="Writing an answer"><i /><i /><i /></div>);
+  if ('loading' in m) return wrap(<div className="flex items-center gap-3"><div className="typing" aria-label="Writing an answer"><i /><i /><i /></div>{m.note && <small className="text-muted">{m.note}</small>}</div>);
   if ('error' in m) return wrap(<>
     <Banner kind="err">{m.error}</Banner>
     <button className="btn sm mt-2.5" onClick={() => retry(i, m.question)}><Icon name="refresh" size={15} /> Retry</button>
   </>);
   if (m.kind === 'image') return wrap(<>
-    <img src={m.image} alt={m.question} className="w-full max-w-[520px] rounded-2xl border border-line shadow-sm" />
+    {m.caption && <p className="mb-2 whitespace-pre-wrap">{m.caption}</p>}
+    <button className="block w-full max-w-[520px] checker rounded-2xl" aria-label="Open full size" title="Open full size" onClick={() => zoom(m.image)}>
+      <img src={m.image} alt={m.question} className="w-full rounded-2xl border border-line shadow-sm" />
+    </button>
+    {m.files && m.files.length > 0 && <div className="flex flex-wrap items-end gap-3 mt-2.5" aria-label="Platform sizes">
+      {m.files.map(f => (
+        <a key={f.name} href={f.image} download={`quixotic-${f.name}.png`} className="flex flex-col items-center gap-1 text-[12px] text-muted hover:text-ink" title={`Download ${f.name.replace('x', '×')} (preview on dark and light)`}>
+          <span className="flex gap-1"><span className="p-1 rounded bg-[#18181b]"><img src={f.image} alt="" /></span><span className="p-1 rounded bg-white border border-line"><img src={f.image} alt="" /></span></span>
+          <span className="flex items-center gap-1">{f.name.replace('x', '×')} <Icon name="down" size={13} /></span>
+        </a>))}
+    </div>}
     <div className="flex flex-wrap items-center gap-2 mt-2.5">
       <a className="btn sm" href={m.image} download="quixotic-image.png"><Icon name="down" size={15} /> Download</a>
-      <button className="btn sm" onClick={() => submit(m.question, 'image')}><Icon name="refresh" size={15} /> Another version</button>
+      <button className="btn sm" onClick={() => again(m, false)}><Icon name="refresh" size={15} /> Another version</button>
+      {m.quality !== 'high' && <button className="btn sm" title="Cleaner lines and text; takes longer" onClick={() => again(m, true)}>Final quality</button>}
       <small className="text-muted">Images are not saved. Download the ones you want to keep.</small>
     </div>
     {m.prompt && <details className="more mt-2"><summary>Prompt used</summary>

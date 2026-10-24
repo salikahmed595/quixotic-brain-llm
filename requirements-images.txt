@@ -1,0 +1,3 @@
+# Owner-approved image features (2026-10-25): image post-processing (exact banner sizes, emote packs, edge checks).
+# Kept apart from requirements.txt so adding it does not rebuild the large torch layer of the Docker image.
+pillow>=11

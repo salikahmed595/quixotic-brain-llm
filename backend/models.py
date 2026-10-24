@@ -50,6 +50,7 @@ class AnswerContext:
     preferences: dict = field(default_factory=dict)  # the asker's own style choices (Personalization), already sanitised
     user_language: str = ""                          # detected script of the question (english/urdu/roman_urdu/mixed)
     images: list[str] = field(default_factory=list)   # owner 2026-10-24: pasted images (data URLs), never stored
+    images_earlier: bool = False                      # QA 2026-10-25: the images were shared earlier in the chat (follow-up)
     web_search: bool = False                          # owner 2026-10-24: user switched Web Search on for this question
     general_mode: bool = False                        # owner 2026-10-21: general assistant, company knowledge as context
     guidance_only: bool = False                       # owner 2026-10-21: no knowledge, no matching past chat -> careful reply advice

@@ -103,6 +103,10 @@ def _as_paragraphs(question: str, text: str) -> str:
     return "\n\n".join(blocks)
 
 
+# QA 2026-10-25 (image audit U3): the model wrote "(worked in past chats)" with no past chat behind it.
+_PAST_CLAIM = re.compile(r"\s*\((?:this\s+)?(?:worked|works|closed)\s+in\s+(?:past|previous|earlier)\s+(?:chats?|conversations?|deals?)\)", re.I)
+
+
 def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
     """A client message (>>) offering an unapproved term is dropped together with its "Option N" heading; only if fewer than two
     messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
@@ -193,7 +197,7 @@ class AskService:
             sales_department_ids: frozenset[UUID] = frozenset(), levels: frozenset[str] = frozenset(),
             history: Sequence[tuple[str, str]] = (), asker: Optional[dict] = None,
             preferences: Optional[dict] = None, recheck=None, web_search: bool = False,
-            images: Sequence[str] = ()) -> AskResult:
+            images: Sequence[str] = (), images_earlier: bool = False) -> AskResult:
         """`history`: earlier (question, answer) pairs of the same chat, oldest first. Used only to understand what a short
         follow-up refers to, never as a source of facts. `recheck(version_ids) -> still allowed ids` re-checks permissions and
         publication right before the answer is returned (PRD §8 "Recheck permissions before providing the final source/answer")."""
@@ -212,10 +216,11 @@ class AskService:
             if min_sim is not None:
                 cases = [c for c in cases if c.similarity >= min_sim]
         images = list(images)                                                   # owner 2026-10-24: pasted images (per request)
+        earlier = bool(images) and images_earlier                                 # QA 2026-10-25: follow-up about an earlier image
         if web_search:                                                           # owner 2026-10-24: user switched Web Search on
-            return self._web(out, history, asker, preferences, recheck, base, images)
+            return self._web(out, history, asker, preferences, recheck, base, images, earlier)
         if getattr(self.settings, "general_assistant", False):                   # owner 2026-10-21: ChatGPT-like assistant
-            return self._general(out, cases, history, asker, preferences, recheck, base, images)
+            return self._general(out, cases, history, asker, preferences, recheck, base, images, earlier)
         if not out.candidates or out.confidence == "low":
             return self._fallback(out, cases, min_sim, history, asker, preferences, base)
 
@@ -245,7 +250,7 @@ class AskService:
                 sources.append(source_of(c))
         return AskResult(answer=answer, found=True, sources=sources, historical_cases=hist, **base)
 
-    def _web(self, out, history, asker, preferences, recheck, base, images=()) -> AskResult:
+    def _web(self, out, history, asker, preferences, recheck, base, images=(), earlier=False) -> AskResult:
         """Web Search on: current web results (OpenAI web_search tool) + permitted company knowledge for Quixotic's own facts."""
         if not getattr(self.settings, "web_search_enabled", False):
             raise RuntimeError("Web Search is not enabled on this server.")
@@ -255,7 +260,7 @@ class AskService:
             knowledge = [c for c in knowledge if c.version_id in allowed]
         context = AnswerContext(knowledge=knowledge, history=list(history), asker=asker or {}, preferences=preferences or {},
                                 general_mode=True, web_search=True, user_language=getattr(out.query, "language", "") or "",
-                                images=list(images))
+                                images=list(images), images_earlier=earlier)
         text, links = self.generator.generate_web_answer(context, out.query.original)
         if text.lstrip().upper().startswith("CREATE_IMAGE"):        # owner 2026-10-25
             req = text.split(":", 1)[1].strip() if ":" in text else out.query.original
@@ -266,7 +271,7 @@ class AskService:
         return AskResult(answer=text.strip(), found=True, confidence="web", confidence_score=out.confidence_score,
                          sources=[source_of(c) for c in knowledge][:3], web_sources=links, query=out.query, retrieved=out.candidates)
 
-    def _general(self, out, cases, history, asker, preferences, recheck, base, images=()) -> AskResult:
+    def _general(self, out, cases, history, asker, preferences, recheck, base, images=(), earlier=False) -> AskResult:
         """General assistant: always answers. Permitted, published knowledge (filters applied before retrieval, §8/§10) and similar
         past chats are passed as context; weak matches are left out so they cannot mislead. A missing company fact is a gap (§9)."""
         knowledge = order_by_priority(out.candidates, self.settings.priority_tiers) if out.candidates and out.confidence != "low" else []
@@ -275,7 +280,8 @@ class AskService:
             knowledge = [c for c in knowledge if c.version_id in allowed]
         context = AnswerContext(knowledge=knowledge, sales_cases=cases, history=list(history), asker=asker or {},
                                 preferences=preferences or {}, general_mode=True,
-                                user_language=getattr(out.query, "language", "") or "", images=list(images))
+                                user_language=getattr(out.query, "language", "") or "", images=list(images),
+                                images_earlier=earlier)
         text = self.generator.generate_answer(context, out.query.original).strip()
         user_text = " ".join([out.query.original, *(h[0] for h in history)])
         if not context.images and _invented_money(text, knowledge, user_text):   # figures in a pasted screenshot are the user's facts
@@ -292,6 +298,8 @@ class AskService:
         text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)   # format labels are not for the reader
         text = _drop_term_offers(text, knowledge, user_text)            # payment plans, discounts ... only when knowledge allows
         text = _as_paragraphs(out.query.original, text)                 # QAI-04: "one paragraph" means one paragraph
+        if not any(c.outcome == SUCCESSFUL_OUTCOME for c in cases):     # QA 2026-10-25: no unbacked "worked in past chats"
+            text = _PAST_CLAIM.sub("", text)
         missing = MISSING_COMPANY_INFO in text
         text = "\n".join(l for l in text.replace(MISSING_COMPANY_INFO, "").splitlines()).strip()
         for marker in (NO_APPROVED_ANSWER, NO_RELEVANT_HISTORY, GENERAL_GUIDANCE, OFF_TOPIC):

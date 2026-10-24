@@ -47,7 +47,8 @@ def test_art_director_falls_back_to_the_users_words_and_validates_choices():
     from backend.generation.providers import OpenAIGenerator
     g = OpenAIGenerator.__new__(OpenAIGenerator)
     g._complete = lambda system, user, n: '{"prompt": "chibi panda emote", "size": "999x1", "background": "transparent"}'
-    assert g.direct_image("panda emote") == {"prompt": "chibi panda emote", "size": "1024x1024", "background": "transparent"}
+    assert g.direct_image("panda emote") == {"prompt": "chibi panda emote", "size": "1024x1024", "background": "transparent",
+                                             "asset": "other", "edit": False, "fan_art": False, "text": ""}
     g._complete = lambda system, user, n: "sorry, no json"
     assert g.direct_image("a fox")["prompt"] == "a fox"
 

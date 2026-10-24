@@ -96,6 +96,8 @@
   .banner.ok { background: var(--color-good-50); color: var(--color-good); }
   .banner.err { background: var(--color-bad-50); color: var(--color-bad); }
   .keybox { font-family: ui-monospace, Menlo, Consolas, monospace; background: var(--color-canvas); border: 1px dashed var(--color-orange); border-radius: 12px; padding: 12px 14px; word-break: break-all; }
+  /* QA 2026-10-25: transparent images shown on a checkerboard so the transparency is visible */
+  .checker { background: repeating-conic-gradient(#e7e5e4 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
   .typing { display: inline-flex; gap: 5px; padding: 8px 0; }
   .typing i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-muted); animation: bounce 1s infinite; }
   .typing i:nth-child(2) { animation-delay: .15s; }

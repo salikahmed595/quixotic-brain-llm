@@ -35,8 +35,8 @@ export interface Source { title: string; section?: string | null; version: numbe
 
 export type Msg =
   | { role: 'user'; text: string; images?: string[] }
-  | { role: 'ai'; kind: 'image'; question: string; image: string; prompt?: string }
-  | { role: 'ai'; loading: true }
+  | { role: 'ai'; kind: 'image'; question: string; image: string; prompt?: string; caption?: string; files?: { name: string; image: string }[]; references?: string[]; quality?: string }
+  | { role: 'ai'; loading: true; note?: string }
   | { role: 'ai'; error: string; question: string }
   | { role: 'ai'; kind: 'search'; question: string; results: { source: string; text: string }[] }
   | { role: 'ai'; kind: 'translate'; question: string; english: string; target?: string }

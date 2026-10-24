@@ -41,6 +41,9 @@ class AskRequest(_Question):
     conversation_id: Optional[UUID] = None   # continue a saved chat; omit to start a new one (signed-in users only)
     web_search: bool = False                 # owner 2026-10-24: the user switched Web Search on for this question
     images: list[str] = Field(default_factory=list, max_length=4)   # owner 2026-10-24: pasted images as data URLs
+    # QA 2026-10-25: follow-ups keep the picture. The browser resends the chat's last image(s) (nothing is stored on the server)
+    # and marks them as shared earlier, so "what about the second line?" or "make it blue" still sees the image.
+    images_earlier: bool = False
 
     @field_validator("images")
     @classmethod
@@ -176,7 +179,7 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         res = svc.ask.ask(body.question, scope, include_sales_history=body.mode == "sales_coach",
                           sales_department_ids=scope, levels=levels,
                           history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs, recheck=recheck,
-                          web_search=body.web_search, images=body.images)
+                          web_search=body.web_search, images=body.images, images_earlier=body.images_earlier)
     except RuntimeError as e:                    # e.g. no answer-model API key configured yet
         raise HTTPException(503, str(e))
     gap_id = None
@@ -187,10 +190,12 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
     if res.image_request:                                                  # owner 2026-10-25: chat asked for a picture
         from ...analytics import audit as _audit
         from .images import make_image
-        made = make_image(svc, res.image_request, body.images)
+        made = make_image(svc, res.image_request, body.images, language=res.query.language if res.query else "")
         _audit.record(svc.ops, _audit.IMAGE_GENERATION, caller.principal.user_id, caller.principal.employee_id,
                       chars=len(res.image_request), references=len(body.images), via="chat")
-        out.update({"image": made["image"], "image_prompt": made["prompt"], "answer": f"Image created: {res.image_request}"})
+        # QA 2026-10-25: the reply states what was really delivered, never the internal prompt
+        out.update({"image": made["image"], "image_prompt": made["prompt"], "answer": made["caption"], "image_files": made["files"],
+                    "image_size": made["size"]})
     if can(caller.principal.role, P.VIEW_SOURCES):
         out["sources"] = res.sources
     if res.historical_cases is not None:
@@ -203,7 +208,7 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         out["gap_id"] = str(gap_id)
     stored_q = body.question + (f"\n[{len(body.images)} image(s) attached]" if body.images else "")   # images are not stored
     if out.get("image"):                     # the picture itself is not stored in chat history (size, privacy)
-        assistant = {k: v for k, v in out.items() if k != "image"}
+        assistant = {k: v for k, v in out.items() if k not in ("image", "image_files")}
     else:
         assistant = None
     cid = _remember(svc, caller, body.conversation_id, stored_q, body.mode, requested,

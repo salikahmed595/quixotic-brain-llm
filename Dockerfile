@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git postgresql-
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
+COPY requirements-images.txt .
+RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements-images.txt
 COPY backend ./backend
 COPY workers ./workers
 COPY migrations ./migrations

@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 
 from ..models import AnswerContext
+from .image_post import ASSETS
 from .prompt import (INTERPRET_PROMPT, SYSTEM_PROMPT, system_prompt_for, TRANSLATE_PROMPT, build_interpret_input, build_translate_input, IMAGE_DIRECTOR_PROMPT, build_image_director_input,
                      build_user_prompt)
 
@@ -90,7 +91,9 @@ class OpenAIGenerator(_Interprets):
             extra["verbosity"] = _verbosity(context, question)
         user = build_user_prompt(context, question)
         if context.images:                                     # owner 2026-10-24: pasted images go with the question
-            user = [{"type": "text", "text": user}, *({"type": "image_url", "image_url": {"url": u}} for u in context.images)]
+            # QA 2026-10-25: "high" detail so small text in screenshots and posters is read exactly
+            user = [{"type": "text", "text": user},
+                    *({"type": "image_url", "image_url": {"url": u, "detail": "high"}} for u in context.images)]
         r = self._client.chat.completions.create(
             model=self._model, **extra,
             messages=[{"role": "system", "content": system_prompt_for(context)}, {"role": "user", "content": user}])
@@ -117,18 +120,22 @@ class OpenAIGenerator(_Interprets):
         try:
             data = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
         except (ValueError, json.JSONDecodeError):
-            return {"prompt": request, "size": "1024x1024", "background": "opaque"}
+            return {"prompt": request, "size": "1024x1024", "background": "opaque", "asset": "other", "edit": has_references,
+                    "fan_art": False, "text": ""}
         size = data.get("size") if data.get("size") in ("1024x1024", "1536x1024", "1024x1536") else "1024x1024"
         background = "transparent" if data.get("background") == "transparent" else "opaque"
         prompt = str(data.get("prompt") or request).strip()[:3500]
-        return {"prompt": prompt, "size": size, "background": background}
+        asset = data.get("asset") if data.get("asset") in ASSETS else "other"
+        return {"prompt": prompt, "size": size, "background": background, "asset": asset,
+                "edit": bool(data.get("edit")) and has_references, "fan_art": bool(data.get("fan_art")),
+                "text": str(data.get("text") or "")[:80]}
 
 
     def generate_web_answer(self, context: AnswerContext, question: str) -> tuple[str, list[dict]]:
         """Owner 2026-10-24 Web Search: OpenAI Responses API with the built-in web_search tool. Returns (text, [{title, url}])."""
         text_in = build_user_prompt(context, question)
         web_input = text_in if not context.images else [{"role": "user", "content": [
-            {"type": "input_text", "text": text_in}, *({"type": "input_image", "image_url": u} for u in context.images)]}]
+            {"type": "input_text", "text": text_in}, *({"type": "input_image", "image_url": u, "detail": "high"} for u in context.images)]}]
         r = self._client.responses.create(
             model=self._model, tools=[{"type": "web_search"}], instructions=system_prompt_for(context),
             input=web_input,
