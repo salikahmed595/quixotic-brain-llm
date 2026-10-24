@@ -73,9 +73,17 @@ ASK_TEAM_LEAD = ("Payment plans, discounts and similar options are not in the co
                  "which options are approved.")
 
 
-def _unapproved_terms(text: str, knowledge, user_text: str = "") -> set:
+# QA 2026-10-25 (owner: never promise what nobody confirmed): measured on the server, gpt-5-mini kept offering "two quick orange
+# variants", "a few custom idea sketches" and "I'll request priority for your order" despite the prompt rule. Such client
+# messages are removed in code like unapproved payment terms (only the >> messages; advice to the employee stays).
+_PROMISES = re.compile(r"\b(?:two|three|four|2|3|4|a few|a couple(?: of)?)"
+                       r"\s+(?:quick\s+|free\s+|custom\s+|rough\s+)*(?:\w+\s+){0,2}(?:variants?|variations?|versions?|mock-?ups?|sketch(?:es)?|drafts?|previews?)\b|"
+                       r"\b(?:quick|free)\s+(?:mock-?up|sketch|draft|preview)s?\b|\bprioriti[sz]e\b|\b(?:request|get|give)\s+(?:you\s+)?priority\b|\brush (?:order|delivery)\b", re.I)
+
+
+def _unapproved_terms(text: str, knowledge, user_text: str = "", pattern=_TERMS) -> set:
     allowed = (" ".join((c.text or "") for c in knowledge) + " " + user_text).lower()     # the user's own facts count too
-    return {m.group(0).lower() for m in _TERMS.finditer(text) if m.group(0).lower() not in allowed}
+    return {m.group(0).lower() for m in pattern.finditer(text) if m.group(0).lower() not in allowed}
 
 
 _PARAGRAPH_ASK = re.compile(r"\b(?:one|1|single|ek|a)\s+paragraph|paragraph\s+(?:each|form)|in\s+paragraphs?\b", re.I)
@@ -107,7 +115,7 @@ def _as_paragraphs(question: str, text: str) -> str:
 _PAST_CLAIM = re.compile(r"\s*\((?:this\s+)?(?:worked|works|closed)\s+in\s+(?:past|previous|earlier)\s+(?:chats?|conversations?|deals?)\)", re.I)
 
 
-def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
+def _drop_term_offers(text: str, knowledge, user_text: str = "", pattern=_TERMS, advice: bool = True) -> str:
     """A client message (>>) offering an unapproved term is dropped together with its "Option N" heading; only if fewer than two
     messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
     line, e.g. '- Offer a payment plan') becomes one 'ask your team lead' line. 'Why:' lines are kept."""
@@ -123,14 +131,15 @@ def _drop_term_offers(text: str, knowledge, user_text: str = "") -> str:
         if asks:
             out.append(line)
             continue
-        if re.match(r"(?:\*\*)?option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge, user_text):
+        if re.match(r"(?:\*\*)?option\s*\d", stripped, re.I) and _unapproved_terms(line, knowledge, user_text, pattern):
             skip_msg = dropped = True                        # "Option 2 - Payment plan": heading and its message go
             continue
         if skip_msg and stripped.startswith(">>"):
             skip_msg = False
             continue
         skip_msg = False
-        if stripped.lower().startswith("why:") or not _unapproved_terms(line, knowledge, user_text):
+        if (stripped.lower().startswith("why:") or not _unapproved_terms(line, knowledge, user_text, pattern)
+                or (not advice and not stripped.startswith(">>"))):
             out.append(line)
         elif stripped.startswith(">>"):
             dropped = True
@@ -306,6 +315,7 @@ class AskService:
                              query=out.query, retrieved=out.candidates)
         text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)   # format labels are not for the reader
         text = _drop_term_offers(text, knowledge, user_text)            # payment plans, discounts ... only when knowledge allows
+        text = _drop_term_offers(text, knowledge, user_text, _PROMISES, advice=False)   # no promised variants, sketches, priority
         text = _as_paragraphs(out.query.original, text)                 # QAI-04: "one paragraph" means one paragraph
         if not any(c.outcome == SUCCESSFUL_OUTCOME for c in cases):     # QA 2026-10-25: no unbacked "worked in past chats"
             text = _PAST_CLAIM.sub("", text)

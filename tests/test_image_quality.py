@@ -157,3 +157,14 @@ def test_create_image_mode_lets_the_model_decide_and_client_replies_mirror_the_c
     flat = " ".join(GENERAL_SYSTEM_PROMPT.split())
     assert "in the CLIENT's language and script" in flat and "moves the sale forward" in flat
     assert "pasted message from a client or prospect is always in scope" in flat
+
+
+def test_promised_variants_sketches_and_priority_are_removed_from_client_messages():
+    """QA 2026-10-25: live replies offered 'two quick orange variants' and 'I'll request priority for your order'."""
+    from backend.retrieval.ask import _PROMISES, _drop_term_offers
+    text = ("Best approach: confirm the shade.\n**Option 1 - Shade**\n>> Which orange do you like, bright or muted?\n"
+            "**Option 2 - Samples**\n>> I can prepare two quick orange variants for you.\n"
+            "**Option 3 - Priority**\n>> I'll request priority for your order.\nWhy: honest")
+    out = _drop_term_offers(text, [], "", _PROMISES, advice=False)
+    assert "variants" not in out and "priority for your order" not in out and "Best approach" in out
+    assert out.count(">>") == 2 and "Let me check the options with my team" in out
