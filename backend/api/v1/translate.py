@@ -57,8 +57,11 @@ def translate(body: TranslateIn, p: Principal = Depends(require(P.ASK)), svc: Se
     if not _LANGUAGE_NAME.match(name) or any(ch.isdigit() for ch in name):
         raise HTTPException(422, "Type the name of a language, e.g. Spanish or Japanese.")
     target = next((t for t in TARGET_LANGUAGES if t.lower() == name.lower()), name)
+    from .auth import clean_preferences
+    user = svc.users.get(p.user_id) or {}
+    slang = bool(clean_preferences(user.get("preferences")).get("discord_slang"))   # owner 2026-10-24: Discord Slang Mode
     try:
-        english = gen.translate_for_client(body.text.strip(), target)
+        english = gen.translate_for_client(body.text.strip(), target, slang) if slang else gen.translate_for_client(body.text.strip(), target)
         if _same(english, body.text):                 # QAI-01: came back untranslated -> one firm retry
             english = gen.translate_for_client(f"{body.text.strip()}\n\n(Translate this into {target}; do not repeat the original.)",
                                                target)

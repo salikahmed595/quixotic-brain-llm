@@ -287,7 +287,8 @@ def clean_preferences(raw: dict | None) -> dict:
     text = lambda key, n: " ".join(str(raw.get(key) or "").split())[:n]
     return {"answer_style": pick("answer_style", STYLES, "balanced"), "tone": pick("tone", TONES, "professional"),
             "language": pick("language", LANGUAGES, "auto"), "about_me": text("about_me", 500), "instructions": text("instructions", 500),
-            "learn": raw.get("learn") is not False}                     # learn from my 👍/👎 (default on)
+            "learn": raw.get("learn") is not False,                     # learn from my 👍/👎 (default on)
+            "discord_slang": raw.get("discord_slang") is True}         # owner 2026-10-24: Discord Slang Mode (default off)
 
 
 class ProfileUpdate(BaseModel):
@@ -302,6 +303,7 @@ class PreferencesUpdate(BaseModel):
     about_me: str = Field(default="", max_length=500)
     instructions: str = Field(default="", max_length=500)
     learn: bool = True
+    discord_slang: bool = False              # owner 2026-10-24: Discord Slang Mode
 
 
 class PasswordChange(BaseModel):

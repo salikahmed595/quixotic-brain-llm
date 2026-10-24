@@ -20,9 +20,9 @@ class _Interprets:
         text = self._complete(INTERPRET_PROMPT, build_interpret_input(question, history), 80)
         return " ".join(text.split()).strip(" \"'`")[:300]
 
-    def translate_for_client(self, text: str, target: str = "English") -> str:
+    def translate_for_client(self, text: str, target: str = "English", slang: bool = False) -> str:
         """Owner-approved addition (docs/PRD_GAPS.md §0): any language -> the selected target language, client-ready."""
-        return self._complete(TRANSLATE_PROMPT, build_translate_input(text, target), 2000,
+        return self._complete(TRANSLATE_PROMPT, build_translate_input(text, target, slang), 2000,
                               **self._translate_kwargs).strip().strip('"')
 
 
@@ -58,7 +58,10 @@ _WANTS_DETAIL = re.compile(r"\b(detail\w*|step[- ]by[- ]step|explain|in depth|th
 def _verbosity(context: AnswerContext, question: str) -> str:
     """Owner 2026-10-24 'length follows the request'. MEASURED live: with the 'balanced' style, gpt-5-mini answered 'what colour
     works best for a gaming logo?' in 342 words despite the prompt; the GPT-5 verbosity setting is the reliable lever."""
-    style = (context.preferences or {}).get("answer_style")
+    prefs = context.preferences or {}
+    if prefs.get("discord_slang"):                      # Discord Slang Mode: short messages
+        return "low"
+    style = prefs.get("answer_style")
     if _WANTS_DETAIL.search(question or "") or style == "detailed":
         return "high"
     return "low"

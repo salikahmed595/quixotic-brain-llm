@@ -264,6 +264,9 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb
         {/* QAI-12: an X removes the selected mode at once (before, only a page refresh did) */}
         {mode === 'search' && <span className="chip orange gap-1">Search only
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel Search only" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
+        {app.me.preferences?.discord_slang === true && <span className="chip gap-1" title="Discord Slang Mode is on (Personalization)">Discord slang
+          <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Turn off Discord Slang Mode" title="Turn off"
+            onClick={async () => { const prefs = await api('/v1/auth/preferences', { method: 'PUT', body: { ...app.me.preferences, discord_slang: false } }); app.setMe({ ...app.me, preferences: prefs }); toast('Discord Slang Mode off'); }}>✕</button></span>}
         {mode === 'image' && <span className="chip orange gap-1">Create image
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel image creation" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
         {mode === 'translate' && <span className="chip orange gap-1">Translate to

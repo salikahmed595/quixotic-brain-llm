@@ -253,6 +253,20 @@ def system_prompt_for(context: AnswerContext) -> str:
     return GENERAL_SYSTEM_PROMPT if getattr(context, "general_mode", False) else SYSTEM_PROMPT
 
 
+# Owner 2026-10-24: "Discord Slang Mode" (per-user setting, default off). Changes only HOW messages are written; context, sales
+# rules, company facts and accuracy stay exactly the same.
+DISCORD_SLANG_NOTE = """DISCORD SLANG MODE is ON for this user. Write every message (the client messages and your own short notes) like a young
+Discord user chatting with friends:
+- short and natural: most messages 2-15 words; lowercase, casual grammar, abbreviations;
+- slang used naturally, not forced: wsg, hru, wyd, ngl, fr, lmao, bro, idk, rn, bet, lowkey ... (avoid crude words unless the
+  customer uses them first); occasional emojis like 💀😭🔥😂, not in every message;
+- match the customer's tone, energy and slang intensity; never robotic, formal or corporate;
+- vary the phrasing, do not repeat the same slang or openers;
+- artwork sales stay friendly and non-pushy; every sales rule and company fact still applies (no invented prices, discounts or
+  deadlines) and the meaning must stay accurate.
+Keep the usual structure (e.g. the three options and the Why line) but write each line in this style."""
+
+
 def build_user_prompt(context: AnswerContext, question: str) -> str:
     parts = ["<knowledge>"]
     for i, c in enumerate(context.knowledge, 1):
@@ -307,6 +321,8 @@ def build_user_prompt(context: AnswerContext, question: str) -> str:
                      "rule, policy, price, refund, discount or deadline is (e.g. 'what is the refund policy?'): then reply with exactly "
                      "NO_RELEVANT_HISTORY and nothing else. Otherwise follow rules 14, 15, 16 and 18: no price, amount, discount, "
                      "refund, deadline or guarantee in the suggested reply.")
+    if (context.preferences or {}).get("discord_slang"):
+        parts.append(DISCORD_SLANG_NOTE)
     parts.append(f"Question:\n{question}")
     return "\n".join(parts)
 
@@ -352,5 +368,8 @@ Rules:
 - Never ask a question; just translate."""
 
 
-def build_translate_input(text: str, target: str = "English") -> str:
-    return f"TARGET language: {target}\n<message>\n{text}\n</message>"
+def build_translate_input(text: str, target: str = "English", slang: bool = False) -> str:
+    style = ("\nSTYLE: Discord slang mode - write the translation the way a young Discord user would say it to a friend: short, "
+             "lowercase, natural slang (wsg, ngl, fr, bro, bet, rn ...) and maybe one emoji, same meaning, nothing added."
+             if slang else "")
+    return f"TARGET language: {target}{style}\n<message>\n{text}\n</message>"

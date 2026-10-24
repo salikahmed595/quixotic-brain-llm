@@ -65,7 +65,7 @@ const PREF_LANG = [['auto', 'Same language as my question'], ['english', 'Always
 export function personalizationModal(app: App) { openModal('Personalization', close => <Personalization app={app} close={close} />, { wide: true }); }
 function Personalization({ app, close }: { app: App; close: () => void }) {
   const p = app.me.preferences || {};
-  const [f, setF] = useState({ answer_style: p.answer_style || 'balanced', tone: p.tone || 'professional', language: p.language || 'auto', about_me: p.about_me || '', instructions: p.instructions || '', learn: p.learn !== false });
+  const [f, setF] = useState({ answer_style: p.answer_style || 'balanced', tone: p.tone || 'professional', language: p.language || 'auto', about_me: p.about_me || '', instructions: p.instructions || '', learn: p.learn !== false, discord_slang: p.discord_slang === true });
   const [learned, setLearned] = useState<{ liked: number; disliked: number; hints: string[] } | null>(null);
   const a = useAction();
   const loadLearned = () => api('/v1/auth/learned').then(setLearned).catch(() => setLearned(null));
@@ -88,6 +88,11 @@ function Personalization({ app, close }: { app: App; close: () => void }) {
         <textarea className="textarea min-h-20" maxLength={500} value={f.about_me} onChange={set('about_me')} placeholder="e.g. I lead the Karachi sales team and mostly handle price objections." /></div>
       <div className="field"><label>How should answers be written? <span className="hint">(optional)</span></label>
         <textarea className="textarea min-h-20" maxLength={500} value={f.instructions} onChange={set('instructions')} placeholder="e.g. Give me bullet points and one example script I can say to the customer." /></div>
+      {/* owner 2026-10-24: Discord Slang Mode, saved per user, default off */}
+      <div className="rounded-2xl bg-canvas border border-line p-3.5">
+        <label className="check"><input type="checkbox" checked={f.discord_slang} onChange={e => setF({ ...f, discord_slang: e.target.checked })} /> <b>Discord Slang Mode</b></label>
+        <p className="hint mt-1.5">Short, casual messages like young Discord users ("wsg bro", "ngl that looks fire 🔥"). Matches the client's vibe; sales rules and facts stay the same. Off = normal style.</p>
+      </div>
       <div className="rounded-2xl bg-canvas border border-line p-3.5">
         <label className="check"><input type="checkbox" checked={f.learn} onChange={e => setF({ ...f, learn: e.target.checked })} /> <b>Learn from my 👍 / 👎</b></label>
         {learned && <div className="hint mt-2">
