@@ -85,18 +85,34 @@ class OpenAIGenerator(_Interprets):
         extra = {"reasoning_effort": self._effort} if self._effort and _reasoning_model(self._model) else {}
         if self._model.startswith("gpt-5"):
             extra["verbosity"] = _verbosity(context, question)
+        user = build_user_prompt(context, question)
+        if context.images:                                     # owner 2026-10-24: pasted images go with the question
+            user = [{"type": "text", "text": user}, *({"type": "image_url", "image_url": {"url": u}} for u in context.images)]
         r = self._client.chat.completions.create(
             model=self._model, **extra,
-            messages=[{"role": "system", "content": system_prompt_for(context)},
-                      {"role": "user", "content": build_user_prompt(context, question)}])
+            messages=[{"role": "system", "content": system_prompt_for(context)}, {"role": "user", "content": user}])
         return (r.choices[0].message.content or "").strip()
+
+    def generate_image(self, model: str, prompt: str, quality: str, size: str, references: list[bytes]) -> bytes:
+        """Owner 2026-10-24: create an image (PNG bytes). With reference images the model edits / builds on them."""
+        import base64
+        import io
+        if references:
+            files = [("reference.png", io.BytesIO(b), "image/png") for b in references]
+            r = self._client.images.edit(model=model, image=files, prompt=prompt, size=size, quality=quality, n=1)
+        else:
+            r = self._client.images.generate(model=model, prompt=prompt, size=size, quality=quality, n=1)
+        return base64.b64decode(r.data[0].b64_json)
 
 
     def generate_web_answer(self, context: AnswerContext, question: str) -> tuple[str, list[dict]]:
         """Owner 2026-10-24 Web Search: OpenAI Responses API with the built-in web_search tool. Returns (text, [{title, url}])."""
+        text_in = build_user_prompt(context, question)
+        web_input = text_in if not context.images else [{"role": "user", "content": [
+            {"type": "input_text", "text": text_in}, *({"type": "input_image", "image_url": u} for u in context.images)]}]
         r = self._client.responses.create(
             model=self._model, tools=[{"type": "web_search"}], instructions=system_prompt_for(context),
-            input=build_user_prompt(context, question),
+            input=web_input,
             **({"reasoning": {"effort": "low"}} if _reasoning_model(self._model) else {}),
             **({"text": {"verbosity": _verbosity(context, question)}} if self._model.startswith("gpt-5") else {}))
         sources, seen = [], set()

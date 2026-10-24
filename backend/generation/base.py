@@ -61,6 +61,25 @@ class LazyGenerator:
             log.exception("web search answer failed")
             raise RuntimeError("Web Search is not available right now. Please try again.") from exc
 
+    def generate_image(self, model: str, prompt: str, quality: str, size: str, references: list[bytes]) -> bytes:
+        """Owner 2026-10-24 image creation (OpenAI image models)."""
+        if self._inner is None:
+            try:
+                self._inner = self._factory()
+            except Exception as exc:
+                raise RuntimeError(f"The answer model is not configured: {exc}") from exc
+        fn = getattr(self._inner, "generate_image", None)
+        if fn is None:
+            raise RuntimeError("Image creation needs the OpenAI provider.")
+        try:
+            return fn(model, prompt, quality, size, references)
+        except Exception as exc:
+            log.exception("image generation failed")
+            msg = str(exc)
+            if "safety" in msg.lower() or "moderation" in msg.lower():
+                raise RuntimeError("That image request was blocked by the safety filter. Please rephrase it.") from exc
+            raise RuntimeError("Image creation is not available right now. Please try again.") from exc
+
     def translate_for_client(self, text: str, target: str = "English") -> str:
         """Owner-approved addition (docs/PRD_GAPS.md §0). Errors become a clear message; provider details stay in the log."""
         if self._inner is None:

@@ -119,6 +119,10 @@ class Settings(BaseSettings):
     # Owner 2026-10-24: a Web Search toggle in the chat. Off by default per question; the user turns it on. Needs the OpenAI
     # provider (its built-in web_search tool). False = the toggle is refused (PRD §14 keeps Web Search governed).
     web_search_enabled: bool = False
+    # Owner 2026-10-24: "generate images the user asks for". OpenAI image model (measured: gpt-image-1-mini works on this
+    # account, gpt-image-1 does not exist for it). Unset = image creation off. Quality: low | medium | high (cost and speed).
+    image_model: Optional[str] = None
+    image_quality: str = "medium"
 
     # ---- pluggable providers (PRD §24, §27, §28) -------------------------------------
     embedding_provider: str = "bge-m3"     # PRD §24.1 initial model to evaluate

@@ -34,7 +34,8 @@ export interface Chat { id: string; title: string; updated_at: string }
 export interface Source { title: string; section?: string | null; version: number; updated?: string | null; document_id?: string; version_id?: string }
 
 export type Msg =
-  | { role: 'user'; text: string }
+  | { role: 'user'; text: string; images?: string[] }
+  | { role: 'ai'; kind: 'image'; question: string; image: string }
   | { role: 'ai'; loading: true }
   | { role: 'ai'; error: string; question: string }
   | { role: 'ai'; kind: 'search'; question: string; results: { source: string; text: string }[] }

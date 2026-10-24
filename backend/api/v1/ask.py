@@ -40,6 +40,13 @@ class AskRequest(_Question):
     mode: Literal["general", "sales_coach"] = "general"      # PRD §11.4 (Search Only = /v1/search, Department Brain = `department`)
     conversation_id: Optional[UUID] = None   # continue a saved chat; omit to start a new one (signed-in users only)
     web_search: bool = False                 # owner 2026-10-24: the user switched Web Search on for this question
+    images: list[str] = Field(default_factory=list, max_length=4)   # owner 2026-10-24: pasted images as data URLs
+
+    @field_validator("images")
+    @classmethod
+    def _images_ok(cls, v: list[str]) -> list[str]:
+        from .images import check_data_url
+        return [check_data_url(u) for u in v]
 
 
 class SearchRequest(_Question):
@@ -169,7 +176,7 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         res = svc.ask.ask(body.question, scope, include_sales_history=body.mode == "sales_coach",
                           sales_department_ids=scope, levels=levels,
                           history=_history(svc, caller, body.conversation_id), asker=asker, preferences=prefs, recheck=recheck,
-                          web_search=body.web_search)
+                          web_search=body.web_search, images=body.images)
     except RuntimeError as e:                    # e.g. no answer-model API key configured yet
         raise HTTPException(503, str(e))
     gap_id = None
@@ -187,7 +194,8 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         out["actions"] = res.actions                                       # §6 FR-CHAT-04: offer Report missing information
     if gap_id:
         out["gap_id"] = str(gap_id)
-    cid = _remember(svc, caller, body.conversation_id, body.question, body.mode, requested,
+    stored_q = body.question + (f"\n[{len(body.images)} image(s) attached]" if body.images else "")   # images are not stored
+    cid = _remember(svc, caller, body.conversation_id, stored_q, body.mode, requested,
                     {"kind": "ask", "mode": body.mode, "question": body.question, **out})
     if cid is not None:
         out["conversation_id"] = str(cid)
