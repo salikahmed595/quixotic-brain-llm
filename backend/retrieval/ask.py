@@ -339,16 +339,20 @@ class AskService:
                                 user_language=getattr(out.query, "language", "") or "", images=list(images),
                                 images_earlier=earlier, prefer_image=prefer_image,
                                 task_rules=task_instructions(task) if task else "", verbosity=_task_verbosity(task))
-        text = self.generator.generate_answer(context, out.query.original).strip()
-        problems = format_problems(task, text) if task else []
-        if problems:                                  # requested format checked in code; one corrected rewrite
-            text = self.generator.generate_answer(context, out.query.original + (
+        def formatted(text: str) -> str:              # requested format checked in code; one corrected rewrite
+            problems = format_problems(task, text) if task else []
+            if not problems:
+                return text
+            return self.generator.generate_answer(context, out.query.original + (
                 f"\n\n(Your draft below broke the requested format: {'; '.join(problems)}. Rewrite it so it follows the ACTIVE "
                 f"TASK format and length exactly; output only the rewritten answer.)\n<draft>\n{text}\n</draft>")).strip()
+
+        text = formatted(self.generator.generate_answer(context, out.query.original).strip())
         single = task is not None and (task.task == "greeting" or (task.task == "client_reply" and (task.count == 1 or task.lines or task.words)))
         user_text = " ".join([out.query.original, *(h[0] for h in history)])
         if not context.images and _invented_money(text, knowledge, user_text):   # figures in a pasted screenshot are the user's facts
-            text = self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip()
+            # QA V2 RT2: the strict retry is a fresh answer, so it goes through the same format check
+            text = formatted(self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip())
             if _invented_money(text, knowledge, user_text):
                 text = f"{SAFE_MISSING}\n{MISSING_COMPANY_INFO}"
         if text.lstrip().upper().startswith("CREATE_IMAGE"):        # owner 2026-10-25: image request in any phrasing
