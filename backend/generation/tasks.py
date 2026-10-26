@@ -160,6 +160,8 @@ _REPLY_ONE = """ACTIVE TASK: write ONE reply the employee can send to the client
 - Language: the client's language ({client_language}); tone mirrors the client."""
 
 _REPLY_OPTIONS = """ACTIVE TASK: suggest replies the employee can send to the client.
+- ALWAYS this full format, even for a short or simple client question and even when past chats in <historical_cases> show
+  a single message (they are examples of tone, not of format). Never answer with one message only.
 - Format (each part on its own line): one short sentence on the best approach, without a label, in the employee's language;
   then three options, each as two lines: "**Option 1 - <2-4 word approach name in the employee's language>**" and then ">> " + the message (one to three natural sentences); Option 1, 2, 3
   clearly different in approach; last "Why: " + one short reason (employee's language), adding "(worked in past chats)" ONLY
