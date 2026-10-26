@@ -15,3 +15,5 @@ obsidian-vaults/
 knowledge-import/
 web/tests/zz-*.spec.ts
 qa_checklist_results.json
+evaluation/quality_v2/results/*.json
+!evaluation/quality_v2/results/baseline.json

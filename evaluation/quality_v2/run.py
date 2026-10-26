@@ -7,7 +7,8 @@ A case passes only if every fixed check AND every judged criterion passes, in EV
 
 Credentials: QA_EMPLOYEE_USER / QA_PASSWORD (environment or web/.env.visual). Judge: OPENAI_API_KEY (environment or .env),
 model QB_JUDGE_MODEL (default gpt-5-mini). Results: evaluation/quality_v2/results/<label>.json with, per case and repeat, the
-input, mode, history (with the live answers), expected language and structure, constraints, output, pass/fail and reasons."""
+input, mode, history (with the live answers), expected language and structure, constraints, output, pass/fail and reasons
+(git-ignored: answers can quote company knowledge and the repository is public), plus <label>.summary.md without answer text."""
 from __future__ import annotations
 
 import argparse
@@ -58,7 +59,8 @@ class Client:
         j = r.json() if r.headers.get("content-type", "").startswith("application/json") else {"detail": r.text[:300]}
         return {"status": r.status_code, "seconds": round(time.time() - t, 1), "answer": j.get("answer") or j.get("detail"),
                 "conversation_id": j.get("conversation_id"), "image": bool(j.get("image")), "image_prompt": j.get("image_prompt"),
-                "task": j.get("task")}
+                "task": j.get("task"), "confidence": j.get("confidence"),
+                "sources": [x.get("title") or x.get("source") for x in j.get("sources") or [] if isinstance(x, dict)]}
 
 
 def _language(text: str) -> str:
@@ -122,6 +124,10 @@ def judge(case: dict, history: list[dict], out: dict) -> list[dict]:
             f"\n{hist}\n[current] employee: {case['input']}\nExpected language: {case['expected_language']}; expected structure: "
             f"{case['expected_structure']}\n\nASSISTANT OUTPUT:\n{out.get('answer')}\n" +
             (f"IMAGE PROMPT USED: {out.get('image_prompt')}\n" if out.get("image_prompt") else "") +
+            # RT1: a knowledge answer is grounded when the server retrieved approved company knowledge for it
+            (f"KNOWLEDGE GROUNDING: answer confidence '{out.get('confidence')}' (high/medium = built from retrieved approved "
+             f"company knowledge{'; sources: ' + ', '.join(map(str, out['sources'])) if out.get('sources') else ''})\n"
+             if out.get("confidence") in ("high", "medium") else "") +
             "\nCriteria:\n" + "\n".join(f"- {m}" for m in case["must"]))
     for _ in range(3):
         try:
@@ -176,6 +182,15 @@ def main() -> None:
                 "failure_reasons": [x["failure_reason"] for x in v if not x["pass"]]} for k, v in by_case.items()]
     path.write_text(json.dumps({"label": a.label, "base": a.base, "repeat": a.repeat, "summary": summary, "results": results},
                                ensure_ascii=False, indent=1), encoding="utf-8")
+    # The full results hold live answers, which can quote company knowledge: they stay local (git-ignored). This summary
+    # (ids, pass counts, names of the failed checks, no answer text) is what gets committed.
+    lines = [f"# Quality V2 run `{a.label}` ({a.repeat} repeats, {time.strftime('%Y-%m-%d')})", "",
+             f"{sum(s['pass'] for s in summary)}/{len(summary)} cases pass in every repeat.", "",
+             "| case | issue | passed | failed checks |", "|---|---|---|---|"]
+    for k, v in by_case.items():
+        failed = sorted({c["check"][:90] for x in v for c in x["checks"] if not c["pass"]})
+        lines.append(f"| {k} | {v[0]['issue']} | {sum(x['pass'] for x in v)}/{len(v)} | {'; '.join(failed)} |")
+    (HERE / "results" / f"{a.label}.summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     for s in summary:
         print(f"{'PASS' if s['pass'] else 'FAIL'}  {s['id']:4} issue {s['issue']}  {s['passed_repeats']}  " +
               (s["failure_reasons"][0][:230] if s["failure_reasons"] else ""))

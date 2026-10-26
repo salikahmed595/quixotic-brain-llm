@@ -107,6 +107,20 @@ def test_overall_reply_in_4_5_lines_is_one_message_with_a_word_target():
     assert any("exactly ONE reply" in p for p in probs) and any("words" in p for p in probs)
 
 
+def test_what_should_i_reply_gets_options_and_write_a_reply_gets_one():
+    """QA V2 RT2/RT3: the router said count 1 for 'what should I reply?', so the employee lost the options and the explanation."""
+    from backend.generation.tasks import _strip_label, settle_reply_count
+    for q in ('A client wrote: "hey how much for an emote?" what should I reply?', "mujhe kya reply karna chahiye?",
+              "Here is a client message, what should I reply?", "give me reply options"):
+        assert settle_reply_count(Task(task="client_reply", count=1), q).count is None, q
+    for q in ("Write an overall reply in 4-5 lines.", "write a reply i can send", "write one short message to send him"):
+        assert settle_reply_count(Task(task="client_reply"), q).count == 1, q
+    assert _strip_label("Translate this into English: bro, reduce the price") == "bro, reduce the price"
+    options = Task(task="client_reply")
+    assert any("3 options" in p for p in format_problems(options, ">> I'll check with the team and confirm."))
+    assert format_problems(options, "Be honest.\n**Option 1 - A**\n>> a\n**Option 2 - B**\n>> b\n**Option 3 - C**\n>> c\nWhy: clear") == []
+
+
 def test_a_broken_format_is_rewritten_once_with_the_exact_problem():
     search = _svc()
     draft = "**Option 1 - Warm**\n>> hey!\n**Option 2 - Chill**\n>> yo\n**Option 3 - Pro**\n>> Hello\nWhy: variety"
