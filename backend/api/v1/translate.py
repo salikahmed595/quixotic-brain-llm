@@ -38,12 +38,7 @@ _LANGUAGE_NAME = re.compile(r"^[^\W\d_][\w ()'\-]{1,39}$")
 
 class TranslateIn(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
-    target: str = "English"
-
-
-def _same(a: str, b: str) -> bool:
-    norm = lambda t: "".join(ch for ch in t.lower() if ch.isalnum())
-    return norm(a) == norm(b)
+    target: str = "auto"                     # owner 2026-10-26: English <-> Roman Urdu by the detected source language
 
 
 @router.post("/translate")
@@ -53,23 +48,19 @@ def translate(body: TranslateIn, p: Principal = Depends(require(P.ASK)), svc: Se
     gen = svc.ask.generator
     if not hasattr(gen, "translate_for_client"):
         raise HTTPException(503, "The configured answer model does not support translation.")
+    from ...generation.tasks import AUTO_NAMES, run_translation
     name = " ".join(body.target.split())
-    if not _LANGUAGE_NAME.match(name) or any(ch.isdigit() for ch in name):
+    if name.lower() not in AUTO_NAMES and (not _LANGUAGE_NAME.match(name) or any(ch.isdigit() for ch in name)):
         raise HTTPException(422, "Type the name of a language, e.g. Spanish or Japanese.")
     target = next((t for t in TARGET_LANGUAGES if t.lower() == name.lower()), name)
     from .auth import clean_preferences
     user = svc.users.get(p.user_id) or {}
     slang = bool(clean_preferences(user.get("preferences")).get("discord_slang"))   # owner 2026-10-24: Discord Slang Mode
-    try:
-        english = gen.translate_for_client(body.text.strip(), target, slang) if slang else gen.translate_for_client(body.text.strip(), target)
-        if _same(english, body.text):                 # QAI-01: came back untranslated -> one firm retry
-            english = gen.translate_for_client(f"{body.text.strip()}\n\n(Translate this into {target}; do not repeat the original.)",
-                                               target)
+    try:                                         # V2 2026-10-26: direction resolved and the result checked in code
+        out, used, source = run_translation(gen, svc.search.language.detect, body.text.strip(), target, slang)
     except RuntimeError as e:                    # clear message from the model wrapper; provider details stay in the log
         raise HTTPException(503, str(e)) from None
     except Exception:
         raise HTTPException(503, "Translation is not available right now. Please try again.") from None
-    if not english:
-        raise HTTPException(503, "Translation came back empty. Please try again.")
     audit.record(svc.ops, audit.TRANSLATION, p.user_id, p.employee_id, chars=len(body.text))
-    return {"english": english, "translation": english, "target": target}
+    return {"english": out, "translation": out, "target": used, "source": source}

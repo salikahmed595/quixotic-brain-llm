@@ -50,7 +50,9 @@ const IMAGE_MODE = ['image', 'Create image', 'Describe a picture to create; past
 
 const TRANSLATE_MODE = ['translate', 'Translate', 'Any language → any language you type, ready to send'];
 // QA 2026-10-24 (QAI-01): same list as the server (backend/api/v1/translate.py TARGET_LANGUAGES)
-const TARGETS = ['English', 'Roman Urdu', 'Urdu', 'Spanish', 'German', 'French', 'Arabic', 'Portuguese', 'Italian', 'Turkish', 'Hindi', 'Chinese',
+// V2 2026-10-26: the default detects the direction per message (English -> Roman Urdu, Roman Urdu -> English)
+const AUTO_TARGET = 'English ↔ Roman Urdu';
+const TARGETS = [AUTO_TARGET, 'English', 'Roman Urdu', 'Urdu', 'Spanish', 'German', 'French', 'Arabic', 'Portuguese', 'Italian', 'Turkish', 'Hindi', 'Chinese',
   'Japanese', 'Korean', 'Russian', 'Punjabi', 'Persian', 'Indonesian'];
 const CONF: Record<string, [string, string]> = { high: ['High confidence', 'green'], medium: ['Medium confidence', 'amber'], low: ['Low confidence', 'red'], general: ['General AI answer', ''], web: ['Web search answer', ''] };
 const REASONS = ['Wrong answer', 'Not what I asked', 'Too long', 'Too short', 'Missing information'];
@@ -66,7 +68,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
   const [convId, setConvId] = useState<string | null>(null);
   const [scope, setScope] = useState<string | null>(null);
   const [mode, setMode] = useState('general');
-  const [target, setTarget] = useState('English');          // QAI-01: chosen translation language
+  const [target, setTarget] = useState(AUTO_TARGET);       // QAI-01 / V2: chosen translation language
   const [web, setWeb] = useState(false);
   const [files, setFiles] = useState<string[]>([]);              // owner 2026-10-24: pasted images for the next message
   // QA 2026-10-25: follow-ups keep seeing the chat's last image (pasted or created) for a few messages; never stored on the server
@@ -113,7 +115,7 @@ export function Ask({ resetKey }: { resetKey: number }) {
         setEarlier({ images: [r.image], left: 3 });
       } else if (m2 === 'translate') {                     // not saved to chat history: client messages stay private
         const r = await api('/v1/translate', { method: 'POST', body: { text: q, target } });
-        msg = { role: 'ai', kind: 'translate', question: q, english: r.english, target: r.target };
+        msg = { role: 'ai', kind: 'translate', question: q, english: r.english, target: r.target, source: r.source };
       } else if (m2 === 'search') {
         const r = await api('/v1/search', { method: 'POST', body });
         msg = { role: 'ai', kind: 'search', question: q, results: r.results }; saved(r);
@@ -294,7 +296,7 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb
         </div>
       )}
       <textarea id="q" ref={ta} rows={compact ? 1 : 2} aria-label="Your question"
-        placeholder={mode === 'translate' ? `Write the text to translate into ${target}…` : mode === 'image' ? 'Describe the image to create (paste a picture to build on it)…' : 'Ask anything about work, or paste an image (Ctrl+V)…'}
+        placeholder={mode === 'translate' ? (target === AUTO_TARGET ? 'Write English or Roman Urdu text to translate…' : `Write the text to translate into ${target}…`) : mode === 'image' ? 'Describe the image to create (paste a picture to build on it)…' : 'Ask anything about work, or paste an image (Ctrl+V)…'}
         className={`w-full border-0 outline-none resize-none bg-transparent px-2 py-1.5 text-base leading-normal placeholder:text-muted max-h-[200px] ${compact ? 'min-h-11' : 'min-h-14'}`}
         onPaste={onPaste}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
@@ -320,7 +322,7 @@ function Composer({ compact, busy, mode, setMode, target, setTarget, web, setWeb
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel image creation" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
         {mode === 'translate' && <span className="chip orange gap-1">Translate to
           {/* owner 2026-10-24: any language - type it, or pick a suggestion */}
-          <input className="bg-transparent font-semibold outline-none w-28 border-b border-current/30" aria-label="Translate to" list="qb-languages"
+          <input className="bg-transparent font-semibold outline-none w-40 border-b border-current/30" aria-label="Translate to" list="qb-languages"
             value={target} onChange={e => setTarget(e.target.value)} onFocus={e => e.target.select()} placeholder="Any language" />
           <datalist id="qb-languages">{TARGETS.map(t => <option key={t} value={t} />)}</datalist>
           <button className="ml-1 -mr-1 px-1 rounded-full hover:bg-white/60" aria-label="Cancel translation mode" title="Cancel" onClick={() => setMode('general')}>✕</button></span>}
@@ -502,7 +504,7 @@ function Message({ m, i, last = false, update, retry, submit, again }: { m: Msg;
     </details>}
   </>);
   if (m.kind === 'translate') return wrap(<>
-    <div className="label mb-2">{m.target || 'English'} translation</div>
+    <div className="label mb-2">{m.source ? `${m.source} → ${m.target}` : `${m.target || 'English'} translation`}</div>
     <div className="card !p-4 shadow-none whitespace-pre-wrap">{m.english}</div>
     <div className="flex items-center gap-2 mt-2.5">
       <button className="btn sm" onClick={() => copyWithToast(m.english)}><Icon name="copy" size={15} /> Copy</button>

@@ -545,10 +545,10 @@ def test_qa_2026_10_24_rules_are_in_the_general_prompt():
     from backend.generation.prompt import GENERAL_SYSTEM_PROMPT
     flat = " ".join(GENERAL_SYSTEM_PROMPT.split())
     for phrase in ("Never ask questions for translation", "never return the original text unchanged",
-                   "composition and framing, background, lighting, colour palette", "explicit instructions in THIS message win",
-                   'A "mascot logo" stays a mascot logo', "Never invent powers, weapons, abilities or accessories",
+                   "follow the ACTIVE TASK block", "explicit instructions in THIS message win",
+                   'A "mascot logo" stays a mascot logo', "never invent powers, weapons, abilities or accessories",
                    '"detailed" = full and thorough', 'no word limit', "no robotic or stiff phrases", "Use simple words",
-                   "never copy their concepts", "benefits the client"):
+                   "never copy their concepts", "are NOT sales moments"):
         assert phrase in flat, phrase
 
 

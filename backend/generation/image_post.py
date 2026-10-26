@@ -15,7 +15,7 @@ PACKS = {"twitch_emote": [(112, 112), (56, 56), (28, 28)], "twitch_badge": [(72,
          "discord_emote": [(128, 128)]}
 EXACT = {"twitch_banner": (1200, 480), "twitch_offline": (1920, 1080), "stream_screen": (1920, 1080),
          "youtube_banner": (2560, 1440), "youtube_thumbnail": (1280, 720)}
-ASSETS = (*PACKS, *EXACT, "sticker", "logo", "illustration", "other")
+ASSETS = (*PACKS, *EXACT, "sticker", "logo", "console_skin", "illustration", "other")
 EDGE_MARGIN = 0.04                       # artwork closer than 4% of the canvas to an edge counts as touching it
 
 

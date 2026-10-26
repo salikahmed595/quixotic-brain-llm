@@ -188,10 +188,13 @@ def ask(body: AskRequest, caller: Caller = Depends(api_caller("ask")), svc: Serv
         gap_id = record_gap(svc, caller.principal, body.question, requested)
     query_id = _log(svc, caller, requested, body.mode, res, res.answer, started, gap_id)
     out = {"query_id": str(query_id), "answer": res.answer, "confidence": res.confidence}   # PRD §38 shape
+    if res.task:
+        out["task"] = res.task                                             # V2 2026-10-26: which task the message was routed to
     if res.image_request:                                                  # owner 2026-10-25: chat asked for a picture
         from ...analytics import audit as _audit
         from .images import make_image
-        made = make_image(svc, res.image_request, body.images, language=res.query.language if res.query else "")
+        made = make_image(svc, res.image_request, body.images, language=res.query.language if res.query else "",
+                          concept=res.image_context)
         _audit.record(svc.ops, _audit.IMAGE_GENERATION, caller.principal.user_id, caller.principal.employee_id,
                       chars=len(res.image_request), references=len(body.images), via="chat")
         # QA 2026-10-25: the reply states what was really delivered, never the internal prompt

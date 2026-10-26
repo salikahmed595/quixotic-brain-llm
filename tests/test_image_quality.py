@@ -155,7 +155,7 @@ def test_create_image_mode_lets_the_model_decide_and_client_replies_mirror_the_c
     AskService(search, gen, search.settings).ask("what should I reply?", DEPT, levels=LV, images=[_url(_png())], prefer_image=True)
     assert "CREATE IMAGE mode on" in build_user_prompt(gen.calls[0][0], "what should I reply?")
     flat = " ".join(GENERAL_SYSTEM_PROMPT.split())
-    assert "in the CLIENT's language and script" in flat and "moves the sale forward" in flat
+    assert "in the CLIENT's language and script" in flat and "moves toward the sale" in flat
     assert "pasted message from a client or prospect is always in scope" in flat
 
 

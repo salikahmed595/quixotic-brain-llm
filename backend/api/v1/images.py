@@ -33,12 +33,14 @@ def check_data_url(url: str) -> str:
 
 
 LABELS = {"twitch_emote": "Twitch emote", "twitch_badge": "Twitch sub badge", "discord_emote": "Discord emote", "sticker": "sticker",
-          "logo": "logo", "twitch_banner": "Twitch profile banner", "twitch_offline": "Twitch offline screen",
+          "logo": "logo", "console_skin": "console skin mockup", "twitch_banner": "Twitch profile banner", "twitch_offline": "Twitch offline screen",
           "stream_screen": "stream screen", "youtube_banner": "YouTube banner", "youtube_thumbnail": "YouTube thumbnail"}
 FAN_ART_NOTE = ("This is fan art of an existing character: use it for internal reference only, not for client or commercial "
                 "delivery. I can make an original character in the same style instead.")
 # Words the user wants in the picture, when the art director left "text" empty: "called NightOwl", "with the text FOXX", "..."
 _NAMED = re.compile(r"[\"“]([^\"”]{1,40})[\"”]|\b(?:called|named|text|saying|says)\s+([A-Z0-9][\w'-]{0,29})")
+CONSOLE_NOTE = ("This is a mockup of the skin on the console. The print file needs the exact console model and edition "
+                "(and the maker's template) before production.")
 KEEP_IN_FRAME = (" IMPORTANT: the whole subject must be completely inside the frame with wide empty margin on every side; "
                  "nothing may touch or be cut off by the image edges.")
 
@@ -63,10 +65,13 @@ def _caption(asset: str, info: dict, files: list, fan_art: bool, language: str) 
         text = f"Here's your {what} ({dims})."
         if files:
             text += " Download sizes: " + ", ".join(n.replace("x", "×") for n, _ in files) + "."
+    if asset == "console_skin":                       # V2 issue 7: a mockup is not a print file
+        text += "\n" + CONSOLE_NOTE
     return text + ("\n" + FAN_ART_NOTE if fan_art else "")
 
 
-def make_image(svc, request: str, references: list[str], size: str = "auto", final: bool = False, language: str = "") -> dict:
+def make_image(svc, request: str, references: list[str], size: str = "auto", final: bool = False, language: str = "",
+               concept: str = "") -> dict:
     """Art director (expand + canvas + background + asset type), then the image model, then the checks and delivery files an art
     director would make (QA 2026-10-25). Shared by /v1/images and image requests in chat."""
     from ...generation import image_post
@@ -75,7 +80,7 @@ def make_image(svc, request: str, references: list[str], size: str = "auto", fin
         raise HTTPException(403, "Image creation is not enabled on this server.")
     refs = [base64.b64decode(_DATA_URL.match(u).group(2)) for u in references]
     gen = svc.ask.generator
-    plan = gen.direct_image(request, bool(refs))
+    plan = gen.direct_image(request, bool(refs), concept) if concept else gen.direct_image(request, bool(refs))
     named = _NAMED.search(request)
     text = plan.get("text") or (next(g for g in named.groups() if g) if named else "")
     if text and f'"{text}"' not in plan["prompt"]:       # QA 2026-10-25: banner said "USERNAME" instead of the name asked for

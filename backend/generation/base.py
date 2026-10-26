@@ -61,13 +61,26 @@ class LazyGenerator:
             log.exception("web search answer failed")
             raise RuntimeError("Web Search is not available right now. Please try again.") from exc
 
-    def direct_image(self, request: str, has_references: bool = False) -> dict:
+    def classify_task(self, question: str, history=(), has_images: bool = False):
+        """Owner 2026-10-26 task routing. Any failure means 'no routing' (None): the general rules then apply as before."""
+        try:
+            if self._inner is None:
+                self._inner = self._factory()
+            fn = getattr(self._inner, "classify_task", None)
+            return fn(question, history, has_images) if fn else None
+        except Exception:
+            log.exception("task classification failed; answering without routing")
+            return None
+
+    def direct_image(self, request: str, has_references: bool = False, concept: str = "") -> dict:
         """Owner 2026-10-25 art-director step; any failure falls back to the user's own words."""
         try:
             if self._inner is None:
                 self._inner = self._factory()
             fn = getattr(self._inner, "direct_image", None)
-            return fn(request, has_references) if fn else {"prompt": request, "size": "1024x1024", "background": "opaque"}
+            if fn is None:
+                return {"prompt": request, "size": "1024x1024", "background": "opaque"}
+            return fn(request, has_references, concept) if concept else fn(request, has_references)
         except Exception:
             log.exception("art-director step failed; using the request as it is")
             return {"prompt": request, "size": "1024x1024", "background": "opaque"}

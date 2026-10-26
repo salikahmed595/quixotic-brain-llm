@@ -13,6 +13,7 @@ from uuid import UUID
 from ..config import Settings
 from ..generation.base import GenerationProvider
 from ..generation.prompt import MISSING_COMPANY_INFO, OFF_TOPIC
+from ..generation.tasks import format_problems, run_translation, task_instructions
 from ..models import AnswerContext, Candidate
 from .language import NormalizedQuery
 from .search import SearchService, confidence_label
@@ -115,7 +116,7 @@ def _as_paragraphs(question: str, text: str) -> str:
 _PAST_CLAIM = re.compile(r"\s*\((?:this\s+)?(?:worked|works|closed)\s+in\s+(?:past|previous|earlier)\s+(?:chats?|conversations?|deals?)\)", re.I)
 
 
-def _drop_term_offers(text: str, knowledge, user_text: str = "", pattern=_TERMS, advice: bool = True) -> str:
+def _drop_term_offers(text: str, knowledge, user_text: str = "", pattern=_TERMS, advice: bool = True, min_messages: int = 2) -> str:
     """A client message (>>) offering an unapproved term is dropped together with its "Option N" heading; only if fewer than two
     messages would remain is one 'check with my team' message added. Advice to the user that offers such a term (any other
     line, e.g. '- Offer a payment plan') becomes one 'ask your team lead' line. 'Why:' lines are kept."""
@@ -148,7 +149,7 @@ def _drop_term_offers(text: str, knowledge, user_text: str = "", pattern=_TERMS,
         elif not tip_done:
             out.append(f"- {ASK_TEAM_LEAD}")
             tip_done = True
-    if dropped and sum(l.lstrip().startswith(">>") for l in out) < 2:
+    if dropped and sum(l.lstrip().startswith(">>") for l in out) < min_messages:
         why = next((i for i, l in enumerate(out) if l.lstrip().lower().startswith("why:")), len(out))
         out.insert(why, f">> {CHECK_WITH_TEAM}")
     n = 0                                                     # renumber the remaining options 1, 2, 3
@@ -158,6 +159,27 @@ def _drop_term_offers(text: str, knowledge, user_text: str = "", pattern=_TERMS,
             n += 1
             out[i] = f"{m.group(1)}{n}{m.group(2)}"
     return "\n".join(out)
+
+
+# "translate into roman urdu: <text>" when the router did not copy the text out
+_TRANSLATE_ASK = re.compile(r"^\s*(?:please\s+)?(?:translate|isko|is\s+ko)\b[^:]{0,60}:\s*", re.I)
+
+
+def _task_verbosity(task) -> str:
+    """The GPT-5 verbosity setting for the routed task: a requested length or a detailed concept needs room, a greeting or one
+    short reply does not ('' = the default rules in providers._verbosity)."""
+    if task is None:
+        return ""
+    wr = task.word_range
+    if wr:
+        return "low" if wr[1] <= 60 else "medium" if wr[1] <= 170 else "high"
+    if task.detailed:
+        return "high"
+    if task.task == "artwork_ideas":
+        return "medium"
+    if task.task in ("greeting", "feedback_summary"):
+        return "low"
+    return ""
 
 
 SUCCESSFUL_OUTCOME = "closed"        # §16.2 example outcome value; PRD defines no other success rule
@@ -189,6 +211,8 @@ class AskResult:
     actions: list[str] = field(default_factory=list)
     web_sources: list[dict] = field(default_factory=list)  # owner 2026-10-24 Web Search: [{title, url}]
     image_request: Optional[str] = None                      # owner 2026-10-25: the chat asked for a picture -> create it
+    image_context: str = ""                                    # V2: the concept from the chat that the picture must show
+    task: Optional[str] = None                                 # V2 2026-10-26: the routed task (generation/tasks.py)
     query: Optional[NormalizedQuery] = None
     retrieved: list[Candidate] = field(default_factory=list)
 
@@ -296,11 +320,30 @@ class AskService:
         if knowledge and recheck is not None:
             allowed = recheck({c.version_id for c in knowledge})
             knowledge = [c for c in knowledge if c.version_id in allowed]
+        # V2 2026-10-26: route the latest message to its task first (owner priority: selected mode > latest instruction > chat).
+        task = None
+        classify = getattr(self.generator, "classify_task", None)
+        if classify is not None and getattr(self.settings, "task_routing", True):
+            task = classify(out.query.original, list(history), bool(images))
+        if task is not None and task.task == "translation" and not images:
+            return self._translate(out, task, preferences)
+        if task is not None and task.task == "image":
+            concept = history[-1][1] if task.uses_previous and history and history[-1][1] else ""
+            return AskResult(answer=out.query.original, found=True, confidence="general", confidence_score=out.confidence_score,
+                             query=out.query, retrieved=out.candidates, image_request=out.query.original,
+                             image_context=concept[:3000], task="image")
         context = AnswerContext(knowledge=knowledge, sales_cases=cases, history=list(history), asker=asker or {},
                                 preferences=preferences or {}, general_mode=True,
                                 user_language=getattr(out.query, "language", "") or "", images=list(images),
-                                images_earlier=earlier, prefer_image=prefer_image)
+                                images_earlier=earlier, prefer_image=prefer_image,
+                                task_rules=task_instructions(task) if task else "", verbosity=_task_verbosity(task))
         text = self.generator.generate_answer(context, out.query.original).strip()
+        problems = format_problems(task, text) if task else []
+        if problems:                                  # requested format checked in code; one corrected rewrite
+            text = self.generator.generate_answer(context, out.query.original + (
+                f"\n\n(Your draft below broke the requested format: {'; '.join(problems)}. Rewrite it so it follows the ACTIVE "
+                f"TASK format and length exactly; output only the rewritten answer.)\n<draft>\n{text}\n</draft>")).strip()
+        single = task is not None and (task.task == "greeting" or (task.task == "client_reply" and (task.count == 1 or task.lines or task.words)))
         user_text = " ".join([out.query.original, *(h[0] for h in history)])
         if not context.images and _invented_money(text, knowledge, user_text):   # figures in a pasted screenshot are the user's facts
             text = self.generator.generate_answer(context, out.query.original + STRICT_RETRY_NOTE).strip()
@@ -314,8 +357,9 @@ class AskService:
             return AskResult(answer=OFF_TOPIC_TEXT, found=True, confidence="general", confidence_score=out.confidence_score,
                              query=out.query, retrieved=out.candidates)
         text = re.sub(r"(?im)^\s*(?:line|step)\s*\d+\s*[:.)-]\s*", "", text)   # format labels are not for the reader
-        text = _drop_term_offers(text, knowledge, user_text)            # payment plans, discounts ... only when knowledge allows
-        text = _drop_term_offers(text, knowledge, user_text, _PROMISES, advice=False)   # no promised variants, sketches, priority
+        keep = 1 if single else 2
+        text = _drop_term_offers(text, knowledge, user_text, min_messages=keep)   # payment plans, discounts ... only when knowledge allows
+        text = _drop_term_offers(text, knowledge, user_text, _PROMISES, advice=False, min_messages=keep)   # no promised variants, priority
         text = _as_paragraphs(out.query.original, text)                 # QAI-04: "one paragraph" means one paragraph
         if not any(c.outcome == SUCCESSFUL_OUTCOME for c in cases):     # QA 2026-10-25: no unbacked "worked in past chats"
             text = _PAST_CLAIM.sub("", text)
@@ -334,7 +378,16 @@ class AskService:
         hist = ({"similar": len(cases), "successful": sum(c.outcome == SUCCESSFUL_OUTCOME for c in cases)} if cases else None)
         return AskResult(answer=text, found=not missing, actions=NOT_FOUND_ACTIONS if missing else [],
                          confidence=out.confidence if knowledge else "general", confidence_score=out.confidence_score,
-                         query=out.query, retrieved=out.candidates, sources=sources, historical_cases=hist)
+                         query=out.query, retrieved=out.candidates, sources=sources, historical_cases=hist,
+                         task=task.task if task else None)
+
+    def _translate(self, out, task, preferences) -> AskResult:
+        """V2 issue 1: a translation request typed in chat uses the same checked translation as the Translate mode."""
+        text = task.text_to_translate.strip() or _TRANSLATE_ASK.sub("", out.query.original).strip() or out.query.original
+        translated, _, _ = run_translation(self.generator, self.search.language.detect, text, task.target_language or "auto",
+                                           bool((preferences or {}).get("discord_slang")))
+        return AskResult(answer=translated, found=True, confidence="general", confidence_score=out.confidence_score,
+                         query=out.query, retrieved=out.candidates, task="translation")
 
     def _fallback(self, out, cases, min_sim, history, asker, preferences, base) -> AskResult:
         if cases and min_sim is not None:                                         # owner request: history-only answer

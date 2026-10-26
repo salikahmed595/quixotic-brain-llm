@@ -9,6 +9,7 @@ import re
 
 from ..models import AnswerContext
 from .image_post import ASSETS
+from .tasks import CLASSIFY_PROMPT, Task, build_classify_input, parse_task
 from .prompt import (INTERPRET_PROMPT, SYSTEM_PROMPT, system_prompt_for, TRANSLATE_PROMPT, build_interpret_input, build_translate_input, IMAGE_DIRECTOR_PROMPT, build_image_director_input,
                      build_user_prompt)
 
@@ -21,10 +22,17 @@ class _Interprets:
         text = self._complete(INTERPRET_PROMPT, build_interpret_input(question, history), 80)
         return " ".join(text.split()).strip(" \"'`")[:300]
 
+    _classify_kwargs: dict = {}
+
     def translate_for_client(self, text: str, target: str = "English", slang: bool = False) -> str:
         """Owner-approved addition (docs/PRD_GAPS.md §0): any language -> the selected target language, client-ready."""
         return self._complete(TRANSLATE_PROMPT, build_translate_input(text, target, slang), 2000,
-                              **self._translate_kwargs).strip().strip('"')
+                              **self._translate_kwargs).strip().strip('"').strip("“”")
+
+    def classify_task(self, question: str, history=(), has_images: bool = False) -> Task:
+        """Owner 2026-10-26 (quality fixes V2): name the task and the explicit constraints of the latest message."""
+        return parse_task(self._complete(CLASSIFY_PROMPT, build_classify_input(question, history, has_images), 1500,
+                                         **self._classify_kwargs))
 
 
 class GeminiGenerator(_Interprets):
@@ -59,6 +67,8 @@ _WANTS_DETAIL = re.compile(r"\b(detail\w*|step[- ]by[- ]step|explain|in depth|th
 def _verbosity(context: AnswerContext, question: str) -> str:
     """Owner 2026-10-24 'length follows the request'. MEASURED live: with the 'balanced' style, gpt-5-mini answered 'what colour
     works best for a gaming logo?' in 342 words despite the prompt; the GPT-5 verbosity setting is the reliable lever."""
+    if getattr(context, "verbosity", ""):                # V2 2026-10-26: the routed task's length decides (e.g. "5-6 lines")
+        return context.verbosity
     prefs = context.preferences or {}
     if prefs.get("discord_slang"):                      # Discord Slang Mode: short messages
         return "low"
@@ -75,6 +85,7 @@ class OpenAIGenerator(_Interprets):
         self._effort = reasoning_effort
         # Translation needs the style rules followed (measured 2026-10-20: "minimal" kept "bhai" -> "brother" and invented "Sir").
         self._translate_kwargs = {"effort": "low"} if _reasoning_model(model) else {}
+        self._classify_kwargs = {"effort": "low"} if _reasoning_model(model) else {}
 
     def _complete(self, system: str, user: str, max_tokens: int, effort: str = "minimal") -> str:
         # Short internal tasks (restating a question): with a reasoning model the thinking would use up the small budget and
@@ -113,10 +124,10 @@ class OpenAIGenerator(_Interprets):
             r = self._client.images.generate(model=model, prompt=prompt, size=size, quality=quality, n=1, **extra)
         return base64.b64decode(r.data[0].b64_json)
 
-    def direct_image(self, request: str, has_references: bool = False) -> dict:
+    def direct_image(self, request: str, has_references: bool = False, concept: str = "") -> dict:
         """Owner 2026-10-25 art-director step: expand the request, choose canvas and background. Falls back to the raw request."""
         import json
-        raw = self._complete(IMAGE_DIRECTOR_PROMPT, build_image_director_input(request, has_references), 1200)
+        raw = self._complete(IMAGE_DIRECTOR_PROMPT, build_image_director_input(request, has_references, concept), 1200)
         try:
             data = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
         except (ValueError, json.JSONDecodeError):

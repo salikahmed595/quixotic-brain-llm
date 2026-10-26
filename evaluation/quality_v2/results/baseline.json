@@ -1,0 +1,3712 @@
+{
+ "label": "baseline",
+ "base": "https://maqsad.quixoticcreatives.com",
+ "repeat": 2,
+ "summary": [
+  {
+   "id": "TR1",
+   "issue": 1,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "language roman_urdu: detected english; judge: Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think: Output is English, not Roman Urdu; meaning similar but language incorrect.; judge: No explanation, greeting or quotation marks added: Output includes the greeting 'Hey,' which violates the no-greeting requirement.",
+    "language roman_urdu: detected english; judge: Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think: Response is in English, not Roman Urdu; meaning partly preserved but language incorrect."
+   ]
+  },
+  {
+   "id": "TR2",
+   "issue": 1,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "judge: Keeps the casual tone (e.g. 'Bro' for 'Bhai'): The Hindi casual address 'Bhai' was omitted; translation is neutral rather than casual ('Bro').",
+    "judge: Keeps the casual tone (e.g. 'Bro' for 'Bhai'): Translation is neutral/formal and does not include a casual address like 'Bro'."
+   ]
+  },
+  {
+   "id": "TR3",
+   "issue": 1,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "language roman_urdu: detected english; judge: Roman Urdu with the same meaning (emotes look great, asks the price of 3): Response is in English, not Roman Urdu.",
+    "language roman_urdu: detected english; judge: Roman Urdu with the same meaning (emotes look great, asks the price of 3): Response is in English, not Roman Urdu; meaning is preserved but language requirement not met."
+   ]
+  },
+  {
+   "id": "TR4",
+   "issue": 1,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "TR5",
+   "issue": 1,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "TR6",
+   "issue": 1,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "TR7",
+   "issue": 1,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "TR8",
+   "issue": 1,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "TR9",
+   "issue": 1,
+   "pass": false,
+   "passed_repeats": "1/2",
+   "failure_reasons": [
+    "judge: English translation: okay, I'll let you know by tomorrow: Translation is missing the leading 'okay,' though otherwise correct English and properly structured."
+   ]
+  },
+  {
+   "id": "AI1",
+   "issue": 2,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "AI2",
+   "issue": 2,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "AI3",
+   "issue": 2,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "AI4",
+   "issue": 2,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "judge: Simple everyday words, no design jargon: Uses terms like 'HUD-style', 'semi-transparent', 'hexagonal', 'condensed sci‑fi font' which are design-specific.",
+    "judge: Simple everyday words, no design jargon: Uses terms like 'hex-grid', 'broken-hex frame', 'semi-transparent', and 'game capture' which are design/streaming jargon."
+   ]
+  },
+  {
+   "id": "GR1",
+   "issue": 3,
+   "pass": false,
+   "passed_repeats": "1/2",
+   "failure_reasons": [
+    "<= 60 words: 73 words; judge: Exactly one short greeting message: Provided three separate options instead of exactly one message.; judge: Natural and casual, like a real Discord user: Includes a formal/professional option; output is not a single consistently casual message."
+   ]
+  },
+  {
+   "id": "GR2",
+   "issue": 3,
+   "pass": false,
+   "passed_repeats": "1/2",
+   "failure_reasons": [
+    "judge: Short, human, not promotional: While the tone is conversational, the message is somewhat promotional and lists many services, making it longer and more marketing-focused than 'short and not promotional.'"
+   ]
+  },
+  {
+   "id": "GR3",
+   "issue": 3,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "FB1",
+   "issue": 4,
+   "pass": false,
+   "passed_repeats": "1/2",
+   "failure_reasons": [
+    "language english: detected roman_urdu; judge: One reply addressed directly to the client, in English: Reply is in Roman Urdu, not English."
+   ]
+  },
+  {
+   "id": "FB2",
+   "issue": 4,
+   "pass": false,
+   "passed_repeats": "1/2",
+   "failure_reasons": [
+    "judge: Notes what they like (colours, pose) so it is kept: The assistant output did not mention the client's positive comments about the colours and the pose. It only listed the requested modifications."
+   ]
+  },
+  {
+   "id": "FB3",
+   "issue": 4,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "CN1",
+   "issue": 5,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "<= 170 words: 226 words; judge: No headings, no jargon, no questions back: Includes a closing question asking for username/skin and uses some technical terms ('rim light', 'safe area', 'parallax').",
+    "judge: No headings, no jargon, no questions back: No headings or questions, but contains design terms ('low-contrast lighting', 'safe area', 'rounded sans', 'high-contrast edges') that qualify as jargon."
+   ]
+  },
+  {
+   "id": "CS1",
+   "issue": 6,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "judge: Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition: Does not mention templates, exact PS5 edition, or explicitly avoiding vents/ports/buttons—only references vent plates aesthetically.",
+    "judge: Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition: Description references vents visually but does not state keeping areas clear or using an exact PS5 template/edition for printing."
+   ]
+  },
+  {
+   "id": "CS2",
+   "issue": 6,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "judge: Notes that the exact console model (and edition) is needed before print preparation: The response does not request the specific console model or edition before print preparation.",
+    "judge: Notes that the exact console model (and edition) is needed before print preparation: Response did not request or mention needing the exact console model/edition prior to print preparation."
+   ]
+  },
+  {
+   "id": "IM1",
+   "issue": 7,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "IM2",
+   "issue": 7,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "RT1",
+   "issue": 0,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "RT2",
+   "issue": 0,
+   "pass": true,
+   "passed_repeats": "2/2",
+   "failure_reasons": []
+  },
+  {
+   "id": "RT3",
+   "issue": 0,
+   "pass": false,
+   "passed_repeats": "0/2",
+   "failure_reasons": [
+    "judge: Any explanation to the employee is in Roman Urdu: The assistant included English explanation lines (\"What they're asking\" and its bullet); only the final sentence was Roman Urdu.",
+    "judge: Any explanation to the employee is in Roman Urdu: Explanations are primarily in English; only a short phrase ('clear raho, overcommit mat karo' and one sentence) is in Roman Urdu."
+   ]
+  }
+ ],
+ "results": [
+  {
+   "id": "TR1",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "translate",
+   "target": "auto",
+   "input": "Hey, I really like your artwork, but I need some time to think about it.",
+   "history": [],
+   "expected_language": "roman_urdu",
+   "expected_structure": "only the translation, one line, no quotes or notes",
+   "constraints": {
+    "checks": {
+     "language": "roman_urdu",
+     "not_same_as_input": true,
+     "max_words": 30,
+     "forbid": [
+      "^\"",
+      "translation:"
+     ]
+    },
+    "must": [
+     "Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think",
+     "No explanation, greeting or quotation marks added"
+    ]
+   },
+   "output": "Hey, I really like your artwork, but I need some time to think it over.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 4.6,
+   "pass": false,
+   "failure_reason": "language roman_urdu: detected english; judge: Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think: Output is English, not Roman Urdu; meaning similar but language incorrect.; judge: No explanation, greeting or quotation marks added: Output includes the greeting 'Hey,' which violates the no-greeting requirement.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language roman_urdu",
+     "pass": false,
+     "reason": "detected english"
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 30 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid ^\"",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid translation:",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think",
+     "pass": false,
+     "reason": "Output is English, not Roman Urdu; meaning similar but language incorrect."
+    },
+    {
+     "check": "judge: No explanation, greeting or quotation marks added",
+     "pass": false,
+     "reason": "Output includes the greeting 'Hey,' which violates the no-greeting requirement."
+    }
+   ]
+  },
+  {
+   "id": "TR1",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "translate",
+   "target": "auto",
+   "input": "Hey, I really like your artwork, but I need some time to think about it.",
+   "history": [],
+   "expected_language": "roman_urdu",
+   "expected_structure": "only the translation, one line, no quotes or notes",
+   "constraints": {
+    "checks": {
+     "language": "roman_urdu",
+     "not_same_as_input": true,
+     "max_words": 30,
+     "forbid": [
+      "^\"",
+      "translation:"
+     ]
+    },
+    "must": [
+     "Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think",
+     "No explanation, greeting or quotation marks added"
+    ]
+   },
+   "output": "Hey, I really like your artwork, but I need some time to think it over.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 4.5,
+   "pass": false,
+   "failure_reason": "language roman_urdu: detected english; judge: Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think: Response is in English, not Roman Urdu; meaning partly preserved but language incorrect.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language roman_urdu",
+     "pass": false,
+     "reason": "detected english"
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 30 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid ^\"",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid translation:",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Natural Roman Urdu (Urdu in English letters) with the same meaning: likes the artwork, needs time to think",
+     "pass": false,
+     "reason": "Response is in English, not Roman Urdu; meaning partly preserved but language incorrect."
+    },
+    {
+     "check": "judge: No explanation, greeting or quotation marks added",
+     "pass": true,
+     "reason": "Output contained only a single sentence with no extra explanation, greeting, or quotes."
+    }
+   ]
+  },
+  {
+   "id": "TR2",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "translate",
+   "target": "auto",
+   "input": "Bhai mujhe tumhara design acha laga lekin abhi mere paas budget nahi hai.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true,
+     "max_words": 25
+    },
+    "must": [
+     "English with the same meaning: liked the design, no budget right now",
+     "Keeps the casual tone (e.g. 'Bro' for 'Bhai')",
+     "No added notes or greetings"
+    ]
+   },
+   "output": "I liked your design, but I don't have the budget right now.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 4.7,
+   "pass": false,
+   "failure_reason": "judge: Keeps the casual tone (e.g. 'Bro' for 'Bhai'): The Hindi casual address 'Bhai' was omitted; translation is neutral rather than casual ('Bro').",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 25 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English with the same meaning: liked the design, no budget right now",
+     "pass": true,
+     "reason": "Translation accurately conveys that the speaker liked the design and currently lacks budget."
+    },
+    {
+     "check": "judge: Keeps the casual tone (e.g. 'Bro' for 'Bhai')",
+     "pass": false,
+     "reason": "The Hindi casual address 'Bhai' was omitted; translation is neutral rather than casual ('Bro')."
+    },
+    {
+     "check": "judge: No added notes or greetings",
+     "pass": true,
+     "reason": "The output is strictly the translation with no extra notes or greetings."
+    }
+   ]
+  },
+  {
+   "id": "TR2",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "translate",
+   "target": "auto",
+   "input": "Bhai mujhe tumhara design acha laga lekin abhi mere paas budget nahi hai.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true,
+     "max_words": 25
+    },
+    "must": [
+     "English with the same meaning: liked the design, no budget right now",
+     "Keeps the casual tone (e.g. 'Bro' for 'Bhai')",
+     "No added notes or greetings"
+    ]
+   },
+   "output": "I liked your design, but I don't have the budget right now.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 6.2,
+   "pass": false,
+   "failure_reason": "judge: Keeps the casual tone (e.g. 'Bro' for 'Bhai'): Translation is neutral/formal and does not include a casual address like 'Bro'.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 25 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English with the same meaning: liked the design, no budget right now",
+     "pass": true,
+     "reason": "Translation accurately conveys liking the design and lack of budget."
+    },
+    {
+     "check": "judge: Keeps the casual tone (e.g. 'Bro' for 'Bhai')",
+     "pass": false,
+     "reason": "Translation is neutral/formal and does not include a casual address like 'Bro'."
+    },
+    {
+     "check": "judge: No added notes or greetings",
+     "pass": true,
+     "reason": "Output contains only the translated sentence with no extra notes or greetings."
+    }
+   ]
+  },
+  {
+   "id": "TR3",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "translate",
+   "target": "auto",
+   "input": "ngl ur emotes look fire, how much would 3 of them cost?",
+   "history": [],
+   "expected_language": "roman_urdu",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "roman_urdu",
+     "not_same_as_input": true,
+     "max_words": 30
+    },
+    "must": [
+     "Roman Urdu with the same meaning (emotes look great, asks the price of 3)",
+     "Keeps the informal, casual tone",
+     "Does not invent a price"
+    ]
+   },
+   "output": "Not gonna lie, your emotes look amazing. How much would three of them cost?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 3.2,
+   "pass": false,
+   "failure_reason": "language roman_urdu: detected english; judge: Roman Urdu with the same meaning (emotes look great, asks the price of 3): Response is in English, not Roman Urdu.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language roman_urdu",
+     "pass": false,
+     "reason": "detected english"
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 30 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Roman Urdu with the same meaning (emotes look great, asks the price of 3)",
+     "pass": false,
+     "reason": "Response is in English, not Roman Urdu."
+    },
+    {
+     "check": "judge: Keeps the informal, casual tone",
+     "pass": true,
+     "reason": "Tone remains informal and casual ('Not gonna lie')."
+    },
+    {
+     "check": "judge: Does not invent a price",
+     "pass": true,
+     "reason": "The reply asks for the price instead of providing one."
+    }
+   ]
+  },
+  {
+   "id": "TR3",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "translate",
+   "target": "auto",
+   "input": "ngl ur emotes look fire, how much would 3 of them cost?",
+   "history": [],
+   "expected_language": "roman_urdu",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "roman_urdu",
+     "not_same_as_input": true,
+     "max_words": 30
+    },
+    "must": [
+     "Roman Urdu with the same meaning (emotes look great, asks the price of 3)",
+     "Keeps the informal, casual tone",
+     "Does not invent a price"
+    ]
+   },
+   "output": "Not gonna lie, your emotes look fire. How much would 3 of them cost?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 4.5,
+   "pass": false,
+   "failure_reason": "language roman_urdu: detected english; judge: Roman Urdu with the same meaning (emotes look great, asks the price of 3): Response is in English, not Roman Urdu; meaning is preserved but language requirement not met.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language roman_urdu",
+     "pass": false,
+     "reason": "detected english"
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 30 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Roman Urdu with the same meaning (emotes look great, asks the price of 3)",
+     "pass": false,
+     "reason": "Response is in English, not Roman Urdu; meaning is preserved but language requirement not met."
+    },
+    {
+     "check": "judge: Keeps the informal, casual tone",
+     "pass": true,
+     "reason": "Tone remains informal and casual, matching the original message's style."
+    },
+    {
+     "check": "judge: Does not invent a price",
+     "pass": true,
+     "reason": "The assistant asks for the price rather than providing one, so no price was invented."
+    }
+   ]
+  },
+  {
+   "id": "TR4",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "translate",
+   "target": "auto",
+   "input": "Ali bhai, NightOwl wala logo kal tak bhej dena please, stream se pehle chahiye.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true,
+     "must_contain": [
+      "Ali",
+      "NightOwl"
+     ]
+    },
+    "must": [
+     "English with the same meaning (send the NightOwl logo by tomorrow, needed before the stream)",
+     "Names Ali and NightOwl unchanged"
+    ]
+   },
+   "output": "Ali, please send the NightOwl logo by tomorrow; I need it before the stream.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 3.2,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "contains Ali",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "contains NightOwl",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English with the same meaning (send the NightOwl logo by tomorrow, needed before the stream)",
+     "pass": true,
+     "reason": "Translation preserves meaning and timing requirement."
+    },
+    {
+     "check": "judge: Names Ali and NightOwl unchanged",
+     "pass": true,
+     "reason": "Both names remain exactly as in the source text."
+    }
+   ]
+  },
+  {
+   "id": "TR4",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "translate",
+   "target": "auto",
+   "input": "Ali bhai, NightOwl wala logo kal tak bhej dena please, stream se pehle chahiye.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true,
+     "must_contain": [
+      "Ali",
+      "NightOwl"
+     ]
+    },
+    "must": [
+     "English with the same meaning (send the NightOwl logo by tomorrow, needed before the stream)",
+     "Names Ali and NightOwl unchanged"
+    ]
+   },
+   "output": "Ali bhai, please send the NightOwl logo by tomorrow, need it before the stream.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 3.6,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "contains Ali",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "contains NightOwl",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English with the same meaning (send the NightOwl logo by tomorrow, needed before the stream)",
+     "pass": true,
+     "reason": "Translation accurately conveys 'send by tomorrow' and 'needed before the stream' in English."
+    },
+    {
+     "check": "judge: Names Ali and NightOwl unchanged",
+     "pass": true,
+     "reason": "Both 'Ali' and 'NightOwl' are kept exactly as in the source."
+    }
+   ]
+  },
+  {
+   "id": "TR5",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "translate",
+   "target": "auto",
+   "input": "yaar client ne bola hai ke colours thore dull lag rahe hain, can we make them brighter?",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true
+    },
+    "must": [
+     "Mixed text, mostly Roman Urdu: translated fully into English with the same meaning (client says the colours look dull, asks to make them brighter)",
+     "Does not ask which language"
+    ]
+   },
+   "output": "The client says the colours look a bit dull; can we make them brighter?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 4.0,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Mixed text, mostly Roman Urdu: translated fully into English with the same meaning (client says the colours look dull, asks to make them brighter)",
+     "pass": true,
+     "reason": "The output accurately conveys the same meaning in English: notes colours are dull and asks to make them brighter."
+    },
+    {
+     "check": "judge: Does not ask which language",
+     "pass": true,
+     "reason": "The assistant provided the translation directly and did not ask about the language."
+    }
+   ]
+  },
+  {
+   "id": "TR5",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "translate",
+   "target": "auto",
+   "input": "yaar client ne bola hai ke colours thore dull lag rahe hain, can we make them brighter?",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true
+    },
+    "must": [
+     "Mixed text, mostly Roman Urdu: translated fully into English with the same meaning (client says the colours look dull, asks to make them brighter)",
+     "Does not ask which language"
+    ]
+   },
+   "output": "The client said the colours look a bit dull and asked if we can make them brighter.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 3.5,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Mixed text, mostly Roman Urdu: translated fully into English with the same meaning (client says the colours look dull, asks to make them brighter)",
+     "pass": true,
+     "reason": "Translation accurately conveys the client's message and request in English."
+    },
+    {
+     "check": "judge: Does not ask which language",
+     "pass": true,
+     "reason": "No language question was asked; output is provided directly in English."
+    }
+   ]
+  },
+  {
+   "id": "TR6",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "translate",
+   "target": "Spanish",
+   "input": "Aap ka logo almost ready hai, bas colours confirm kar dein.",
+   "history": [],
+   "expected_language": "spanish",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "not_same_as_input": true
+    },
+    "must": [
+     "Spanish translation with the same meaning (logo almost ready, please confirm the colours)",
+     "Only the translation"
+    ]
+   },
+   "output": "Su logo está casi listo, solo confirme los colores.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 2.6,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Spanish translation with the same meaning (logo almost ready, please confirm the colours)",
+     "pass": true,
+     "reason": "Accurate translation conveying same meaning and tone."
+    },
+    {
+     "check": "judge: Only the translation",
+     "pass": true,
+     "reason": "Response contains only the translated sentence."
+    }
+   ]
+  },
+  {
+   "id": "TR6",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "translate",
+   "target": "Spanish",
+   "input": "Aap ka logo almost ready hai, bas colours confirm kar dein.",
+   "history": [],
+   "expected_language": "spanish",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "not_same_as_input": true
+    },
+    "must": [
+     "Spanish translation with the same meaning (logo almost ready, please confirm the colours)",
+     "Only the translation"
+    ]
+   },
+   "output": "Su logo está casi listo, solo confirme los colores.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 2.1,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Spanish translation with the same meaning (logo almost ready, please confirm the colours)",
+     "pass": true,
+     "reason": "Translation accurately conveys that the logo is almost ready and asks to confirm the colours."
+    },
+    {
+     "check": "judge: Only the translation",
+     "pass": true,
+     "reason": "Response contains only the translated sentence with no extra text."
+    }
+   ]
+  },
+  {
+   "id": "TR7",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "translate into roman urdu: Thanks for waiting! The sketch is ready, let me know what you think.",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Give me 2 emote ideas for a frog themed streamer",
+     "answer": "1) Excited Hype Frog — head-and-shoulders frog with mouth wide open in a joyful O, eyes sparkling, one arm raised in a tiny fist-pump and motion lines to show energy; circular crop, transparent background, thick dark outline, bold silhouette, simplified shapes and high contrast greens with a warm yellow belly and rim light, cel-shaded for clarity. Designed to read at 28 px so it works as a hype/cheer emote viewers will use often.\n\n2) Heart-Eyes Cute Frog — slightly tilted frog face with big heart-shaped pupils, soft blush, hands clasped under chin and a small floating heart; minimal background, saturated mid-green with pink accents, soft cel shading, heavy outline and no tiny details for legibility. Useful as a love/thank-you emote for donations, subs and positive reactions."
+    }
+   ],
+   "expected_language": "roman_urdu",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "roman_urdu",
+     "max_words": 40,
+     "forbid": [
+      "frog",
+      "emote"
+     ]
+    },
+    "must": [
+     "Roman Urdu translation of the given sentence only, same meaning",
+     "Previous emote ideas are not mentioned"
+    ]
+   },
+   "output": "Intizaar karne ke liye shukriya! Sketch tayyar hai, batayein ke aapko kaisa laga.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 7.2,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language roman_urdu",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 40 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid frog",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid emote",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Roman Urdu translation of the given sentence only, same meaning",
+     "pass": true,
+     "reason": "Output correctly renders the sentence in Roman Urdu with equivalent meaning."
+    },
+    {
+     "check": "judge: Previous emote ideas are not mentioned",
+     "pass": true,
+     "reason": "Response contains only the requested translation and does not reference prior emote ideas."
+    }
+   ]
+  },
+  {
+   "id": "TR7",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "translate into roman urdu: Thanks for waiting! The sketch is ready, let me know what you think.",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Give me 2 emote ideas for a frog themed streamer",
+     "answer": "1) Hype Frog — close-up three-quarter headshot, mouth wide in a cheer with tiny pumped fists and starry eyes; add motion lines for extra energy. Flat cel-shading, thick dark outline, vivid lime/emerald palette with bright yellow accents, transparent background for readability at 28 px. Benefit: instant, high-energy reaction emote for hype/cheers.\n\n2) Cozy Tea Frog — sleepy frog cuddling a steaming teacup, half-lidded content eyes and a small smile; optional subtle steam animation. Soft shading, muted moss and pastel greens, thick outline and simple silhouette so it reads at small sizes. Benefit: calm/BRB or “relax” reaction emote that fits chill stream moments."
+    }
+   ],
+   "expected_language": "roman_urdu",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "roman_urdu",
+     "max_words": 40,
+     "forbid": [
+      "frog",
+      "emote"
+     ]
+    },
+    "must": [
+     "Roman Urdu translation of the given sentence only, same meaning",
+     "Previous emote ideas are not mentioned"
+    ]
+   },
+   "output": "Intezaar karne ke liye shukriya! Sketch tayyar hai, batayein aapko kya lagta hai.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 6.8,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language roman_urdu",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 40 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid frog",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid emote",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Roman Urdu translation of the given sentence only, same meaning",
+     "pass": true,
+     "reason": "Reply is a concise Roman Urdu rendering of the original sentence with equivalent meaning."
+    },
+    {
+     "check": "judge: Previous emote ideas are not mentioned",
+     "pass": true,
+     "reason": "Response contains only the requested translation and does not reference prior emote ideas."
+    }
+   ]
+  },
+  {
+   "id": "TR8",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "isko english mein translate karo: bhai price thora kam karo, main regular customer hoon",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "max_words": 30
+    },
+    "must": [
+     "English translation (lower the price a little, I'm a regular customer)",
+     "No reply suggestions or advice added"
+    ]
+   },
+   "output": "Hey, could you lower the price a bit? I’m a regular customer.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 9.4,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 30 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English translation (lower the price a little, I'm a regular customer)",
+     "pass": true,
+     "reason": "Accurate, natural English translation conveying the same meaning."
+    },
+    {
+     "check": "judge: No reply suggestions or advice added",
+     "pass": true,
+     "reason": "Response contains only the translation with no additional suggestions or advice."
+    }
+   ]
+  },
+  {
+   "id": "TR8",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "isko english mein translate karo: bhai price thora kam karo, main regular customer hoon",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "max_words": 30
+    },
+    "must": [
+     "English translation (lower the price a little, I'm a regular customer)",
+     "No reply suggestions or advice added"
+    ]
+   },
+   "output": "Brother, please lower the price a bit — I'm a regular customer.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 6.9,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 30 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English translation (lower the price a little, I'm a regular customer)",
+     "pass": true,
+     "reason": "Accurate, natural English rendering of the original sentence."
+    },
+    {
+     "check": "judge: No reply suggestions or advice added",
+     "pass": true,
+     "reason": "Output contains only the translation with no additional suggestions or commentary."
+    }
+   ]
+  },
+  {
+   "id": "TR9",
+   "issue": 1,
+   "repeat": 1,
+   "mode": "translate",
+   "target": "auto",
+   "input": "theek hai, kal tak bata dunga",
+   "history": [
+    {
+     "mode": "translate",
+     "target": "auto",
+     "q": "Bhai logo bohat zabardast hai!",
+     "answer": "Bro, the logo is really awesome!"
+    },
+    {
+     "mode": "translate",
+     "target": "auto",
+     "q": "Can you also make a matching banner?",
+     "answer": "Could you also create a matching banner?"
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true
+    },
+    "must": [
+     "English translation: okay, I'll let you know by tomorrow"
+    ]
+   },
+   "output": "Okay, I'll let you know by tomorrow.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 1.3,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English translation: okay, I'll let you know by tomorrow",
+     "pass": true,
+     "reason": "Output is the correct English translation and contains only the translated sentence."
+    }
+   ]
+  },
+  {
+   "id": "TR9",
+   "issue": 1,
+   "repeat": 2,
+   "mode": "translate",
+   "target": "auto",
+   "input": "theek hai, kal tak bata dunga",
+   "history": [
+    {
+     "mode": "translate",
+     "target": "auto",
+     "q": "Bhai logo bohat zabardast hai!",
+     "answer": "Bro, the logo is really awesome!"
+    },
+    {
+     "mode": "translate",
+     "target": "auto",
+     "q": "Can you also make a matching banner?",
+     "answer": "Could you also make a matching banner?"
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "only the translation",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "not_same_as_input": true
+    },
+    "must": [
+     "English translation: okay, I'll let you know by tomorrow"
+    ]
+   },
+   "output": "I'll let you know by tomorrow.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 2.3,
+   "pass": false,
+   "failure_reason": "judge: English translation: okay, I'll let you know by tomorrow: Translation is missing the leading 'okay,' though otherwise correct English and properly structured.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "not a copy of the input",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: English translation: okay, I'll let you know by tomorrow",
+     "pass": false,
+     "reason": "Translation is missing the leading 'okay,' though otherwise correct English and properly structured."
+    }
+   ]
+  },
+  {
+   "id": "AI1",
+   "issue": 2,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "Give me one idea for a mascot logo for a client who loves samurai and the colour red. One paragraph, 5-6 lines.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly one idea, one paragraph, no bullets, about 60-120 words",
+   "constraints": {
+    "checks": {
+     "no_bullets": true,
+     "min_words": 55,
+     "max_words": 130,
+     "paragraphs": 1
+    },
+    "must": [
+     "Exactly one idea",
+     "It is a mascot logo (a character emblem usable as a logo), not a banner or poster",
+     "Uses samurai and red",
+     "Specific visual details the client can picture (character, pose/expression, key shapes, colours, where the name goes)",
+     "Not generic filler"
+    ]
+   },
+   "output": "A compact mascot of a stoic samurai in a three‑quarter battle‑ready pose, chin down and eyes narrowed for intense focus. Visual details: stylised kabuto helmet with a crimson crest, a flowing red sash, and a sheathed katana angled across the torso. Composition: a circular rising‑sun badge behind the figure for instant silhouette clarity and balanced negative space for icon use. Colour & lighting: limited palette — dominant deep red accents, muted charcoal armor, warm ivory highlights, and strong rim lighting for pop. Style & branding: bold vector lines and simplified shapes so it reads at small sizes, with a curved name ribbon or wordmark under the badge.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 13.2,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 130 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": ">= 55 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "no bullets",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "1 paragraph(s)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one idea",
+     "pass": true,
+     "reason": "Response presents a single, unified mascot concept in one paragraph."
+    },
+    {
+     "check": "judge: It is a mascot logo (a character emblem usable as a logo), not a banner or poster",
+     "pass": true,
+     "reason": "Described as a compact mascot with badge composition and simplified shapes for icon use."
+    },
+    {
+     "check": "judge: Uses samurai and red",
+     "pass": true,
+     "reason": "Explicitly features a samurai with crimson crest, flowing red sash, and rising-sun motif."
+    },
+    {
+     "check": "judge: Specific visual details the client can picture (character, pose/expression, key shapes, colours, where the name goes)",
+     "pass": true,
+     "reason": "Includes pose, expression, helmet, katana placement, circular badge, colour palette, and name ribbon placement."
+    },
+    {
+     "check": "judge: Not generic filler",
+     "pass": true,
+     "reason": "Provides concrete, actionable visual elements and stylistic choices rather than vague statements."
+    }
+   ]
+  },
+  {
+   "id": "AI1",
+   "issue": 2,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "Give me one idea for a mascot logo for a client who loves samurai and the colour red. One paragraph, 5-6 lines.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly one idea, one paragraph, no bullets, about 60-120 words",
+   "constraints": {
+    "checks": {
+     "no_bullets": true,
+     "min_words": 55,
+     "max_words": 130,
+     "paragraphs": 1
+    },
+    "must": [
+     "Exactly one idea",
+     "It is a mascot logo (a character emblem usable as a logo), not a banner or poster",
+     "Uses samurai and red",
+     "Specific visual details the client can picture (character, pose/expression, key shapes, colours, where the name goes)",
+     "Not generic filler"
+    ]
+   },
+   "output": "A bold mascot logo: a stylized fox samurai in a three-quarter pose, leaning on a sheathed katana angled across its chest. Thick, clean silhouette with simplified armor plates and a menpo-style face mask so it reads at small sizes. Primary palette: deep crimson for the armor, near-black outlines and shadows, and a single warm gold accent for trim. Background: transparent for flexible use with an optional circular red brush-stroke crest behind the character for avatars. Lighting: strong rim light to separate from dark backgrounds; place the name on a curved baseline beneath the crest in a bold condensed type.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 8.4,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 130 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": ">= 55 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "no bullets",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "1 paragraph(s)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one idea",
+     "pass": true,
+     "reason": "Single mascot concept (fox samurai) presented."
+    },
+    {
+     "check": "judge: It is a mascot logo (a character emblem usable as a logo), not a banner or poster",
+     "pass": true,
+     "reason": "Describes a character emblem intended for avatars and logo use."
+    },
+    {
+     "check": "judge: Uses samurai and red",
+     "pass": true,
+     "reason": "Explicitly references samurai elements and a deep crimson primary palette."
+    },
+    {
+     "check": "judge: Specific visual details the client can picture (character, pose/expression, key shapes, colours, where the name goes)",
+     "pass": true,
+     "reason": "Includes character, three-quarter pose, katana, menpo mask, armor, colours, background crest and name placement."
+    },
+    {
+     "check": "judge: Not generic filler",
+     "pass": true,
+     "reason": "Provides concrete, non-generic design specifics (fox samurai, brush-stroke crest, rim light)."
+    }
+   ]
+  },
+  {
+   "id": "AI2",
+   "issue": 2,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "3 emote ideas for a cozy cat-themed Twitch streamer, pastel colours",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly 3 ideas",
+   "constraints": {
+    "checks": {
+     "max_words": 260
+    },
+    "must": [
+     "Exactly 3 ideas",
+     "All are emotes (single expressive character, readable at small size)",
+     "Pastel colours and a cozy cat theme",
+     "The 3 ideas are clearly different emotions/uses"
+    ]
+   },
+   "output": "1) Cozy Cup Cat — a plump cat holding a steaming mug with half-lidded, content eyes and a tiny heart-shaped steam curl; three-quarter pose, simple circular crop, soft cel shading and warm rim light. Palette: pastel peach, cream, mint; thick outline and clear silhouette so it reads at 28 px.  \nHow it helps: perfect for calm/thank-you/reaction emotes that feel warm and brand-cohesive.\n\n2) Blanket-Snug Cat — curled cat wrapped in a chunky knitted blanket, eyes closed with a small “zzz” puff; low-angle close crop, subtle knit texture simplified for small sizes, soft ambient shadow. Palette: lavender, teal, pale cream; bold outer line for readability.  \nHow it helps: ideal for AFK/BRB, sleepy, or cozy community moments.\n\n3) Yarn-Play Cat — energetic chibi cat batting a tiny yarn ball, one eye winking and motion lines showing play; compact three-quarter pose inside a soft badge shape, high-contrast shapes and minimal detail. Palette: baby blue, coral, lemon; strong silhouette for emote clarity.  \nHow it helps: great for hype, cheer, and playful chat reactions.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 9.9,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 260 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly 3 ideas",
+     "pass": true,
+     "reason": "Three numbered emote ideas are provided."
+    },
+    {
+     "check": "judge: All are emotes (single expressive character, readable at small size)",
+     "pass": true,
+     "reason": "Each is a single cat design with notes on readability/simplification for small sizes."
+    },
+    {
+     "check": "judge: Pastel colours and a cozy cat theme",
+     "pass": true,
+     "reason": "Palettes use pastel hues and all concepts are cozy cat-themed."
+    },
+    {
+     "check": "judge: The 3 ideas are clearly different emotions/uses",
+     "pass": true,
+     "reason": "Ideas cover content/thank-you, sleepy/AFK, and playful/hype uses."
+    }
+   ]
+  },
+  {
+   "id": "AI2",
+   "issue": 2,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "3 emote ideas for a cozy cat-themed Twitch streamer, pastel colours",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly 3 ideas",
+   "constraints": {
+    "checks": {
+     "max_words": 260
+    },
+    "must": [
+     "Exactly 3 ideas",
+     "All are emotes (single expressive character, readable at small size)",
+     "Pastel colours and a cozy cat theme",
+     "The 3 ideas are clearly different emotions/uses"
+    ]
+   },
+   "output": "1) A curled \"mug cat\" snuggled inside an oversized teacup, eyes closed and a tiny steam-heart rising; simplified silhouette, thick outline, soft cel shading and transparent background for clarity at 28px. Pastel palette: blush pink, cream, mint. Benefits: clear, cozy reaction emote for \"happy/relaxed\" that reads at small sizes.\n\n2) A sleepy stretch-yawn cat with one paw over its face and a tiny droplet/zzz bubble, facing three-quarter view with bold outline and minimal interior detail. Palette: lavender, baby blue, warm cream. Benefits: versatile sleepy/BRB emote that’s expressive even at emote sizes.\n\n3) A content cat wrapped in a chunky pastel blanket, clutching a tiny yarn ball and giving a soft smile; flat shapes, strong silhouette, subtle rim light. Palette: peach, teal, lilac. Benefits: unique \"cozy/thanks\" emote that shows personality and scales well for sub-chat use.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 10.7,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 260 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly 3 ideas",
+     "pass": true,
+     "reason": "Output contains exactly three numbered ideas (1–3)."
+    },
+    {
+     "check": "judge: All are emotes (single expressive character, readable at small size)",
+     "pass": true,
+     "reason": "Each idea is a single cat with notes on silhouette/outline and legibility at emote sizes (28px mentioned)."
+    },
+    {
+     "check": "judge: Pastel colours and a cozy cat theme",
+     "pass": true,
+     "reason": "All three ideas use pastel palettes and describe cozy elements (teacup, blanket, yarn, sleepy pose)."
+    },
+    {
+     "check": "judge: The 3 ideas are clearly different emotions/uses",
+     "pass": true,
+     "reason": "Ideas map to distinct reactions: happy/relaxed, sleepy/BRB, and cozy/thanks."
+    }
+   ]
+  },
+  {
+   "id": "AI3",
+   "issue": 2,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "Now a detailed concept for a fantasy wolf profile picture in green and gold.",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Give me 2 cyberpunk banner ideas with neon pink and blue",
+     "answer": "1. Close three-quarter cyber-samurai (lean, angular lines) with a neon katana across the shoulder, placed on the left third to leave the right side clear for name and socials; pose confident, eyes lit. Rain-soaked neon cityscape background with holographic billboards, strong rim lighting in neon pink and cyan-blue, cel-shaded with subtle CRT grain and mirrored wet reflections. Benefit: bold silhouette and high-contrast neon make the banner readable at small sizes and memorable across platforms.\n\n2. Stylized robotic fox mascot mid-leap, tail trailing neon-pink and blue ribbon-streaks, centered inside a glowing circular emblem so it also reads as a profile mark; motion blur and an arc for headline text. Background: layered rooftop skyline and a faint digital grid with glitch artifacts, backlit pink rim and soft blue front fill, clean vector silhouette plus painterly neon glows and bokeh. Benefit: versatile emblem-style composition that scales down cleanly for emotes and badges while keeping strong stream branding."
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "one detailed concept",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)cyberpunk",
+      "(?i)neon pink"
+     ]
+    },
+    "must": [
+     "A profile picture (PFP) concept, not a banner",
+     "Fantasy wolf in green and gold",
+     "Detailed, meaningful design information (composition, character, colours, lighting/effects) without filler",
+     "Nothing carried over from the earlier cyberpunk ideas"
+    ]
+   },
+   "output": "Concept — \"Verdant Warden\" (fantasy wolf profile picture, green & gold)\n\nMain idea (one-line): a noble, three-quarter-facing fantasy wolf bust with a flowing, slightly stylized mane and gold ornamental plating, framed tightly so the head and upper shoulders fill a circular avatar; strong silhouette and gold accents read clearly at small sizes.\n\nDetailed breakdown\n- Subject & pose: three-quarter view (head turned slightly toward viewer, eye contact), mouth closed or a subtle snarl — confident, regal energy. Tilt the head down a touch so the gold ornament along the brow and cheek catches the light.\n- Expression & focal detail: intense, focused eyes — gold iris with a faint green inner glow and a bright gold catchlight. Make the pupil a narrow vertical slit for character, but keep the iris shape clear at tiny sizes (avoid tiny intricate patterns).\n- Silhouette & composition: bold, simple silhouette — big triangular ears, strong cheek ruff, and a tapered muzzle. Place the head off-center slightly (left third) so negative space on the right could hold a small username badge or stand cleanly in profile crops. Keep the outermost fur tips trimmed into clear shapes so they don’t blur at small sizes.\n- Fur, mane & ornamentation: deep forest-green fur with layered tufts; a longer, flowing mane around the neck with stylized feather-like shapes. Add gold ornamental pieces — a small forehead circlet, ear cuffs, and a shoulder pauldron visible at the bottom of the crop. Make the gold shapes simple, readable icons rather than filigree.\n- Lighting & materials: high-contrast rim lighting in warm gold from the top-left and a cool secondary fill from the lower-right (slightly green-tinted). Render gold with a slightly metallic specular — clear bright highlights and a soft gradient, not noisy texture. For fur use painterly strokes or tight cel-shading depending on final style.\n- Colour palette (examples, pick & tweak in-app):\n  - Dark base green: #0E4B2B\n  - Mid emerald: #1E7A3A\n  - Glow/accents (soft biolume): #7FFFBF\n  - Antique gold (ornaments): #C59B30\n  - Highlight gold: #FFD76B\n  Use the darker green for silhouette, mid emerald for planes, and the glow color sparingly for eye/markings.\n- Background & framing: keep the background minimal and slightly textured — a desaturated circular vignette or subtle radial mist in very dark green to black so the gold pops. Optionally add faint rune lines or leaf motifs in a darker translucent green for fantasy flavor without clutter.\n- Linework & edge treatment: thick, clean outer outline to preserve readability (outline weight scaled to final size; aim for an outline that reads at 28 px). Inner details can be thinner but avoid tiny strokes that disappear when scaled down.\n- Readability & small-size variants: create two versions — a detailed painterly master and a simplified emblem/stamp version where the mane is reduced to clean shapes, the ornament is a single gold mark on the forehead, and the eye is one bold gold dot with catchlight. This emblem is for emotes/badges where clarity at 28 px or 18 px matters.\n- File & export suggestions: make a square master (2048–4096 px) with layered PSD/PSB or layered PNG + a vector outline/SVG for the emblem. Export scaled copies at 112/56/28 px for emotes and 72/36/18 px for badges; also export a 512/256/128 px avatar set.\n- Style options (pick one):\n  - Cleaner vector/cell-shaded: crisp edges, flat color planes, perfect for brand consistency and small-size clarity.\n  - Painterly fantasy: textured fur strokes, soft lighting, stronger depth — rich and atmospheric but include the simplified emblem variant for tiny uses.\n\nWhy this works: green evokes nature and mystery while gold gives a regal, magical accent; the strong three-quarter silhouette, bold outline and a simplified emblem version ensure the avatar reads instantly across platforms and scales down to emotes/badges without losing character.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 48.6,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)cyberpunk",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)neon pink",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: A profile picture (PFP) concept, not a banner",
+     "pass": true,
+     "reason": "The response is explicitly a PFP concept focused on a circular avatar bust."
+    },
+    {
+     "check": "judge: Fantasy wolf in green and gold",
+     "pass": true,
+     "reason": "Describes a fantasy wolf with a green fur palette and gold ornamental elements."
+    },
+    {
+     "check": "judge: Detailed, meaningful design information (composition, character, colours, lighting/effects) without filler",
+     "pass": true,
+     "reason": "Provides specific composition, pose, colour hexes, lighting, materials, variants, and export guidance."
+    },
+    {
+     "check": "judge: Nothing carried over from the earlier cyberpunk ideas",
+     "pass": true,
+     "reason": "No cyberpunk motifs, neon colours, or elements from earlier banner ideas are present."
+    }
+   ]
+  },
+  {
+   "id": "AI3",
+   "issue": 2,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "Now a detailed concept for a fantasy wolf profile picture in green and gold.",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Give me 2 cyberpunk banner ideas with neon pink and blue",
+     "answer": "1) Rooftop rider: a lone masked rider on a chrome motorcycle, backlit by a neon pink-to-blue gradient skyline and holographic billboards; light rain, cyan rim light and soft bloom for atmosphere. Clean negative space on the right for a bold neon‑glow name or tagline.\n\n2) Holo‑arcade closeup: anime‑styled hacker at a translucent keyboard, surrounded by glitchy pink and blue UI panels and flickering signs; strong diagonal composition, reflective face lighting and lens flares. Reserve lower-left for a compact logo badge with a thin neon outline."
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "one detailed concept",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)cyberpunk",
+      "(?i)neon pink"
+     ]
+    },
+    "must": [
+     "A profile picture (PFP) concept, not a banner",
+     "Fantasy wolf in green and gold",
+     "Detailed, meaningful design information (composition, character, colours, lighting/effects) without filler",
+     "Nothing carried over from the earlier cyberpunk ideas"
+    ]
+   },
+   "output": "Concept — “Verdant Regent”: a close, three‑quarter headshot of a noble fantasy wolf framed inside a soft circular crop so it reads perfectly as a profile picture. The wolf’s fur is lush, layered like forest foliage (subtle leaf-shaped tufts along the mane), predominantly deep green with luminous gold filigree markings tracing the brow, cheek and neck like ceremonial warpaint. One eye glows emerald with gold flecks; a thin gold crescent jewel rests above the brow, and a faint rune glow in the same gold radiates from the throat fur. The expression is calm, confident and slightly aloof — regal rather than aggressive — with the head tilted so both eyes are visible and the nose line forms a clean diagonal that leads the viewer in.\n\nVisual details (practical artist notes)\n- Composition & framing: tight crop showing head and upper neck only, centered slightly off to the right so it balances inside a circular avatar; leave a narrow safe margin so ears aren’t cut off in round thumbnails.  \n- Silhouette & shapes: strong, recognizable ear and mane silhouette (pointed ears + layered mane) so the shape reads even at tiny sizes; avoid long thin details that disappear when scaled down.  \n- Fur & ornamentation: fur strokes use medium-length directional clumps (brush texture suggesting leaves); gold filigree is stylised, slightly raised with subtle bevel/highlight to read as metallic. Keep filigree patterns bold and minimal — one or two repeating shapes rather than intricate filigree.  \n- Eyes & focal point: make the left eye (viewer’s right) the brightest focal point with a small gold specular and a soft inner glow; add slight asymmetry (a tiny gold fleck or scar) to make the face memorable.  \n- Colour palette (suggested hexes): deep base green #0E6B4A, mid/leaf green #2ECC71, highlight green #8FE6B6; antique gold #C79A28, bright gold highlight #FFD36E. Use the greens for base fur tones and the golds for ornaments and rim light.  \n- Lighting: rim light from top-right in warm gold to separate the wolf from the background and give the gold elements metallic sheen; soft ambient blue‑green fill to keep the palette cohesive. Add a subtle green-to-dark vignette background so the gold pops.  \n- Style & rendering: semi‑stylised painterly with crisp linework for the face and slightly softer painterly strokes for the mane; cel‑shading + soft textured brushes for depth. Keep overall contrast high enough for clarity on small screens.\n\nSmall-size / icon variants\n- Primary: full detailed headshot for 512–1024 px avatars and social banners.  \n- Micro/icon: simplified vector badge — flat shapes only, single solid green silhouette of the head with a single gold eye and one gold crescent above the brow. This version should be readable at 112/56/28 px and as low as 32 px.  \n- Alternate colour lock: a one‑colour gold-on-dark-green (and inverse: dark-green-on-gold) for embroidery, stamps or favicons.\n\nTechnical deliverables & specs to request from the artist\n- Master layered file (PSD or .clip) with separate layers/groups for base colors, markings, gold elements and highlights.  \n- Vector version (AI or SVG) of the simplified icon for scaling and merch.  \n- Exported PNGs: square 1024x1024 (main), 512x512, 256x256, and the micro 128x128 and 64x64; also provide a transparent-background PNG.  \n- Colour notes: include hex and CMYK equivalents for brand consistency.\n\nWhy this works\n- The green+gold fantasy approach reads as unique and premium (distinct from typical blue/red wolf avatars), the strong silhouette and simplified icon ensure recognition at tiny sizes, and the regal, non‑aggressive expression suits a wide range of brands (streamers, artists, teams) who want a noble but approachable mascot.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 19.1,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)cyberpunk",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)neon pink",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: A profile picture (PFP) concept, not a banner",
+     "pass": true,
+     "reason": "The concept is a tight three-quarter headshot explicitly framed for a circular avatar."
+    },
+    {
+     "check": "judge: Fantasy wolf in green and gold",
+     "pass": true,
+     "reason": "The design centers on a noble fantasy wolf with green fur and gold filigree/jewelry and color hexes provided."
+    },
+    {
+     "check": "judge: Detailed, meaningful design information (composition, character, colours, lighting/effects) without filler",
+     "pass": true,
+     "reason": "Includes composition, silhouette, fur/ornament notes, focal points, exact color hexes, lighting, style, small-size variants and deliverable specs—concise and actionable."
+    },
+    {
+     "check": "judge: Nothing carried over from the earlier cyberpunk ideas",
+     "pass": true,
+     "reason": "No cyberpunk elements or language appear; the concept and notes are fully fantasy-themed."
+    }
+   ]
+  },
+  {
+   "id": "AI4",
+   "issue": 2,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "Explain a Valorant-themed Twitch overlay idea in purple and black, in simple everyday English, short.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "short, simple explanation",
+   "constraints": {
+    "checks": {
+     "max_words": 120
+    },
+    "must": [
+     "A stream overlay (webcam frame / alerts / stream elements), not a logo or banner",
+     "Purple and black, Valorant-inspired",
+     "Simple everyday words, no design jargon"
+    ]
+   },
+   "output": "Dark matte-black background with sharp purple neon lines and subtle HUD-style details (weapon silhouettes like Vandal/Operator and a small spike icon as background motifs). Hexagonal purple cam frame, semi-transparent chat box bottom-left, and a compact top bar for alerts/follows/subs with short purple glow animations; use a bold, condensed sci‑fi font for clear readability.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 8.6,
+   "pass": false,
+   "failure_reason": "judge: Simple everyday words, no design jargon: Uses terms like 'HUD-style', 'semi-transparent', 'hexagonal', 'condensed sci‑fi font' which are design-specific.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 120 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: A stream overlay (webcam frame / alerts / stream elements), not a logo or banner",
+     "pass": true,
+     "reason": "Describes webcam frame, chat box, and alert/top bar—clearly overlay elements."
+    },
+    {
+     "check": "judge: Purple and black, Valorant-inspired",
+     "pass": true,
+     "reason": "Specifies matte-black background, purple neon lines, and Valorant motifs like Vandal/Operator and spike icon."
+    },
+    {
+     "check": "judge: Simple everyday words, no design jargon",
+     "pass": false,
+     "reason": "Uses terms like 'HUD-style', 'semi-transparent', 'hexagonal', 'condensed sci‑fi font' which are design-specific."
+    }
+   ]
+  },
+  {
+   "id": "AI4",
+   "issue": 2,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "Explain a Valorant-themed Twitch overlay idea in purple and black, in simple everyday English, short.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "short, simple explanation",
+   "constraints": {
+    "checks": {
+     "max_words": 120
+    },
+    "must": [
+     "A stream overlay (webcam frame / alerts / stream elements), not a logo or banner",
+     "Purple and black, Valorant-inspired",
+     "Simple everyday words, no design jargon"
+    ]
+   },
+   "output": "A sleek Valorant-themed overlay in deep purple and matte black: a shadowed agent silhouette with a glowing purple visor and thin neon energy lines over a faint hex-grid background. Webcam sits top-right in a broken-hex frame, chat runs vertically left in a semi-transparent black box, and a slim animated alert/follower bar sits above the game capture. Keeps the Valorant vibe while staying clean and readable on stream.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 8.5,
+   "pass": false,
+   "failure_reason": "judge: Simple everyday words, no design jargon: Uses terms like 'hex-grid', 'broken-hex frame', 'semi-transparent', and 'game capture' which are design/streaming jargon.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 120 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: A stream overlay (webcam frame / alerts / stream elements), not a logo or banner",
+     "pass": true,
+     "reason": "Describes webcam frame, chat box, and alert/follower bar—clearly overlay elements."
+    },
+    {
+     "check": "judge: Purple and black, Valorant-inspired",
+     "pass": true,
+     "reason": "Specifies deep purple and matte black and mentions a Valorant-style agent silhouette and 'Valorant vibe.'"
+    },
+    {
+     "check": "judge: Simple everyday words, no design jargon",
+     "pass": false,
+     "reason": "Uses terms like 'hex-grid', 'broken-hex frame', 'semi-transparent', and 'game capture' which are design/streaming jargon."
+    }
+   ]
+  },
+  {
+   "id": "GR1",
+   "issue": 3,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "write a greeting message for someone new I want to talk to on discord",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "one short message",
+   "constraints": {
+    "checks": {
+     "max_words": 60,
+     "forbid": [
+      "(?i)stream",
+      "(?i)commission",
+      "(?i)artwork",
+      "(?i)designer",
+      "(?i)\\bservices?\\b",
+      "(?i)check out my"
+     ]
+    },
+    "must": [
+     "Exactly one short greeting message",
+     "Natural and casual, like a real Discord user",
+     "No sales pitch or service offer",
+     "Does not assume the person is a streamer or content creator",
+     "No exaggerated compliments or invented shared interests"
+    ]
+   },
+   "output": "Option 1 — Casual\nHey! Noticed you’re active here and thought I’d say hi — what are you into on this server?\n\nOption 2 — Professional\nHi, I wanted to introduce myself and connect; I’d love to hear more about the work or projects you’re involved in.\n\nOption 3 — Collab-focused\nHey! I like what you’ve shared here — would you be open to a quick chat about possible collabs or ideas?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 15.1,
+   "pass": false,
+   "failure_reason": "<= 60 words: 73 words; judge: Exactly one short greeting message: Provided three separate options instead of exactly one message.; judge: Natural and casual, like a real Discord user: Includes a formal/professional option; output is not a single consistently casual message.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 60 words",
+     "pass": false,
+     "reason": "73 words"
+    },
+    {
+     "check": "forbid (?i)stream",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)commission",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)artwork",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)designer",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bservices?\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)check out my",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one short greeting message",
+     "pass": false,
+     "reason": "Provided three separate options instead of exactly one message."
+    },
+    {
+     "check": "judge: Natural and casual, like a real Discord user",
+     "pass": false,
+     "reason": "Includes a formal/professional option; output is not a single consistently casual message."
+    },
+    {
+     "check": "judge: No sales pitch or service offer",
+     "pass": true,
+     "reason": "None of the options contain a sales pitch or offer services."
+    },
+    {
+     "check": "judge: Does not assume the person is a streamer or content creator",
+     "pass": true,
+     "reason": "No option assumes the recipient is a streamer or content creator."
+    },
+    {
+     "check": "judge: No exaggerated compliments or invented shared interests",
+     "pass": true,
+     "reason": "Messages contain mild, factual observations or polite interest without exaggeration or fabricated shared interests."
+    }
+   ]
+  },
+  {
+   "id": "GR1",
+   "issue": 3,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "write a greeting message for someone new I want to talk to on discord",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "one short message",
+   "constraints": {
+    "checks": {
+     "max_words": 60,
+     "forbid": [
+      "(?i)stream",
+      "(?i)commission",
+      "(?i)artwork",
+      "(?i)designer",
+      "(?i)\\bservices?\\b",
+      "(?i)check out my"
+     ]
+    },
+    "must": [
+     "Exactly one short greeting message",
+     "Natural and casual, like a real Discord user",
+     "No sales pitch or service offer",
+     "Does not assume the person is a streamer or content creator",
+     "No exaggerated compliments or invented shared interests"
+    ]
+   },
+   "output": "Hey [Name], I’m [Your Name]. Nice to meet you — I noticed you in the server and would love to connect; do you have a moment to chat?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 11.7,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 60 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)stream",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)commission",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)artwork",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)designer",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bservices?\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)check out my",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one short greeting message",
+     "pass": true,
+     "reason": "The output is a single concise message."
+    },
+    {
+     "check": "judge: Natural and casual, like a real Discord user",
+     "pass": true,
+     "reason": "Tone is informal and typical of Discord conversation."
+    },
+    {
+     "check": "judge: No sales pitch or service offer",
+     "pass": true,
+     "reason": "No mention of services or sales."
+    },
+    {
+     "check": "judge: Does not assume the person is a streamer or content creator",
+     "pass": true,
+     "reason": "No references to streaming or content creation."
+    },
+    {
+     "check": "judge: No exaggerated compliments or invented shared interests",
+     "pass": true,
+     "reason": "Contains a simple greeting and observation without embellishment."
+    }
+   ]
+  },
+  {
+   "id": "GR2",
+   "issue": 3,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "he might not be a streamer, rewrite it",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "write a greeting message for a potential client on discord",
+     "answer": "Hey — I'm with Quixotic Creatives; we make custom digital artwork like logos, emotes, overlays and banners. I wanted to offer a hand if you’re looking for art — tell me what you need and any references or style you like, and I’ll share relevant samples and a simple next step. No pressure, happy to answer any questions."
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "one revised message",
+   "constraints": {
+    "checks": {
+     "max_words": 70,
+     "forbid": [
+      "(?i)stream",
+      "(?i)\\bservices?\\b"
+     ]
+    },
+    "must": [
+     "Exactly one revised greeting, not several options",
+     "No streamer assumption",
+     "Short, human, not promotional"
+    ]
+   },
+   "output": "Hey — I’m with Quixotic Creatives. We make custom digital artwork (logos, mascot logos, emotes, banners, illustrations, animation and social/brand assets). If you need art for your brand, Discord server, social profiles or any project, tell me what you’re after and any references or styles you like and I’ll share relevant samples and a simple next step. No pressure — happy to answer any questions.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 11.2,
+   "pass": false,
+   "failure_reason": "judge: Short, human, not promotional: While the tone is conversational, the message is somewhat promotional and lists many services, making it longer and more marketing-focused than 'short and not promotional.'",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 70 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)stream",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bservices?\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one revised greeting, not several options",
+     "pass": true,
+     "reason": "The assistant provided a single revised greeting message (one paragraph)."
+    },
+    {
+     "check": "judge: No streamer assumption",
+     "pass": true,
+     "reason": "The message avoids assuming the recipient is a streamer and mentions general uses like brand, Discord server, social profiles, or any project."
+    },
+    {
+     "check": "judge: Short, human, not promotional",
+     "pass": false,
+     "reason": "While the tone is conversational, the message is somewhat promotional and lists many services, making it longer and more marketing-focused than 'short and not promotional.'"
+    }
+   ]
+  },
+  {
+   "id": "GR2",
+   "issue": 3,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "he might not be a streamer, rewrite it",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "write a greeting message for a potential client on discord",
+     "answer": "Hi! I’m a designer at Quixotic Creatives — we make custom logos, emotes, overlays and illustrations for streamers and creators. What are you looking to build right now, or can you share a reference so I can suggest ideas?"
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "one revised message",
+   "constraints": {
+    "checks": {
+     "max_words": 70,
+     "forbid": [
+      "(?i)stream",
+      "(?i)\\bservices?\\b"
+     ]
+    },
+    "must": [
+     "Exactly one revised greeting, not several options",
+     "No streamer assumption",
+     "Short, human, not promotional"
+    ]
+   },
+   "output": "Hi! I’m a designer at Quixotic Creatives — we make custom logos, emotes, overlays and illustrations for creators, communities and brands. What are you looking to build right now, or can you share a reference so I can suggest ideas?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 7.7,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 70 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)stream",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bservices?\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one revised greeting, not several options",
+     "pass": true,
+     "reason": "Response is a single greeting message (one option)."
+    },
+    {
+     "check": "judge: No streamer assumption",
+     "pass": true,
+     "reason": "Removed 'streamers' and references creators, communities and brands instead."
+    },
+    {
+     "check": "judge: Short, human, not promotional",
+     "pass": true,
+     "reason": "Message is concise and conversational; mentions services briefly but not overly promotional."
+    }
+   ]
+  },
+  {
+   "id": "GR3",
+   "issue": 3,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "give me 2 casual discord greetings, slang is fine",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly 2 messages",
+   "constraints": {
+    "checks": {
+     "max_words": 80,
+     "forbid": [
+      "(?i)commission",
+      "(?i)\\bservices?\\b"
+     ]
+    },
+    "must": [
+     "Exactly 2 messages",
+     "Casual Discord slang, natural",
+     "No sales pitch"
+    ]
+   },
+   "output": "yo! what's poppin'? you around?\n\nsup! you free to hop in and chat?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 6.3,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 80 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)commission",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bservices?\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly 2 messages",
+     "pass": true,
+     "reason": "Output contains two distinct casual greeting messages."
+    },
+    {
+     "check": "judge: Casual Discord slang, natural",
+     "pass": true,
+     "reason": "Both messages use informal slang and sound like natural Discord greetings."
+    },
+    {
+     "check": "judge: No sales pitch",
+     "pass": true,
+     "reason": "Messages contain no promotional or sales content."
+    }
+   ]
+  },
+  {
+   "id": "GR3",
+   "issue": 3,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "give me 2 casual discord greetings, slang is fine",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly 2 messages",
+   "constraints": {
+    "checks": {
+     "max_words": 80,
+     "forbid": [
+      "(?i)commission",
+      "(?i)\\bservices?\\b"
+     ]
+    },
+    "must": [
+     "Exactly 2 messages",
+     "Casual Discord slang, natural",
+     "No sales pitch"
+    ]
+   },
+   "output": "yo — what’s good? you free to hop in?\nsup! you good? wanna jump on voice?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 5.1,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 80 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)commission",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bservices?\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly 2 messages",
+     "pass": true,
+     "reason": "Output contains two separate messages/lines."
+    },
+    {
+     "check": "judge: Casual Discord slang, natural",
+     "pass": true,
+     "reason": "Phrases like 'yo', 'what’s good', 'sup', and 'wanna jump on voice' are natural Discord slang."
+    },
+    {
+     "check": "judge: No sales pitch",
+     "pass": true,
+     "reason": "Messages are casual invites with no promotional content."
+    }
+   ]
+  },
+  {
+   "id": "FB1",
+   "issue": 4,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "Write an overall reply in 4-5 lines.",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Client feedback: \"I really like the overall design, but the background feels too busy. Can you make the character a little bigger, use darker blue, and move my username to the bottom?\" Explain this to me in Roman Urdu.",
+     "answer": "Client ka asli jumla (Roman Urdu):\n\"Mujhe overall design bohat pasand hai, lekin background thoda zyada busy mehsoos hota hai. Kya aap character ko thoda bada kar sakte hain, darker blue use karein, aur mera username neeche rakh dein?\"\n\nHar point ka matlab aur artist ke liye amal karne wali cheezen:\n- \"Background too busy\" — matlab ke background mein bohat saare elements, textures ya tez contrasts hain jo character se attention chura rahe hain. Artist ko background simplify karna chahiye: unnecessary details remove/soften karein, contrast kam karein, ya halki blur/gradient use karke character ke aas paas negative space banayein.\n- \"Make the character a little bigger\" — character ka overall scale thoda barhaya jaye taa ke woh focal point ho aur choti sizes par bhi clearly nazar aaye. Lekin composition balance rakhein (sir/haath crop na ho), aur ensure karein ke character username ya edge se overlap na kar raha ho.\n- \"Use darker blue\" — background ya color theme mein blue ko darker tone par le aana, taa ke contrast behtar ho aur design zyada mature/grounded lage. Saturation aur brightness adjust kar ke ensure karein ke text aur character uss blue par clearly padhein.\n- \"Move my username to the bottom\" — username ko design ke neeche place karein, readable spacing aur contrast ke saath. Position aisi honi chahiye ke woh character ko block na kare aur mobile/screen crops mein visible rahe.\n\nFayda (short): Yeh changes design ko cleaner banayenge, character ko dominant focal point banayenge aur username ki readability improve hogi."
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "one reply to send, 4-5 sentences",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "min_words": 35,
+     "max_words": 100,
+     "max_messages": 1,
+     "forbid": [
+      "(?i)\\b(have|'ve) (already )?(made|updated|changed|done)\\b",
+      "(?i)by (tomorrow|friday|tonight)",
+      "(?i)within \\d+"
+     ]
+    },
+    "must": [
+     "One reply addressed directly to the client, in English",
+     "Acknowledges they like the overall design",
+     "Covers ALL four changes: cleaner/less busy background, bigger character, darker blue, username at the bottom",
+     "Does not claim the changes are already done; no delivery time promised",
+     "Friendly, natural, 4-5 lines"
+    ]
+   },
+   "output": "Thanks — glad you like the overall design.  \nWe’ll simplify the background, make the character slightly bigger, shift the palette to a darker blue, and move your username to the bottom.  \nI’ll keep composition balanced so nothing important gets cropped and will send the updated draft for your approval.  \nQuick questions so I can help properly: 1) Do you have a specific darker-blue reference, or should I pick a matching shade?",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 12.1,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 100 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": ">= 35 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 1 message(s)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\b(have|'ve) (already )?(made|updated|changed|done)\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)by (tomorrow|friday|tonight)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)within \\d+",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: One reply addressed directly to the client, in English",
+     "pass": true,
+     "reason": "Message is a single direct reply in English."
+    },
+    {
+     "check": "judge: Acknowledges they like the overall design",
+     "pass": true,
+     "reason": "First sentence explicitly states they like the overall design."
+    },
+    {
+     "check": "judge: Covers ALL four changes: cleaner/less busy background, bigger character, darker blue, username at the bottom",
+     "pass": true,
+     "reason": "Second sentence lists simplifying background, enlarging character, darker blue palette, and moving username to bottom."
+    },
+    {
+     "check": "judge: Does not claim the changes are already done; no delivery time promised",
+     "pass": true,
+     "reason": "Uses future intent ('We’ll simplify...') and asks a question; no completion or timeframe is claimed."
+    },
+    {
+     "check": "judge: Friendly, natural, 4-5 lines",
+     "pass": true,
+     "reason": "Tone is friendly and natural; reply is formatted as 4 lines."
+    }
+   ]
+  },
+  {
+   "id": "FB1",
+   "issue": 4,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "Write an overall reply in 4-5 lines.",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Client feedback: \"I really like the overall design, but the background feels too busy. Can you make the character a little bigger, use darker blue, and move my username to the bottom?\" Explain this to me in Roman Urdu.",
+     "answer": "Mujhe overall design bohat pasand hai, lekin background thoda zyada busy lag raha hai. Kya aap character ko thoda bada kar sakte hain, darker blue istemal kar sakte hain, aur mera username neeche le ja sakte hain?"
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "one reply to send, 4-5 sentences",
+   "constraints": {
+    "checks": {
+     "language": "english",
+     "min_words": 35,
+     "max_words": 100,
+     "max_messages": 1,
+     "forbid": [
+      "(?i)\\b(have|'ve) (already )?(made|updated|changed|done)\\b",
+      "(?i)by (tomorrow|friday|tonight)",
+      "(?i)within \\d+"
+     ]
+    },
+    "must": [
+     "One reply addressed directly to the client, in English",
+     "Acknowledges they like the overall design",
+     "Covers ALL four changes: cleaner/less busy background, bigger character, darker blue, username at the bottom",
+     "Does not claim the changes are already done; no delivery time promised",
+     "Friendly, natural, 4-5 lines"
+    ]
+   },
+   "output": "Bohat shukriya — khushi hui ke aap overall design pasand karte hain.  \nMain background ko kam busy aur zyada saaf kar dunga taake character highlight ho.  \nCharacter ko thoda bada karenge, darker blue tone lagu karenge, aur aapka username neeche shift kar dunga.  \nAgar koi specific blue shade ya reference ho to bhej dein; phir main changes apply karke aap ko update karunga.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 11.9,
+   "pass": false,
+   "failure_reason": "language english: detected roman_urdu; judge: One reply addressed directly to the client, in English: Reply is in Roman Urdu, not English.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "language english",
+     "pass": false,
+     "reason": "detected roman_urdu"
+    },
+    {
+     "check": "<= 100 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": ">= 35 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 1 message(s)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\b(have|'ve) (already )?(made|updated|changed|done)\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)by (tomorrow|friday|tonight)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)within \\d+",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: One reply addressed directly to the client, in English",
+     "pass": false,
+     "reason": "Reply is in Roman Urdu, not English."
+    },
+    {
+     "check": "judge: Acknowledges they like the overall design",
+     "pass": true,
+     "reason": "First sentence explicitly says they like the overall design."
+    },
+    {
+     "check": "judge: Covers ALL four changes: cleaner/less busy background, bigger character, darker blue, username at the bottom",
+     "pass": true,
+     "reason": "Mentions reducing background busyness, enlarging character, using darker blue, and shifting username to bottom."
+    },
+    {
+     "check": "judge: Does not claim the changes are already done; no delivery time promised",
+     "pass": true,
+     "reason": "Uses future tense (‘will do’) and asks for a shade reference; no completion or time is claimed."
+    },
+    {
+     "check": "judge: Friendly, natural, 4-5 lines",
+     "pass": true,
+     "reason": "Tone is friendly and natural, and the reply is four lines long."
+    }
+   ]
+  },
+  {
+   "id": "FB2",
+   "issue": 4,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "Client said: \"love the colours and the pose!! but the sword looks too thin, the eyes feel a bit lifeless, and can the logo text be more readable? also not a fan of the purple glow tbh\". Summarize the requested changes.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "short list of requested changes (and what they like)",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "^>>",
+      "(?m)^>>"
+     ]
+    },
+    "must": [
+     "Lists the changes: thicker sword, livelier eyes, more readable logo text, remove/reduce the purple glow",
+     "Notes what they like (colours, pose) so it is kept",
+     "A summary for the employee, not a client reply"
+    ]
+   },
+   "output": "Liked: colours and pose.\n\nRequested changes:\n- Make the sword thicker/wider (currently too thin).\n- Make the eyes more lively/expressive (they feel lifeless).\n- Increase logo text readability.\n- Remove or change the purple glow (client not a fan).",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 5.2,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid ^>>",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?m)^>>",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Lists the changes: thicker sword, livelier eyes, more readable logo text, remove/reduce the purple glow",
+     "pass": true,
+     "reason": "Output lists all four requested changes explicitly."
+    },
+    {
+     "check": "judge: Notes what they like (colours, pose) so it is kept",
+     "pass": true,
+     "reason": "Output begins with 'Liked: colours and pose.' indicating what to keep."
+    },
+    {
+     "check": "judge: A summary for the employee, not a client reply",
+     "pass": true,
+     "reason": "Tone and format are a concise internal summary rather than a client-facing reply."
+    }
+   ]
+  },
+  {
+   "id": "FB2",
+   "issue": 4,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "Client said: \"love the colours and the pose!! but the sword looks too thin, the eyes feel a bit lifeless, and can the logo text be more readable? also not a fan of the purple glow tbh\". Summarize the requested changes.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "short list of requested changes (and what they like)",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "^>>",
+      "(?m)^>>"
+     ]
+    },
+    "must": [
+     "Lists the changes: thicker sword, livelier eyes, more readable logo text, remove/reduce the purple glow",
+     "Notes what they like (colours, pose) so it is kept",
+     "A summary for the employee, not a client reply"
+    ]
+   },
+   "output": "- Sword: too thin — make it thicker/stronger.  \n- Eyes: feel lifeless — make them more expressive/alive.  \n- Logo text: increase readability/legibility.  \n- Purple glow: client dislikes it — remove or replace.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 5.7,
+   "pass": false,
+   "failure_reason": "judge: Notes what they like (colours, pose) so it is kept: The assistant output did not mention the client's positive comments about the colours and the pose. It only listed the requested modifications.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid ^>>",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?m)^>>",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Lists the changes: thicker sword, livelier eyes, more readable logo text, remove/reduce the purple glow",
+     "pass": true,
+     "reason": "The assistant listed all four requested change items clearly (thicker sword, livelier eyes, more readable logo text, remove/replace purple glow)."
+    },
+    {
+     "check": "judge: Notes what they like (colours, pose) so it is kept",
+     "pass": false,
+     "reason": "The assistant output did not mention the client's positive comments about the colours and the pose. It only listed the requested modifications."
+    },
+    {
+     "check": "judge: A summary for the employee, not a client reply",
+     "pass": true,
+     "reason": "The response is a concise internal summary of requested changes rather than wording directed to the client."
+    }
+   ]
+  },
+  {
+   "id": "FB3",
+   "issue": 4,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "client feedback: \"the banner is cool but my name is hard to read and the dragon looks kinda cartoonish, i wanted it more realistic\". write a reply i can send",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "a reply to send",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\b(have|'ve) (already )?(made|updated|changed|fixed)\\b"
+     ]
+    },
+    "must": [
+     "Addresses both points: name readability and a more realistic dragon",
+     "Written to the client, friendly and natural",
+     "No completed-work claims, no delivery promise"
+    ]
+   },
+   "output": "Best approach: acknowledge the feedback, offer to improve the name's legibility and shift the dragon toward a more realistic style, and ask for a quick reference or preference.\n\n**Option 1 - Quick tweak**\n>> Thanks — glad you like the banner. I can make your name more readable (bolder outline, contrast or move it to a corner) and tone down the cartoon lines on the dragon; which name change do you prefer and do you have a realism reference I should follow?\n\n**Option 2 - Full rework**\n>> I can rework the dragon into a more realistic style and redesign the name for clarity — would you like semi-realistic (stylized detail) or photoreal? Please share any reference images or examples so I can match your vision; I’ll check scope with the team and confirm next steps.\n\n**Option 3 - Pace & sample**\n>> If you want to move faster, I can prepare quick alternate name treatments plus a subtle realism adjustment to the dragon — pick that route or the full rework above, and send any refs you like.\n\nWhy: gives clear choices, asks for refs so we can match the banner better (worked in past chats)",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 13.2,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\b(have|'ve) (already )?(made|updated|changed|fixed)\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Addresses both points: name readability and a more realistic dragon",
+     "pass": true,
+     "reason": "Replies explicitly offer to improve name legibility and shift the dragon toward a more realistic style."
+    },
+    {
+     "check": "judge: Written to the client, friendly and natural",
+     "pass": true,
+     "reason": "Messages are conversational, polite, and presented as client-facing replies."
+    },
+    {
+     "check": "judge: No completed-work claims, no delivery promise",
+     "pass": true,
+     "reason": "Text offers options and requests references but does not state work is completed or promise a delivery time."
+    }
+   ]
+  },
+  {
+   "id": "FB3",
+   "issue": 4,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "client feedback: \"the banner is cool but my name is hard to read and the dragon looks kinda cartoonish, i wanted it more realistic\". write a reply i can send",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "a reply to send",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\b(have|'ve) (already )?(made|updated|changed|fixed)\\b"
+     ]
+    },
+    "must": [
+     "Addresses both points: name readability and a more realistic dragon",
+     "Written to the client, friendly and natural",
+     "No completed-work claims, no delivery promise"
+    ]
+   },
+   "output": "**What they're asking**\n- Make the name easier to read.\n- Make the dragon less cartoonish / more realistic.\n\n**Option 1 - Quick confirm**\n>> Thanks — glad you like it. I can boost the name’s readability (contrast, size or placement) and tone the dragon toward a more realistic look; want me to start with the name or the dragon first?\n\n**Option 2 - Clarify details**\n>> Got it — I can revise both. Quick questions so I can help properly: 1) Move the name to a corner or keep it central with higher contrast? 2) Do you have a reference or preferred realistic style (photo-like, semi-real, textured scales)?\n\n**Option 3 - Send a reference**\n>> Totally — I’ll adjust the typography for clearer legibility and make the dragon less cartoony with more realistic proportions and shading; please send an example image or say which style you prefer so I can match it.\n\nWhy: each option gets us clear direction fast so revisions hit what you want (worked in past chats)",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 15.0,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\b(have|'ve) (already )?(made|updated|changed|fixed)\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Addresses both points: name readability and a more realistic dragon",
+     "pass": true,
+     "reason": "Response explicitly offers adjustments for name legibility and making the dragon less cartoony across options."
+    },
+    {
+     "check": "judge: Written to the client, friendly and natural",
+     "pass": true,
+     "reason": "All three reply options use a polite, conversational tone appropriate for messaging a client."
+    },
+    {
+     "check": "judge: No completed-work claims, no delivery promise",
+     "pass": true,
+     "reason": "The assistant offers revisions and asks questions but makes no guarantees or delivery timelines."
+    }
+   ]
+  },
+  {
+   "id": "CN1",
+   "issue": 5,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "my client plays Minecraft and likes calm vibes. explain a YouTube banner concept the way I'd tell him on discord",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "one conversational concept",
+   "constraints": {
+    "checks": {
+     "max_words": 170
+    },
+    "must": [
+     "Conversational, written as if talking to the client (e.g. 'So I was thinking...')",
+     "A YouTube banner concept with specific visuals tied to Minecraft and calm vibes",
+     "Explains why it would look good without hype",
+     "No headings, no jargon, no questions back"
+    ]
+   },
+   "output": "Thinking of a calm, cozy Minecraft night-scene for your banner: a wide lakeside panorama with your Minecraft avatar sitting on a wooden dock, a soft lantern glow, gentle ripples and a few fireflies/stars — low-contrast, slow motion vibe so it feels relaxed, not busy.\n\nColour palette: muted teal/soft navy for the sky, warm amber for the lanterns, mossy greens and desaturated browns for blocks and foliage. Lighting: subtle rim light on your character so the silhouette reads against the background, with a soft depth blur behind the focal area so text stays legible.\n\nLayout: avatar on the left third, username and short tagline to the left/center over a slightly darker translucent band for contrast, socials or small icons bottom-right. Keep the main art inside the safe area so it still looks good on mobile and smaller screens.\n\nStyle cues: blocky Minecraft elements simplified and slightly painted (not pixel-noise), thin pixel/texture overlay to keep the game feel without clutter, clean rounded sans with a slight blocky accent for the font.\n\nOptional extras (no pressure): a very subtle parallax or slow lantern flicker for a gentle animated version later.\n\nIf that sounds good, send me the exact username/text you want on the banner and a link or screenshot of your Minecraft skin — I’ll use that as the character reference.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 16.0,
+   "pass": false,
+   "failure_reason": "<= 170 words: 226 words; judge: No headings, no jargon, no questions back: Includes a closing question asking for username/skin and uses some technical terms ('rim light', 'safe area', 'parallax').",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 170 words",
+     "pass": false,
+     "reason": "226 words"
+    },
+    {
+     "check": "judge: Conversational, written as if talking to the client (e.g. 'So I was thinking...')",
+     "pass": true,
+     "reason": "Tone is casual and conversational (e.g., 'Thinking of a calm, cozy...'), suitable for Discord."
+    },
+    {
+     "check": "judge: A YouTube banner concept with specific visuals tied to Minecraft and calm vibes",
+     "pass": true,
+     "reason": "Provides concrete Minecraft visuals (lakeside, avatar on dock, lanterns, fireflies, color palette) and calm mood details."
+    },
+    {
+     "check": "judge: Explains why it would look good without hype",
+     "pass": true,
+     "reason": "Gives practical reasons (relaxed/not busy, text legibility, mobile safe area) rather than exaggerated praise."
+    },
+    {
+     "check": "judge: No headings, no jargon, no questions back",
+     "pass": false,
+     "reason": "Includes a closing question asking for username/skin and uses some technical terms ('rim light', 'safe area', 'parallax')."
+    }
+   ]
+  },
+  {
+   "id": "CN1",
+   "issue": 5,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "my client plays Minecraft and likes calm vibes. explain a YouTube banner concept the way I'd tell him on discord",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "one conversational concept",
+   "constraints": {
+    "checks": {
+     "max_words": 170
+    },
+    "must": [
+     "Conversational, written as if talking to the client (e.g. 'So I was thinking...')",
+     "A YouTube banner concept with specific visuals tied to Minecraft and calm vibes",
+     "Explains why it would look good without hype",
+     "No headings, no jargon, no questions back"
+    ]
+   },
+   "output": "Hey — got a banner idea that fits your Minecraft + chill vibe:\n\nImagine your Minecraft skin sitting on a small wooden dock at sunset, looking out over a calm, blocky lake. Soft, muted palette (teal, dusty rose, warm beige) with low-contrast lighting and a gentle bloom so everything reads relaxed, not loud. In the distance, simple blocky trees and a tiny village silhouette with a bit of fog for depth, and a few floating lanterns/fireflies for subtle motion. Composition-wise, keep your avatar slightly off-center (left) so their face is always in the safe area on different devices, and put your channel name on the right in a clean rounded sans with a soft glow — legible but not flashy. Keep details simple and high-contrast edges for any small text or icons so it still looks good on phones. This gives you a calm, signature look that matches your streams and helps people recognise your channel at a glance.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 18.2,
+   "pass": false,
+   "failure_reason": "judge: No headings, no jargon, no questions back: No headings or questions, but contains design terms ('low-contrast lighting', 'safe area', 'rounded sans', 'high-contrast edges') that qualify as jargon.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "<= 170 words",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Conversational, written as if talking to the client (e.g. 'So I was thinking...')",
+     "pass": true,
+     "reason": "Casual opening 'Hey — got a banner idea...' and conversational tone throughout."
+    },
+    {
+     "check": "judge: A YouTube banner concept with specific visuals tied to Minecraft and calm vibes",
+     "pass": true,
+     "reason": "Describes Minecraft skin on a dock at sunset, palette, village silhouette, lanterns/fireflies, and composition details."
+    },
+    {
+     "check": "judge: Explains why it would look good without hype",
+     "pass": true,
+     "reason": "Notes relaxed lighting, legibility on phones, calm signature look and recognizability without overpromising."
+    },
+    {
+     "check": "judge: No headings, no jargon, no questions back",
+     "pass": false,
+     "reason": "No headings or questions, but contains design terms ('low-contrast lighting', 'safe area', 'rounded sans', 'high-contrast edges') that qualify as jargon."
+    }
+   ]
+  },
+  {
+   "id": "CS1",
+   "issue": 6,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "Client wants a custom skin for his PS5. He plays Call of Duty and likes a dark military style. Give me a concept.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "one practical console-skin concept",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\bbanner\\b",
+      "(?i)profile picture"
+     ]
+    },
+    "must": [
+     "A physical console skin for the PS5 (side panels / faceplates, centre, controller optional), not a banner or logo",
+     "Dark military / Call of Duty inspired visuals with specific colour placement",
+     "Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition",
+     "Natural, easy to picture"
+    ]
+   },
+   "output": "Concept — \"Midnight Operator\": full-wrap matte charcoal base with low-contrast dark digital multicam across the curved PS5 panels, gunmetal vent plates and subtle scuffed-metal streaks for a battle-worn look. A diagonal stencil patch on the left panel shows a custom call-sign/gamertag in olive-drab above a faint thermal-reticle motif and serial-number stamp; DualSense gets matching kevlar-texture grip inserts and a muted crimson mission-strike accent by the touchpad. Palette and finish focus on slate, olive and gunmetal with tiny metallic flecks and rubberized matte surfaces so the pattern reads cleanly on-camera and feels tactile.\n\nBenefit: delivers an authentic dark-military aesthetic that reads well on stream, reinforces the client's shooter identity, and makes the console feel personalized without using game-owned art.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 15.8,
+   "pass": false,
+   "failure_reason": "judge: Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition: Does not mention templates, exact PS5 edition, or explicitly avoiding vents/ports/buttons—only references vent plates aesthetically.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bbanner\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)profile picture",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: A physical console skin for the PS5 (side panels / faceplates, centre, controller optional), not a banner or logo",
+     "pass": true,
+     "reason": "Describes a full-wrap across PS5 panels and matching DualSense elements (faceplates and controller included)."
+    },
+    {
+     "check": "judge: Dark military / Call of Duty inspired visuals with specific colour placement",
+     "pass": true,
+     "reason": "Specifies dark digital multicam, matte charcoal base, slate/olive/gunmetal palette, olive-drab stencil and muted crimson touchpad accent."
+    },
+    {
+     "check": "judge: Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition",
+     "pass": false,
+     "reason": "Does not mention templates, exact PS5 edition, or explicitly avoiding vents/ports/buttons—only references vent plates aesthetically."
+    },
+    {
+     "check": "judge: Natural, easy to picture",
+     "pass": true,
+     "reason": "Provides concrete textures, placement details and finishes that create a clear visual of the final skin."
+    }
+   ]
+  },
+  {
+   "id": "CS1",
+   "issue": 6,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "Client wants a custom skin for his PS5. He plays Call of Duty and likes a dark military style. Give me a concept.",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "one practical console-skin concept",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\bbanner\\b",
+      "(?i)profile picture"
+     ]
+    },
+    "must": [
+     "A physical console skin for the PS5 (side panels / faceplates, centre, controller optional), not a banner or logo",
+     "Dark military / Call of Duty inspired visuals with specific colour placement",
+     "Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition",
+     "Natural, easy to picture"
+    ]
+   },
+   "output": "Tactical Blackout — matte gunmetal base layered with a broken digital-camo in flat black, dark olive and coyote brown; a weathered steel plate runs asymmetrically across one side with rivets and a stenciled squad number plus a half-worn skull emblem for attitude.  \nSpine and vent areas use a subtle ballistic hex texture with satin highlights on beveled edges and a faint IRNV green rim-light in vents for depth; scuffs, paint chips and edge wear give a battle-tested finish.  \nLayout places the camo fade on the large front panel, the metal plate on the right-side face, and a small stenciled gamertag/ID on the plate — final finish: textured matte, low-gloss accents.  \nBenefit: feels like authentic COD-style kit on-camera while remaining stealthy and premium for long-term use.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 11.1,
+   "pass": false,
+   "failure_reason": "judge: Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition: Description references vents visually but does not state keeping areas clear or using an exact PS5 template/edition for printing.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\bbanner\\b",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)profile picture",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: A physical console skin for the PS5 (side panels / faceplates, centre, controller optional), not a banner or logo",
+     "pass": true,
+     "reason": "Design describes placement on front panel, right-side face, spine and vent areas—clearly a physical PS5 skin."
+    },
+    {
+     "check": "judge: Dark military / Call of Duty inspired visuals with specific colour placement",
+     "pass": true,
+     "reason": "Uses military palette and elements (matte gunmetal, flat black, dark olive, coyote brown, IRNV green) and motifs (skull, squad number, riveted plate)."
+    },
+    {
+     "check": "judge: Practical for print: mentions keeping clear of vents, ports, buttons or using the exact PS5 template/edition",
+     "pass": false,
+     "reason": "Description references vents visually but does not state keeping areas clear or using an exact PS5 template/edition for printing."
+    },
+    {
+     "check": "judge: Natural, easy to picture",
+     "pass": true,
+     "reason": "Vivid, concrete details (textures, scuffs, placement, finish) make the concept easy to visualize."
+    }
+   ]
+  },
+  {
+   "id": "CS2",
+   "issue": 6,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "customer wants a custom skin for his gaming console that matches his gaming style and makes it look unique. give one idea",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly one idea",
+   "constraints": {
+    "checks": {},
+    "must": [
+     "Exactly one console-skin idea, not a banner/PFP/logo",
+     "Flexible concept with reasonable assumptions",
+     "Notes that the exact console model (and edition) is needed before print preparation"
+    ]
+   },
+   "output": "Semi‑realistic mascot of the client's gamer persona—three‑quarter pose with headset and a confident smirk—centered on the console’s top so the face is the focal point and shoulders bleed toward the sides. Dark matte base with angular neon circuitry (teal + magenta) fading into a subtle distressed texture; rim lighting and selective gloss on the face/controller areas to make details pop. Benefit: bold, camera‑friendly look that reinforces the client’s gaming identity and reads well at a distance.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 7.8,
+   "pass": false,
+   "failure_reason": "judge: Notes that the exact console model (and edition) is needed before print preparation: The response does not request the specific console model or edition before print preparation.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one console-skin idea, not a banner/PFP/logo",
+     "pass": true,
+     "reason": "Response presents a single console-skin concept (mascot centered on the console top) rather than a banner, PFP, or logo."
+    },
+    {
+     "check": "judge: Flexible concept with reasonable assumptions",
+     "pass": true,
+     "reason": "Design includes adaptable elements (placement, color palette, textures, lighting) that can be adjusted for different consoles/styles."
+    },
+    {
+     "check": "judge: Notes that the exact console model (and edition) is needed before print preparation",
+     "pass": false,
+     "reason": "The response does not request the specific console model or edition before print preparation."
+    }
+   ]
+  },
+  {
+   "id": "CS2",
+   "issue": 6,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "customer wants a custom skin for his gaming console that matches his gaming style and makes it look unique. give one idea",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "exactly one idea",
+   "constraints": {
+    "checks": {},
+    "must": [
+     "Exactly one console-skin idea, not a banner/PFP/logo",
+     "Flexible concept with reasonable assumptions",
+     "Notes that the exact console model (and edition) is needed before print preparation"
+    ]
+   },
+   "output": "Wraparound \"urban‑tech\" skin: your semi‑chibi mascot in a three‑quarter action pose clutching a custom controller, set against a cracked‑concrete → neon gradient with cyan/magenta glitch streaks and a faint circuit texture; high‑contrast silhouette. Matte charcoal base with spot‑gloss outlines, metallic silver trim, and a thin white edge for readability; gamer tag placed on the front panel.\n\nBenefit: neon accents and the bold silhouette make the console instantly recognisable on stream and in photos.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 8.5,
+   "pass": false,
+   "failure_reason": "judge: Notes that the exact console model (and edition) is needed before print preparation: Response did not request or mention needing the exact console model/edition prior to print preparation.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Exactly one console-skin idea, not a banner/PFP/logo",
+     "pass": true,
+     "reason": "Assistant provided a single, specific wraparound console-skin concept (urban-tech) rather than a banner, PFP, or logo."
+    },
+    {
+     "check": "judge: Flexible concept with reasonable assumptions",
+     "pass": true,
+     "reason": "Design is adaptable (mascot, gradients, textures, finishes) and does not rely on a specific console model, allowing reasonable interpretation."
+    },
+    {
+     "check": "judge: Notes that the exact console model (and edition) is needed before print preparation",
+     "pass": false,
+     "reason": "Response did not request or mention needing the exact console model/edition prior to print preparation."
+    }
+   ]
+  },
+  {
+   "id": "IM1",
+   "issue": 7,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "now generate an image of this concept",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Client wants a custom skin for his PS5. He plays Call of Duty and likes a dark military style. Give me a concept.",
+     "answer": "Full-coverage PS5 skin in a dark tactical look: asymmetrical digital multicam across the curved panels, distressed gunmetal plate on the face with subtle rivet texture along the spine, and a low-silhouette soldier holding a rifle tucked into the lower curve so it reads from stream shots. Accent with muted night-vision green on vents and port edges, stenciled alphanumeric unit codes and a small clan tag on the top-right, matte base with spot-gloss on rivets and the silhouette, plus low-contrast grunge/mud streak overlays for battlefield wear.\n\nBenefit: reads authentic and gamer-focused on camera while staying subtle and wearable for long-term personal branding."
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "an image",
+   "constraints": {
+    "checks": {
+     "image": true,
+     "image_prompt_contains_any": [
+      "PS5",
+      "PlayStation 5",
+      "console"
+     ]
+    },
+    "must": [
+     "The image prompt describes the PS5 console skin concept from the chat (dark military style), not a generic image"
+    ]
+   },
+   "output": "Here's your image (1536×1024).",
+   "image_prompt": "Full-coverage PS5 skin design shown as high-quality product mockups: front view and 3/4 streaming-angle on a neutral studio background to demonstrate on-camera visibility and branding. Design: dark tactical, asymmetrical digital multicam across the curved panels using layered dark greys and muted earth tones (charcoal, slate, desaturated olive, muted brown) with a single contrasting accent of muted night-vision green on vents and port edges. Faceplate: distressed gunmetal plate with subtle rivet texture along the spine; matte base finish with spot-gloss on rivets and the low-silhouette soldier. Composition & framing: full device visible with generous margin, one front-facing mockup and one slightly turned 3/4 streaming-angle, lighting soft studio key to reveal spot-gloss highlights and fine surface wear. Soldier motif: low-silhouette soldier holding a rifle tucked into the lower curve so it reads clearly from stream shots; silhouette crisp, bold, slightly raised spot-gloss to catch camera light. Surface details: stenciled alphanumeric unit codes across panel edges and a small clan tag on the top-right (legible block stencil), subtle long-term wear: low-contrast grunge and mud streak overlays, scuffed edges and faint rub-through where corners contact. Texture & line work: realistic material cues — microtexture for matte vinyl, metallic grain for gunmetal plate, soft rivet shadows; avoid tiny intricate details that will vanish on-camera. Color balance: keep subject contrasted against neutral studio background; ensure the soldier silhouette and night-vision accents read clearly in low-light stream conditions. Quality cues: photoreal product render, sharp details, realistic shadows and reflections, clear enough for production and branding mockups.",
+   "task": null,
+   "seconds": 35.1,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image created",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image prompt keeps the request",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: The image prompt describes the PS5 console skin concept from the chat (dark military style), not a generic image",
+     "pass": true,
+     "reason": "The prompt explicitly details the PS5 skin design (asymmetrical digital multicam, gunmetal faceplate, soldier silhouette, night-vision accents, stencils), matching the requested dark military concept."
+    }
+   ]
+  },
+  {
+   "id": "IM1",
+   "issue": 7,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "now generate an image of this concept",
+   "history": [
+    {
+     "mode": "chat",
+     "q": "Client wants a custom skin for his PS5. He plays Call of Duty and likes a dark military style. Give me a concept.",
+     "answer": "1) Urban Spec Ops — matte charcoal base with an asymmetric digital multicam fade on the side panels, distressed stenciled unit markings and low-contrast skull emblem over the front face. Thin OD‑green accent piping and satin‑black bezel; gamertag stenciled along the top edge. Benefit: instantly reads Call‑of‑Duty military while staying muted on camera.\n\n2) Night‑Ops Tech — flat black shell with angular, engraved panel lines and subtle tactical HUD graphics in muted cyan; tone‑on‑tone operator silhouette near the vent and faint scorch/weathering around edges. Accent hardware in gunmetal; small clan tag in the lower corner. Benefit: modern, high‑tech combat look that photographs sharply without bright colors.\n\n3) Ballistic Armor — gunmetal finish with a worn ballistic‑plate texture and hex tile fade toward the disc area, stamped serial numbers and rank stripes in dark bronze, negative space kept clean around the PS logo. Warm ember micro‑highlights near vents and a matte clear coat. Benefit: rugged, tactile aesthetic that reads well at a distance and matches dark military rigs."
+    }
+   ],
+   "expected_language": "english",
+   "expected_structure": "an image",
+   "constraints": {
+    "checks": {
+     "image": true,
+     "image_prompt_contains_any": [
+      "PS5",
+      "PlayStation 5",
+      "console"
+     ]
+    },
+    "must": [
+     "The image prompt describes the PS5 console skin concept from the chat (dark military style), not a generic image"
+    ]
+   },
+   "output": "Here's your image (1536×1024).",
+   "image_prompt": "Three high‑quality realistic product mockups of a custom PS5 skin set for a Call of Duty player, shown as Variant A, Variant B and Variant C. Each variant rendered at accurate PS5 proportions with front three‑quarter, top and side views on a neutral studio background. Variant A \"Urban Spec Ops\": matte charcoal base, asymmetric digital multicam fade on side panels, distressed stenciled unit markings, low‑contrast military skull emblem centered on the front face, thin OD‑green accent piping along edges, satin‑black bezel, gamertag stenciled along the top edge in stenciled block letters; lighting soft studio highlights, subtle surface wear, photorealistic material textures, crisp shadowing, high resolution. Variant B \"Night‑Ops Tech\": flat black shell with precise angular engraved panel lines, subtle tactical HUD graphics in muted cyan layered across panels (low opacity), tone‑on‑tone operator silhouette near the vent, faint scorch/weathering around edges, gunmetal accent hardware, small clan tag in lower corner, cool directional rim lighting, realistic engraved depth and metal reflections. Variant C \"Ballistic Armor\": gunmetal finish with worn ballistic‑plate texture, hex‑tile fade toward the disc area, stamped serial numbers and dark‑bronze rank stripes, clean negative space around the PS logo, warm ember micro‑highlights near vents, matte clear coat finish, strong material contrast and tactile surface detail. Ensure each skin stands out clearly from the neutral background, balanced composition with generous margin, fine realistic shadows on studio surface, ultra‑detailed surface normal and specular mapping, color-accurate, print-ready product mockup quality.",
+   "task": null,
+   "seconds": 31.1,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image created",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image prompt keeps the request",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: The image prompt describes the PS5 console skin concept from the chat (dark military style), not a generic image",
+     "pass": true,
+     "reason": "The prompt explicitly details three variants (Urban Spec Ops, Night‑Ops Tech, Ballistic Armor) with specific military-style details, materials, and views matching the earlier concepts."
+    }
+   ]
+  },
+  {
+   "id": "IM2",
+   "issue": 7,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "generate a mascot logo of a red samurai fox with the text KITSU",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "an image",
+   "constraints": {
+    "checks": {
+     "image": true,
+     "image_prompt_contains_any": [
+      "KITSU"
+     ]
+    },
+    "must": [
+     "Image prompt keeps: mascot logo, red samurai fox, the exact text KITSU"
+    ]
+   },
+   "output": "Here's your logo (1024×1024, transparent background).",
+   "image_prompt": "Mascot logo of a red samurai fox — stylized anthropomorphic fox head and upper torso in a bold mascot logo style, three-quarter facing pose, fierce confident expression, mouth closed or slight snarl, wearing a traditional samurai kabuto and partial chest armor with a simplified katana silhouette behind or along the shoulder. Primary palette: strong crimson reds for fur and armor, pure white and deep black accents, subtle gold highlights on metal trim. Thick clean outlines, simplified shapes and a single clear silhouette that reads at 28 px; no thin details. Flat cel-shading with a slight vertical gradient for depth, high contrast lighting from upper-left, clean vector-ready shapes, minimal texture. Composition: badge-style circular/crest containment with generous internal margins, subject fully inside frame, bold negative-space separation from background. Lettering: place the text \"KITSU\" integrated below the badge in a bold Japanese-inspired display font, solid opaque fill with a contrasting outline for legibility. Isolated on a transparent background, no outer glow or drop shadow, print- and emote-ready.",
+   "task": null,
+   "seconds": 24.6,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image created",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image prompt keeps the request",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: mascot logo",
+     "pass": true,
+     "reason": "The prompt explicitly specifies a mascot logo style and mascot-specific details (stylized anthropomorphic head/upper torso, badge-style composition)."
+    },
+    {
+     "check": "judge: red samurai fox",
+     "pass": true,
+     "reason": "The prompt describes a fox with crimson red fur, samurai kabuto and armor, and related samurai elements (katana silhouette)."
+    },
+    {
+     "check": "judge: the exact text KITSU",
+     "pass": true,
+     "reason": "The prompt specifies placing the text \"KITSU\" integrated below the badge using that exact spelling."
+    }
+   ]
+  },
+  {
+   "id": "IM2",
+   "issue": 7,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "generate a mascot logo of a red samurai fox with the text KITSU",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "an image",
+   "constraints": {
+    "checks": {
+     "image": true,
+     "image_prompt_contains_any": [
+      "KITSU"
+     ]
+    },
+    "must": [
+     "Image prompt keeps: mascot logo, red samurai fox, the exact text KITSU"
+    ]
+   },
+   "output": "Here's your logo (1024×1024, transparent background).",
+   "image_prompt": "Bold vector mascot logo of a red samurai fox in a confident three-quarter pose, stylized and simplified for clear silhouette. Thick clean outlines, limited palette centered on vivid red with black and gold accent trims on armor and helmet. Fox wears simplified samurai armor and a kabuto helmet with a small crest; armor shapes are geometric and chunky for legibility at small sizes. Face expression confident, sharp eyes, slight smirk; ears visible above helmet. Composition centered, whole mascot fully inside frame with generous margin. Integrated uppercase text \"KITSU\" beneath the mascot in a strong geometric sans display, solid opaque fill and contrasting outline to read at 28px. Very high-contrast values so the red subject stands out from transparent background. No thin details, no extra props, single accent element (small gold crest). Scalable branding-ready vector look, flat colors, minimal gradients, crisp vector-style shading, RGB colors tuned for print and screen.",
+   "task": null,
+   "seconds": 24.9,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image created",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "image prompt keeps the request",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Image prompt keeps: mascot logo, red samurai fox, the exact text KITSU",
+     "pass": true,
+     "reason": "The prompt explicitly specifies a mascot logo of a red samurai fox and includes integrated uppercase text \"KITSU\" beneath the mascot."
+    }
+   ]
+  },
+  {
+   "id": "RT1",
+   "issue": 0,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "what is our refund policy?",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "no invented policy",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\b\\d+\\s*(days?|%)"
+     ]
+    },
+    "must": [
+     "Does not invent a refund policy, percentages or day counts; says it is not in the company knowledge (or quotes approved knowledge)"
+    ]
+   },
+   "output": "I don't have our refund policy in <knowledge>. Please confirm the official policy with the team lead or Finance/Operations, or point me to the company handbook/SOP that states it.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 5.9,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\b\\d+\\s*(days?|%)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Does not invent a refund policy, percentages or day counts; says it is not in the company knowledge (or quotes approved knowledge)",
+     "pass": true,
+     "reason": "Response explicitly states the refund policy is not in the assistant's knowledge and asks to confirm with team lead/Finance or provide the handbook/SOP."
+    }
+   ]
+  },
+  {
+   "id": "RT1",
+   "issue": 0,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "what is our refund policy?",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "no invented policy",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\b\\d+\\s*(days?|%)"
+     ]
+    },
+    "must": [
+     "Does not invent a refund policy, percentages or day counts; says it is not in the company knowledge (or quotes approved knowledge)"
+    ]
+   },
+   "output": "I don't have our refund policy in <knowledge>. Please check with the Finance lead or the company SOP/handbook section titled \"Refunds & Cancellations\" (or tell me if you want me to ask Finance/Legal and report back).",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 7.6,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\b\\d+\\s*(days?|%)",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Does not invent a refund policy, percentages or day counts; says it is not in the company knowledge (or quotes approved knowledge)",
+     "pass": true,
+     "reason": "Assistant explicitly states the refund policy is not in company knowledge and does not invent details; suggests checking Finance or SOP."
+    }
+   ]
+  },
+  {
+   "id": "RT2",
+   "issue": 0,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "A client wrote: \"hey how much for an emote?\" what should I reply?",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "reply options (3 options + Why)",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\$\\s?\\d"
+     ]
+    },
+    "must": [
+     "Gives client reply options in English",
+     "No invented price"
+    ]
+   },
+   "output": "Best to clarify whether they want static or animated and ask their budget so you can give an accurate price.\n\n**Option 1 - Quick details**\n>> Hey! Static or animated emote? What's your budget?\n\n**Option 2 - Platform + clarity**\n>> Hey! Which platform (Twitch/YouTube/etc.) and do you want it to be emote-ready (clear at 28px)?\n\n**Option 3 - Budget-first**\n>> Hey! Tell me a budget and I’ll check our options and confirm what we can do for that price.\n\nWhy: These quickly clarify scope so you can give an accurate price and avoid back-and-forth.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 17.6,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\$\\s?\\d",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Gives client reply options in English",
+     "pass": true,
+     "reason": "Provided three distinct reply options and a brief Why section, all in English."
+    },
+    {
+     "check": "judge: No invented price",
+     "pass": true,
+     "reason": "No prices were mentioned; the responses ask for details/budget rather than stating a price."
+    }
+   ]
+  },
+  {
+   "id": "RT2",
+   "issue": 0,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "A client wrote: \"hey how much for an emote?\" what should I reply?",
+   "history": [],
+   "expected_language": "english",
+   "expected_structure": "reply options (3 options + Why)",
+   "constraints": {
+    "checks": {
+     "forbid": [
+      "(?i)\\$\\s?\\d"
+     ]
+    },
+    "must": [
+     "Gives client reply options in English",
+     "No invented price"
+    ]
+   },
+   "output": "Best approach: ask whether they want static or animated and where it will be used so you can give an accurate quote.\n\n**Option 1 - Style first**\n>> Hey — do you want a static or animated emote, and where will you use it (Twitch/Discord)? I’ll check pricing and send a clear quote.\n\n**Option 2 - Budget check**\n>> Hey — what’s your budget for a single emote? If you give a number I can recommend the best option and confirm exact pricing with the team.\n\n**Option 3 - Send refs**\n>> Hey — can you drop a reference or describe the style you like and whether it needs animation? After that I’ll confirm what we can do and reply with a tailored price and next step.\n\nWhy: Gets the specific details that determine price so you can reply quickly with an accurate quote.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 15.8,
+   "pass": true,
+   "failure_reason": "",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "forbid (?i)\\$\\s?\\d",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Gives client reply options in English",
+     "pass": true,
+     "reason": "Provides three distinct reply options written in English."
+    },
+    {
+     "check": "judge: No invented price",
+     "pass": true,
+     "reason": "No pricing or specific cost figures are mentioned; only asks for details to quote."
+    }
+   ]
+  },
+  {
+   "id": "RT3",
+   "issue": 0,
+   "repeat": 1,
+   "mode": "chat",
+   "target": null,
+   "input": "client ne English mein likha hai: \"Can I get the logo by Friday?\" mujhe kya reply karna chahiye?",
+   "history": [],
+   "expected_language": "mixed",
+   "expected_structure": "explanation in Roman Urdu, client messages in English",
+   "constraints": {
+    "checks": {},
+    "must": [
+     "Client messages (to send) are in English",
+     "Any explanation to the employee is in Roman Urdu",
+     "No delivery date promised"
+    ]
+   },
+   "output": "**What they're asking**\n- Can they receive the logo by Friday?\n\n**Option 1 - Confirm date**\n>> Do you mean this coming Friday? I’ll check with the team and confirm—can you confirm the exact date and send any references?\n\n**Option 2 - Ask for brief**\n>> Please send the logo brief and references now; I’ll check if we can meet Friday and get back with a confirmation as soon as I hear from the team.\n\n\nWhy: Ye options date aur scope clear kar ke team availability check karne ke liye hain, taake hum fake promise na dein aur sahi confirmation de saken.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 19.7,
+   "pass": false,
+   "failure_reason": "judge: Any explanation to the employee is in Roman Urdu: The assistant included English explanation lines (\"What they're asking\" and its bullet); only the final sentence was Roman Urdu.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Client messages (to send) are in English",
+     "pass": true,
+     "reason": "Both suggested client-facing messages are written in English."
+    },
+    {
+     "check": "judge: Any explanation to the employee is in Roman Urdu",
+     "pass": false,
+     "reason": "The assistant included English explanation lines (\"What they're asking\" and its bullet); only the final sentence was Roman Urdu."
+    },
+    {
+     "check": "judge: No delivery date promised",
+     "pass": true,
+     "reason": "Neither suggested reply promises a delivery date; both ask to confirm date or check availability."
+    }
+   ]
+  },
+  {
+   "id": "RT3",
+   "issue": 0,
+   "repeat": 2,
+   "mode": "chat",
+   "target": null,
+   "input": "client ne English mein likha hai: \"Can I get the logo by Friday?\" mujhe kya reply karna chahiye?",
+   "history": [],
+   "expected_language": "mixed",
+   "expected_structure": "explanation in Roman Urdu, client messages in English",
+   "constraints": {
+    "checks": {},
+    "must": [
+     "Client messages (to send) are in English",
+     "Any explanation to the employee is in Roman Urdu",
+     "No delivery date promised"
+    ]
+   },
+   "output": "**What they're asking**\n- Can they receive the logo by Friday?\n\nBest approach: politely confirm which Friday and check internal schedule before promising — clear raho, overcommit mat karo.\n\n**Option 1 - Confirm date**\n>> Thanks — do you mean this Friday (date)? I’ll check our schedule and confirm whether we can meet that deadline.\n**Option 2 - Ask preference**\n>> Would you prefer a quick concept by Friday for feedback, or the final logo? I’ll check with the team which we can realistically confirm.\n**Option 3 - Clarify use**\n>> Can you tell me the Friday date and how you’ll use the logo (web, print, both)? I’ll verify availability and get back to you.\n\nWhy: Yeh approach clear aur professional hai — client ko reassurance milti hai bina overpromise kiye.",
+   "image_prompt": null,
+   "task": null,
+   "seconds": 13.8,
+   "pass": false,
+   "failure_reason": "judge: Any explanation to the employee is in Roman Urdu: Explanations are primarily in English; only a short phrase ('clear raho, overcommit mat karo' and one sentence) is in Roman Urdu.",
+   "checks": [
+    {
+     "check": "http 200",
+     "pass": true,
+     "reason": ""
+    },
+    {
+     "check": "judge: Client messages (to send) are in English",
+     "pass": true,
+     "reason": "All three '>>' suggested client replies are written in English."
+    },
+    {
+     "check": "judge: Any explanation to the employee is in Roman Urdu",
+     "pass": false,
+     "reason": "Explanations are primarily in English; only a short phrase ('clear raho, overcommit mat karo' and one sentence) is in Roman Urdu."
+    },
+    {
+     "check": "judge: No delivery date promised",
+     "pass": true,
+     "reason": "Responses ask for clarification and offer to check availability but do not commit to a delivery date."
+    }
+   ]
+  }
+ ]
+}
