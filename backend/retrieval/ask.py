@@ -13,7 +13,7 @@ from uuid import UUID
 from ..config import Settings
 from ..generation.base import GenerationProvider
 from ..generation.prompt import MISSING_COMPANY_INFO, OFF_TOPIC
-from ..generation.tasks import format_problems, run_translation, settle_reply_count, task_instructions
+from ..generation.tasks import format_problems, run_translation, settle_task, task_instructions
 from ..models import AnswerContext, Candidate
 from .language import NormalizedQuery
 from .search import SearchService, confidence_label
@@ -326,7 +326,7 @@ class AskService:
         if classify is not None and getattr(self.settings, "task_routing", True):
             task = classify(out.query.original, list(history), bool(images))
             if task is not None:
-                task = settle_reply_count(task, out.query.original)
+                task = settle_task(task, out.query.original)
         if task is not None and task.task == "translation" and not images:
             return self._translate(out, task, preferences)
         if task is not None and task.task == "image":

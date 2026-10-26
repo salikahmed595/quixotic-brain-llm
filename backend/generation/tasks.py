@@ -271,8 +271,11 @@ def _strip_label(out: str) -> str:
     return _LABEL.sub("", out or "", count=1).strip()
 
 
-def settle_reply_count(t: Task, question: str) -> Task:
-    """QA V2 RT2/RT3: the router said count 1 for "what should I reply?"; one reply only when the wording asks for one."""
+def settle_task(t: Task, question: str) -> Task:
+    """Format facts the wording decides, not the router. QA V2 RT2/RT3: the router said count 1 and one_paragraph for
+    "mujhe kya reply karna chahiye?", which squeezed the three options into one line. One paragraph only when they say so;
+    one reply only when the wording asks for one."""
+    t.one_paragraph = t.one_paragraph and bool(re.search(r"paragraph|\bpara\b", question, re.I))
     if t.task == "client_reply" and t.lines is None and t.words is None:
         t.count = 1 if SINGLE_REPLY.search(question) else (t.count if (t.count or 0) > 1 else None)
     return t

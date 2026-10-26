@@ -109,12 +109,15 @@ def test_overall_reply_in_4_5_lines_is_one_message_with_a_word_target():
 
 def test_what_should_i_reply_gets_options_and_write_a_reply_gets_one():
     """QA V2 RT2/RT3: the router said count 1 for 'what should I reply?', so the employee lost the options and the explanation."""
-    from backend.generation.tasks import _strip_label, settle_reply_count
+    from backend.generation.tasks import _strip_label, settle_task
     for q in ('A client wrote: "hey how much for an emote?" what should I reply?', "mujhe kya reply karna chahiye?",
               "Here is a client message, what should I reply?", "give me reply options"):
-        assert settle_reply_count(Task(task="client_reply", count=1), q).count is None, q
+        assert settle_task(Task(task="client_reply", count=1), q).count is None, q
     for q in ("Write an overall reply in 4-5 lines.", "write a reply i can send", "write one short message to send him"):
-        assert settle_reply_count(Task(task="client_reply"), q).count == 1, q
+        assert settle_task(Task(task="client_reply"), q).count == 1, q
+    q = 'client ne English mein likha hai: "Can I get the logo by Friday?" mujhe kya reply karna chahiye?'
+    assert not settle_task(Task(task="client_reply", count=1, one_paragraph=True), q).one_paragraph   # router said so (measured)
+    assert settle_task(Task(task="artwork_ideas", one_paragraph=True), "one idea in one paragraph").one_paragraph
     assert _strip_label("Translate this into English: bro, reduce the price") == "bro, reduce the price"
     options = Task(task="client_reply")
     assert any("3 options" in p for p in format_problems(options, ">> I'll check with the team and confirm."))
