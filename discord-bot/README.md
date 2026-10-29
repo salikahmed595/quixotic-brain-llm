@@ -10,8 +10,12 @@ Quixotic AI (`POST /v1/ask` with `X-API-Key` + the employee's `user_id`). The sa
 `CLAUDE_CODE_IMPLEMENTATION_PROMPT.md` is the original starter brief, kept for reference only and superseded here.
 
 ## Commands
-- **Apps → Draft Sales Reply** (message context menu): drafts a reply to the right-clicked customer message.
-- **/suggest**: drafts a reply to the latest customer message among the channel's last 50 messages.
+- **Apps → Draft Sales Reply** (message context menu): drafts the next staff message replying to the right-clicked customer message.
+- **/suggest**: same, for the latest customer message among the channel's last 50 messages.
+
+Both send the recent chat (up to 50 messages before the chosen one, labelled Customer/Staff, newest kept within
+the 4000-character `/v1/ask` limit) so the draft continues the conversation in the customer's tone and language.
+The chat is read live and never stored.
 
 Both only work in `ALLOWED_CHANNEL_IDS` (or their threads) in `DISCORD_GUILD_ID`, for members with a `STAFF_ROLE_IDS`
 role (or Manage Server). A Discord account missing from `STAFF_USER_MAP` is refused, never run as the key's owner.

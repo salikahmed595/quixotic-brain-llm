@@ -3,6 +3,7 @@ import {Client,GatewayIntentBits,MessageFlags,PermissionFlagsBits} from 'discord
 import {loadQuixoticConfig} from './quixotic.js';
 import {draftReply} from './draft.js';
 import {isCustomerMessage,pickLatestCustomerMessage} from './commands.js';
+import {buildConversationQuestion} from './conversation.js';
 
 // Thin client: nothing is stored here. Messages are read live only when staff ask for a draft (owner 2026-10-29).
 const env=(k)=>String(process.env[k]||'').trim();
@@ -10,7 +11,7 @@ for(const k of ['DISCORD_TOKEN','DISCORD_GUILD_ID','ALLOWED_CHANNEL_IDS','STAFF_
 const allowed=new Set(env('ALLOWED_CHANNEL_IDS').split(',').map(x=>x.trim()));
 const staff=new Set(env('STAFF_ROLE_IDS').split(',').map(x=>x.trim()));
 const config=loadQuixoticConfig();
-const RECENT_MESSAGES=50;   // one Discord page; /suggest only needs the latest customer message
+const RECENT_MESSAGES=50;   // one Discord page of chat context; trimmed further to fit /v1/ask (conversation.js)
 const bot=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
 const permittedChannel=c=>c?.guildId===env('DISCORD_GUILD_ID') && (allowed.has(c.id)||(c.parentId&&allowed.has(c.parentId)));
 const roleAllowed=member=>{
@@ -42,12 +43,14 @@ bot.on('interactionCreate',async interaction=>{
       if(!isCustomerMessage(target)){await interaction.reply({content:'Right-click a text message written by the customer, not by staff or a bot.',flags:MessageFlags.Ephemeral});return;}
     }
     await interaction.deferReply({flags:MessageFlags.Ephemeral});
-    if(!target){
-      const recent=await interaction.channel.messages.fetch({limit:RECENT_MESSAGES});
-      target=pickLatestCustomerMessage([...recent.values()].map(toPlain));
-      if(!target){await interaction.editReply('No recent customer message found in this channel.');return;}
-    }
-    const draft=await draftReply({config,discordUserId:interaction.user.id,customerText:target.content});
+    // The recent chat up to the chosen message goes along so the draft continues the conversation.
+    const recent=await interaction.channel.messages.fetch(target?{limit:RECENT_MESSAGES,before:target.id}:{limit:RECENT_MESSAGES});
+    const chat=[...recent.values()].map(toPlain);
+    if(target) chat.push(target);
+    else target=pickLatestCustomerMessage(chat);
+    if(!target){await interaction.editReply('No recent customer message found in this channel.');return;}
+    const question=buildConversationQuestion(chat,target.id);
+    const draft=await draftReply({config,discordUserId:interaction.user.id,question});
     await interaction.editReply(draft.text);
   }catch(e){
     const msg=safeError(e);

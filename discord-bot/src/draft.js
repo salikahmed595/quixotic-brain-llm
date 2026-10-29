@@ -3,8 +3,8 @@
 import {validateDraft} from './guard.js';
 import {askQuixotic,NotLinkedError} from './quixotic.js';
 
-export async function draftReply({config,discordUserId,customerText},ask=askQuixotic){
-  const question=String(customerText||'').trim();
+export async function draftReply({config,discordUserId,question:raw},ask=askQuixotic){
+  const question=String(raw||'').trim();
   if(!question) return {ok:false,text:'That message has no text to draft a reply for.'};
   let res;
   try{res=await ask(config,{question,discordUserId});}
