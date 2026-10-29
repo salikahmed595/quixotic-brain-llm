@@ -13,10 +13,14 @@ export function loadQuixoticConfig(env=process.env){
   return {apiUrl:env.QUIXOTIC_API_URL.replace(/\/+$/,''),apiKey:env.QUIXOTIC_API_KEY,staffUserMap:map};
 }
 
+export class NotLinkedError extends Error{
+  constructor(){super('Your Discord account is not linked to a Quixotic AI employee. Ask an admin to add you.');}
+}
+
 export function resolveUserId(config,discordUserId){
   // Without user_id the API would act as the key's creator; refuse rather than borrow someone else's permissions.
   const id=config.staffUserMap[discordUserId];
-  if(!id) throw new Error('Your Discord account is not linked to a Quixotic AI employee. Ask an admin to add you.');
+  if(!id) throw new NotLinkedError();
   return id;
 }
 

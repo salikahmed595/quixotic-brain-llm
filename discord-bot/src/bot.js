@@ -3,14 +3,14 @@ import {Client,GatewayIntentBits,MessageFlags,PermissionFlagsBits,ButtonBuilder,
 import {resolve} from 'node:path';
 import {Store} from './store.js';
 import {syncHistory} from './discordHistory.js';
-import {buildPrompt} from './prompt.js';
-import {generateDraft} from './ai.js';
+import {loadQuixoticConfig} from './quixotic.js';
+import {draftReply} from './draft.js';
 
 const env=(k)=>String(process.env[k]||'').trim();
-for(const k of ['DISCORD_TOKEN','DISCORD_GUILD_ID','ALLOWED_CHANNEL_IDS','STAFF_ROLE_IDS','AI_API_KEY','AI_MODEL']) if(!env(k)) throw new Error(`Missing mandatory configuration: ${k}`);
+for(const k of ['DISCORD_TOKEN','DISCORD_GUILD_ID','ALLOWED_CHANNEL_IDS','STAFF_ROLE_IDS']) if(!env(k)) throw new Error(`Missing mandatory configuration: ${k}`);
 const allowed=new Set(env('ALLOWED_CHANNEL_IDS').split(',').map(x=>x.trim()));
 const staff=new Set(env('STAFF_ROLE_IDS').split(',').map(x=>x.trim()));
-const config={aiBaseUrl:env('AI_API_BASE_URL')||'https://api.openai.com/v1',aiKey:env('AI_API_KEY'),aiModel:env('AI_MODEL'),maxOutputTokens:Number(env('MAX_OUTPUT_TOKENS')||450)};
+const config=loadQuixoticConfig();
 const store=new Store(resolve(env('DB_PATH')||'./data/copilot.sqlite'));
 const bot=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]});
 const permittedChannel=c=>c?.guildId===env('DISCORD_GUILD_ID') && (allowed.has(c.id)||(c.parentId&&allowed.has(c.parentId)));
@@ -107,23 +107,18 @@ bot.on('interactionCreate',async interaction=>{
         anchor=interaction.targetMessage.id;
       }
       await interaction.deferReply({flags:MessageFlags.Ephemeral});
-      const synced=await syncHistory(interaction.channel,store,Number(env('MAX_SYNC_PAGES')||100),m=>isTicketParticipant(m,link.customer_id));
+      await syncHistory(interaction.channel,store,Number(env('MAX_SYNC_PAGES')||100),m=>isTicketParticipant(m,link.customer_id));
       const messages=store.getMessages(g,c);
       const customerMessages=messages.filter(m=>m.authorId===link.customer_id && (!anchor||BigInt(m.id)<=BigInt(anchor)));
       if(!customerMessages.length){await interaction.editReply('No customer messages are available for this ticket. Ensure Message Content access and ticket history permissions.');return;}
       const chosen=anchor||customerMessages.at(-1).id;
-      const facts=store.currentFacts(g,c,link.customer_id)
-        .filter(f=>BigInt(f.sourceMessageId)<=BigInt(chosen));
-      const prompt=buildPrompt({messages,customerId:link.customer_id,selectedMessageId:chosen,facts,completion:synced.complete});
+      const customerText=customerMessages.find(m=>m.id===chosen)?.content;
+      const audit=(state,riskReason)=>store.audit({guildId:g,channelId:c,customerId:link.customer_id,employeeId:interaction.user.id,sourceMessageId:chosen,state,model:'quixotic-ai',riskReason});
       let draft;
-      try{draft=await generateDraft(config,prompt);}
-      catch(e){store.audit({guildId:g,channelId:c,customerId:link.customer_id,employeeId:interaction.user.id,sourceMessageId:chosen,state:'MODEL_ERROR',model:config.aiModel,riskReason:e.message.slice(0,150)});throw e;}
-      store.audit({guildId:g,channelId:c,customerId:link.customer_id,employeeId:interaction.user.id,sourceMessageId:chosen,state:draft.check.ok?'DRAFT_PROPOSED':'BLOCKED',model:config.aiModel,riskReason:draft.check.reason});
-      if(!draft.check.ok){await interaction.editReply(`⚠️ Draft blocked for review: ${draft.check.reason}\nNo reply was sent to the customer.`);return;}
-      const warning=synced.complete?'':'⚠️ **Partial history:** older messages may still be missing. Run /suggest again to continue indexing.\n';
-      const evidence=prompt.evidenceIds.slice(-5).map(id=>`https://discord.com/channels/${g}/${c}/${id}`).join(' | ');
-      const out=`${warning}**Private AI Draft — NOT SENT**\n${draft.draft}\n\n**Why:** ${draft.why}\n**Style:** ${prompt.style.tone}, ${prompt.style.length}; ${prompt.style.language}\n**Recent evidence:** ${evidence||'No link available'}\n\nCopy, edit and verify pricing/delivery before sending.`;
-      await interaction.editReply(out.slice(0,1950));return;
+      try{draft=await draftReply({config,discordUserId:interaction.user.id,customerText});}
+      catch(e){audit('MODEL_ERROR',e.message.slice(0,150));throw e;}
+      audit(draft.ok?'DRAFT_PROPOSED':'BLOCKED',draft.reason||'');
+      await interaction.editReply(draft.text);return;
     }
   }catch(e){
     const msg=safeError(e);
