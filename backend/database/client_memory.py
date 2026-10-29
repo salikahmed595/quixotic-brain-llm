@@ -40,6 +40,10 @@ class ClientMemoryStore:
             raise PermissionDenied("client not found")        # same answer for "missing" and "not yours": no existence leak
         return row
 
+    def get_client(self, client_id: UUID, departments: Optional[set]) -> dict:
+        with self.pool.connection() as c:
+            return self._client(c, client_id, departments)
+
     def find_clients(self, text: str, departments: Optional[set], limit: int = 20) -> list[dict]:
         q = f"%{(text or '').strip().lower()}%"
         where, params = "tenant_id=%s AND (lower(display_name) LIKE %s OR lower(coalesce(discord_handle,'')) LIKE %s)", [self.tenant, q, q]

@@ -12,6 +12,7 @@ from ..config import Settings
 from ..database.accounts import OneTimeTokenStore, SessionStore, SystemSettingsStore
 from ..database.conversations import ConversationStore
 from ..database.gaps import GapStore
+from ..database.client_memory import ClientMemoryStore
 from ..database.integrations import IntegrationStore
 from ..database.knowledge import KnowledgeStore
 from ..database.ops import OpsStore
@@ -56,6 +57,7 @@ class Services:
     mailer: Any = None                  # PRD §5 FR-AUTH-02 email
     gaps: Any = None                    # PRD §9 knowledge gaps
     integrations: Any = None            # PRD §9 / §12 integration identities and events
+    clients: Any = None                 # Client Brain client memories (owner spec 2026-10-29)
 
 
 def build_services(settings: Settings, parser=None, extractor=None, run_migrations: bool = True,
@@ -95,5 +97,6 @@ def build_services(settings: Settings, parser=None, extractor=None, run_migratio
         storage=storage, queue=RedisQueue(settings.redis_url) if settings.queue_backend == "redis" else SQSQueue(settings), language=language, embedder=embedder,
         limiter=SlidingWindowLimiter(), pool=pool, conversations=ConversationStore(pool, t), models_ready=ready,
         sessions=SessionStore(pool, t), one_time=OneTimeTokenStore(pool), system_settings=SystemSettingsStore(pool, t),
-        mailer=make_mailer(settings), gaps=GapStore(pool, t), integrations=IntegrationStore(pool, t))
+        mailer=make_mailer(settings), gaps=GapStore(pool, t), integrations=IntegrationStore(pool, t),
+        clients=ClientMemoryStore(pool, t))
     return out
