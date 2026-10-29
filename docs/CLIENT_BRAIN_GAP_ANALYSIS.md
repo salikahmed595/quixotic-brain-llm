@@ -31,32 +31,29 @@ Telegram were removed by the owner, CLAUDE.md Rule 1.4).
 | §10 evaluation benchmark | PARTIAL | `evaluation/quality_v2` (27 live cases, judge). Not built from anonymized history, no client/time split. |
 | §11 load tests | PARTIAL | PRD §2 target 160/40 users; earlier load runs exist in docs. No k6/Locust script for the new flows. |
 
-## 3. Decisions the owner must take (PRD is silent or conflicts)
+## 3. Owner decisions (2026-10-29)
 
-1. **Client records.** Client memory needs a new "client" entity (name / Discord handle, owner, department). The PRD has no
-   such entity (§12). Approve adding it? Who may see a client's memory: the whole department, or the assigned employee + managers?
-2. **Where client facts come from.** Without a Discord bot or CRM (Phase 2 / §15 "no automatic scraping"), memories can only
-   come from what an employee pastes or types in chat. OK to extract candidate memories from pasted client messages, saved
-   only after the employee confirms them?
-3. **Fresh Seller / Upseller routing.** Needs payment / order events. Is there an external CRM to connect (which one, API?),
-   or should the employee mark "payment link requested" / "paid" by hand?
-4. **2D-only scope (§11 test 10).** Confirm the studio sells only 2D (characters, banners, overlays, static / animated
-   emotes) and that a 3D request should be declined politely.
+1. **Client records: approved** ("begin with verified client memory, retrieval accuracy, and response validation").
+   Visibility was not specified: default **department-wide** (everyone in the client's department, plus admins), owner-vetoable,
+   recorded in docs/PRD_GAPS.md.
+2. **Facts come from pasted chats, confirmed**: the AI suggests facts from client messages an employee pastes; a fact is saved
+   only after the employee confirms it. Employees can also type facts.
+3. **Sales routing: employee marks it** ("payment link requested", "paid"), logged with who and when.
+4. **3D is also sold**: no 2D-only refusal (the spec's test 10 does not apply).
 
-## 4. Slice plan (small vertical slices, TDD, one per session turn)
+## 4. Slice plan (owner priority: client memory -> retrieval -> validation; one slice per turn, TDD)
 
-Slices that need no new PRD scope go first.
-
-| # | Slice | Needs owner decision | Size |
-|---|---|---|---|
-| S1 | **Promise validator in code**: delivery dates ("tomorrow", "by Friday", "in 2 days"), availability, payment / order status claims in `>>` client messages are removed or rewritten to "I'll confirm with the team", unless the employee or approved knowledge stated them. Returns `risk_flags` in `/v1/ask`. Spec §6 example + test "delivery tomorrow but schedule unknown". | No | Small |
-| S2 | **Risk flags in the UI**: the answer card shows what was blocked and why ("delivery date removed: not confirmed"). | No | Small |
-| S3 | **2D-only scope** rule + test (3D request declined, 2D alternative offered). | Decision 4 | Small |
-| S4 | **Translation fidelity check**: amounts, dates, names and negation in the source must appear in the translation; retry once, else flag. | No | Small |
-| S5 | **Client entity + ClientMemory schema** (migration, events, supersession, provenance) + unit tests ($300 → $70, alias collision). | Decisions 1–2 | Medium |
-| S6 | Memory capture from pasted messages with employee confirmation; client-scoped retrieval into the answer. | Decisions 1–2 | Medium |
-| S7 | Handover summary (source-linked, open commitments). | After S5–S6 | Medium |
-| S8 | Sales routing (Fresh Seller → Upseller) on recorded events. | Decision 3 | Medium |
-| S9 | Benchmark from anonymized `sales_memories`, client/time split; load script for `/v1/ask`. | No | Medium |
+| # | Slice | Size |
+|---|---|---|
+| S1 | **Client + ClientMemory store**: migration (clients, client_memories, client_memory_events), store with provenance, supersession ($300 -> $70 for the order, old value kept as superseded), department-scoped access, alias collision kept apart. Unit tests + SQL syntax check. | Medium |
+| S2 | **API**: create / find client, list current facts, add / confirm / correct / delete a fact (server-side permission checks, audit). Integration tests. | Medium |
+| S3 | **Capture from pasted chats**: AI suggests typed candidate facts with the exact source text; nothing saved until confirmed; no inferred income / class / personality. | Medium |
+| S4 | **Client-scoped retrieval into answers**: Ask with a selected client adds its current confirmed facts (fenced as data) and its relevant past chat excerpts; never another client's. | Medium |
+| S5 | **Promise validator in code**: delivery dates, availability, payment / order status in `>>` messages removed unless stated by the employee, a confirmed fact or approved knowledge; `risk_flags` in `/v1/ask`. | Small |
+| S6 | UI: client picker in the composer, facts panel with confirm / correct, risk flags on the answer card. E2E test. | Medium |
+| S7 | Translation fidelity check (amounts, dates, names, negation). | Small |
+| S8 | Handover summary (source-linked, open commitments). | Medium |
+| S9 | Fresh Seller -> Upseller marks with audit. | Small |
+| S10 | Benchmark from anonymized `sales_memories` (client/time split) + load script for `/v1/ask`. | Medium |
 
 Each slice report follows spec §14: Changed / Tests run / Risks / Performance / Next actions.
