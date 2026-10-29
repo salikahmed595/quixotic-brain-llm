@@ -6,13 +6,15 @@ import {fileURLToPath} from 'node:url';
 import {crc32} from 'node:zlib';
 import {EXTENSION_FILES} from './pack.js';
 
-export const ZIP_FOLDER='quixotic-reply-assistant';   // unzips to one folder, the one employees pick in Chrome
+export const ZIP_FOLDER='quixotic-reply-assistant';   // the folder Windows "Extract All" makes; employees pick it in Chrome
+export const ZIP_NAME=`${ZIP_FOLDER}.zip`;
 const DOS_TIME=0, DOS_DATE=(2026-1980)<<9|1<<5|1;      // fixed timestamp: the same files give the same zip
 
 export function buildZip(root){
   const locals=[],centrals=[];let offset=0;
   for(const f of EXTENSION_FILES){
-    const data=readFileSync(join(root,f)),name=Buffer.from(`${ZIP_FOLDER}/${f}`,'utf8'),crc=crc32(data)>>>0;
+    // Entries at the zip root, so Extract All gives one folder with manifest.json directly inside.
+    const data=readFileSync(join(root,f)),name=Buffer.from(f,'utf8'),crc=crc32(data)>>>0;
     const head=Buffer.alloc(30);
     head.writeUInt32LE(0x04034b50,0);head.writeUInt16LE(20,4);head.writeUInt16LE(0x0800,6);head.writeUInt16LE(0,8);
     head.writeUInt16LE(DOS_TIME,10);head.writeUInt16LE(DOS_DATE,12);head.writeUInt32LE(crc,14);
