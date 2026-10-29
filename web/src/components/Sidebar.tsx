@@ -95,6 +95,10 @@ export function Sidebar({ onClose, onNewChat }: { onClose: () => void; onNewChat
         <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search chats" aria-label="Search chats" autoComplete="off"
           className="flex-1 min-w-0 bg-transparent outline-none text-ink placeholder:text-muted" />
       </label>
+      {/* Owner 2026-10-29: every employee can install the Discord reply helper (guided, pages/Install.tsx). */}
+      <a href="#/install" className={`sb-row no-underline ${route.page === 'install' ? 'text-orange font-semibold' : 'text-ink'}`} aria-current={route.page === 'install' ? 'page' : undefined}>
+        <Icon name="msg" size={18} />Install Discord helper
+      </a>
 
       {groups.length > 0 && (<>
         <button className="flex items-center gap-2.5 h-8 max-[900px]:h-11 px-3 mt-2.5 text-[12.5px] font-bold tracking-[.06em] uppercase text-muted hover:text-orange rounded-lg"

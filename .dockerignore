@@ -13,3 +13,5 @@ web/playwright-report/
 web/.env.visual
 UI images/
 .pytest_cache/
+discord-extension/node_modules/
+discord-extension/dist/

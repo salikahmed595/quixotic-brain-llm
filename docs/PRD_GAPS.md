@@ -138,6 +138,7 @@ Company General, HR, Sales - Fresh Seller, Sales - Upseller, Production, Marketi
 - Source boost (up−down)/(n+5) for passages with >=3 ratings, shift 0.001×boost; personal style hints (>=3 liked, >=2 disliked, 70%) with "Forget what I learned" switch; optional 👎 reasons; admin Insights -> Answer quality and "Reset what it has learned". Not done: reusing past answers, auto-changing knowledge/thresholds.
 
 **Discord reply extension** (`discord-extension/`, owner 2026-10-29; not in the PRD ❓)
+- Employee portal: "Install Discord helper" (sidebar, `#/install`, every signed-in user) walks through 7 steps one at a time and serves the zip built by web prebuild (`/downloads/quixotic-reply-assistant.zip`).
 - Chrome extension reads the Discord chat open in the employee's tab only on click (incl. DMs), labels Staff/Customer from staff names typed in the panel, sends it to `/v1/ask`, shows a private draft to copy; never types or sends, stores no chat. Signs in with the employee's own account (`/v1/auth/login` cookie + CSRF; password not stored); fixed to `https://maqsad.quixoticcreatives.com`. ❓ two-step sign-in (FR-AUTH-06) not supported: MFA accounts are refused. ❓ Discord terms discourage client modification; read-only, no token/API use.
 
 **Sales memory**
