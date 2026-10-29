@@ -67,3 +67,10 @@ test('client errors carry the status only; 401 asks to sign in',async()=>{
   await assert.rejects(askQuixotic({apiUrl:'https://a',headers:{},question:'Q'},f(503)),/503/);
   await assert.rejects(askQuixotic({apiUrl:'https://a',headers:{},question:'Q'},async()=>({ok:true,status:200,json:async()=>({})})),/no answer/);
 });
+
+test('goal and tone reach the question; result says how many messages were read',async()=>{
+  const ask=fakeAsk('ok sure');
+  const out=await draftFromChat({messages:chat,staffNames:'Sara | Quixotic',ask,goal:'pitch',tone:'friendly'});
+  assert.match(ask.calls[0],/artwork idea/i);
+  assert.equal(out.messagesRead,3);
+});

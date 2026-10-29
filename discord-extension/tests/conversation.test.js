@@ -40,3 +40,18 @@ test('a huge target message is truncated, not dropped',()=>{
 test('missing target gives null',()=>{
   assert.equal(buildConversationQuestion([M(1,'hi')],'9'),null);
 });
+
+test('goal and tone choices are added as instructions; defaults reply naturally like the customer',()=>{
+  const msgs=[M(1,'hi')];
+  const def=buildConversationQuestion(msgs,'1');
+  assert.match(def,/Reply naturally/);assert.match(def,/Match the customer's language, tone and slang/);
+  const pro=buildConversationQuestion(msgs,'1',{goal:'close',tone:'professional'});
+  assert.match(pro,/move toward a sale/i);assert.match(pro,/never promise prices, dates or discounts/i);
+  assert.match(pro,/professional/i);assert.match(pro,/no slang or emoji/i);
+  assert.match(buildConversationQuestion(msgs,'1',{goal:'pitch',tone:'friendly'}),/artwork idea[\s\S]*friendly/i);
+});
+
+test('unknown goal or tone is refused instead of guessed',()=>{
+  assert.throws(()=>buildConversationQuestion([M(1,'hi')],'1',{goal:'discount'}),/goal/);
+  assert.throws(()=>buildConversationQuestion([M(1,'hi')],'1',{tone:'angry'}),/tone/);
+});

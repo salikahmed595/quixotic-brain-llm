@@ -56,3 +56,13 @@ test('panel never stores the password',()=>{
   const js=readFileSync(root+'panel.js','utf8');
   assert.doesNotMatch(js,/storage\.local\.set\(\{[^}]*password/i);
 });
+
+test('panel follows the owner design: goal + tone chips, Suggest Reply, step guide',()=>{
+  const html=readFileSync(root+'panel.html','utf8');
+  for(const g of ['reply','pitch','close']) assert.match(html,new RegExp(`data-goal="${g}"`));
+  for(const t of ['match','friendly','professional']) assert.match(html,new RegExp(`data-tone="${t}"`));
+  assert.match(html,/Suggest Reply/);
+  assert.match(html,/id="steps"/);
+  for(const s of ['Sign in','Add staff names','Open a Discord chat']) assert.match(html,new RegExp(s));
+  assert.doesNotMatch(html,/fonts\.googleapis|<link[^>]+https?:/);   // no third-party requests from the panel
+});
