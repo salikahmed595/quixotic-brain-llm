@@ -9,6 +9,9 @@
     body { font: 14px system-ui, sans-serif; margin: 16px; color: var(--fg); background: var(--bg); }
     h1 { font-size: 16px; margin: 0 0 12px; }
     label { display: block; font-weight: 600; margin: 12px 0 4px; }
+    button.link { background: none; color: var(--accent); padding: 0; text-decoration: underline; }
+    input { width: 100%; box-sizing: border-box; font: inherit; color: inherit; background: transparent;
+            border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     textarea { width: 100%; box-sizing: border-box; font: inherit; color: inherit; background: transparent;
                border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
@@ -20,6 +23,16 @@
 </head>
 <body>
   <h1>Quixotic Reply Assistant</h1>
+  <form id="signin" hidden>
+    <label for="ident">Quixotic AI username or email</label>
+    <input id="ident" autocomplete="username">
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <div class="row"><button id="login" type="submit">Sign in</button></div>
+    <p class="muted">Your own account, so only what you're allowed to see is used. The password is not saved.</p>
+  </form>
+  <div id="app" hidden>
+  <p class="muted">Signed in to Quixotic AI. <button id="logout" class="link" type="button">Sign out</button></p>
   <label for="staff">Staff names (as shown in Discord)</label>
   <textarea id="staff" rows="2" placeholder="Sara | Quixotic, Bilal"></textarea>
   <p class="muted">Everyone else in the chat counts as the customer. Bots are skipped.</p>
@@ -29,6 +42,8 @@
   <textarea id="draft" readonly></textarea>
   <div class="row"><button id="copy" disabled>Copy</button></div>
   <p class="muted">Check prices, dates and promises before you paste and send it yourself.</p>
+  </div>
+  <p id="authStatus" class="muted" role="status"></p>
   <script type="module" src="panel.js"></script>
 </body>
 </html>

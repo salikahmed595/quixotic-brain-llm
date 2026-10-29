@@ -137,6 +137,9 @@ Company General, HR, Sales - Fresh Seller, Sales - Upseller, Production, Marketi
 **Feedback learning** (`backend/learning/feedback.py`, migration 006; changes order/phrasing, never knowledge)
 - Source boost (up−down)/(n+5) for passages with >=3 ratings, shift 0.001×boost; personal style hints (>=3 liked, >=2 disliked, 70%) with "Forget what I learned" switch; optional 👎 reasons; admin Insights -> Answer quality and "Reset what it has learned". Not done: reusing past answers, auto-changing knowledge/thresholds.
 
+**Discord reply extension** (`discord-extension/`, owner 2026-10-29; not in the PRD ❓)
+- Chrome extension reads the Discord chat open in the employee's tab only on click (incl. DMs), labels Staff/Customer from staff names typed in the panel, sends it to `/v1/ask`, shows a private draft to copy; never types or sends, stores no chat. Signs in with the employee's own account (`/v1/auth/login` cookie + CSRF; password not stored); fixed to `https://maqsad.quixoticcreatives.com`. ❓ two-step sign-in (FR-AUTH-06) not supported: MFA accounts are refused. ❓ Discord terms discourage client modification; read-only, no token/API use.
+
 **Sales memory**
 - Structured JSON import (`backend/sales_memory/importer.py`) stored as-is (field names §16.2, `stage`->`sales_stage`, anonymized, embedded 32/batch); import screen per department; remove via `DELETE /v1/sales-memory/imports/{job_id}`; `GET /v1/sales-memory/imports`. Known gap: interrupted job stays `running`; re-upload.
 

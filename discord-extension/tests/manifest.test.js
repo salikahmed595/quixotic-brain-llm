@@ -47,3 +47,12 @@ test('panel never writes into Discord: it only copies to the clipboard',()=>{
   assert.match(js,/navigator\.clipboard\.writeText/);
   assert.doesNotMatch(js,/executeScript|dispatchEvent|textbox/);
 });
+
+test('network access only to the Quixotic AI site; no Discord API access',()=>{
+  assert.deepEqual(manifest.host_permissions,['https://maqsad.quixoticcreatives.com/*']);
+});
+
+test('panel never stores the password',()=>{
+  const js=readFileSync(root+'panel.js','utf8');
+  assert.doesNotMatch(js,/storage\.local\.set\(\{[^}]*password/i);
+});

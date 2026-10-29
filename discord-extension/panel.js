@@ -1,12 +1,36 @@
-// Side panel: on click, read the open Discord chat, ask Quixotic AI, show a private draft to copy.
+// Side panel: sign in to Quixotic AI, then on click read the open Discord chat, ask Quixotic AI, show a draft to copy.
 import {draftFromChat} from './lib/draft.js';
 import {askQuixotic} from './lib/quixotic.js';
+import {signIn,signOut,QUIXOTIC_URL} from './lib/auth.js';
 
 const $=id=>document.getElementById(id);
 const status=t=>{$('status').textContent=t;};
+const authStatus=t=>{$('authStatus').textContent=t;};
 
-chrome.storage.local.get('staffNames').then(({staffNames})=>{$('staff').value=staffNames||'';});
+function showSignedIn(on){$('signin').hidden=on;$('app').hidden=!on;}
+chrome.storage.local.get(['csrf','staffNames']).then(({csrf,staffNames})=>{
+  $('staff').value=staffNames||'';showSignedIn(Boolean(csrf));
+});
 $('staff').addEventListener('change',()=>chrome.storage.local.set({staffNames:$('staff').value}));
+
+$('signin').addEventListener('submit',async e=>{
+  e.preventDefault();$('login').disabled=true;authStatus('Signing in…');
+  try{
+    const {csrf}=await signIn({identifier:$('ident').value,password:$('pw').value});
+    await chrome.storage.local.set({csrf});
+    showSignedIn(true);authStatus('');
+  }catch(err){authStatus(err.message);}
+  finally{$('pw').value='';$('login').disabled=false;}
+});
+
+async function endSession(message){
+  await chrome.storage.local.remove('csrf');showSignedIn(false);authStatus(message);
+}
+$('logout').addEventListener('click',async()=>{
+  const {csrf}=await chrome.storage.local.get('csrf');
+  try{if(csrf) await signOut({csrf});}catch{/* still forget it locally */}
+  await endSession('Signed out.');
+});
 
 async function readChat(){
   const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
@@ -16,10 +40,8 @@ async function readChat(){
 }
 
 async function ask(question){
-  // Sign-in (apiUrl + session token) is set up in the next slice; until then this fails clearly.
-  const {apiUrl,token}=await chrome.storage.local.get(['apiUrl','token']);
-  if(!apiUrl||!token) throw new Error('Please sign in to Quixotic AI first.');
-  return askQuixotic({apiUrl,headers:{Authorization:`Bearer ${token}`},question});
+  const {csrf}=await chrome.storage.local.get('csrf');
+  return askQuixotic({apiUrl:QUIXOTIC_URL,headers:{'X-CSRF-Token':csrf},question});
 }
 
 $('go').addEventListener('click',async()=>{
@@ -28,7 +50,10 @@ $('go').addEventListener('click',async()=>{
     const out=await draftFromChat({messages:await readChat(),staffNames:$('staff').value,ask});
     if(out.ok){$('draft').value=out.draft;$('copy').disabled=false;status(`Confidence: ${out.confidence??'unknown'}`);}
     else status(out.text);
-  }catch(e){status(e.message);}
+  }catch(e){
+    if(/sign in/i.test(e.message)) await endSession(e.message);
+    status(e.message);
+  }
   finally{$('go').disabled=false;}
 });
 
