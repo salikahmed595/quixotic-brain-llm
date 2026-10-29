@@ -91,6 +91,7 @@ Company General, HR, Sales - Fresh Seller, Sales - Upseller, Production, Marketi
 | `QB_FEEDBACK_LEARNING` | 21 | false disables learning |
 | `QB_RAW_STORAGE_DIR` | 46 | local dev only |
 | `QB_FRONTEND_DIR`, `QB_CORS_ORIGINS` | — | optional |
+| `discord-bot`: `QUIXOTIC_API_URL`, `QUIXOTIC_API_KEY`, `STAFF_USER_MAP` | 9, 14 | owner 2026-10-29: Discord bot is a thin client of `/v1/ask` (sales copilot not in PRD ❓). ❓ how a Discord staff account maps to an employee: explicit JSON map `{"discordId":"userId"}`, unmapped staff refused (never acts as the key owner) |
 
 ## 2. Undefined plug-ins (job fails clearly until provided)
 `ConversationParser` (§17 Discord export schema ❓ send sample), `MemoryExtractor` (§17.2, §16.2 ❓), `quality_score` (NULL ❓), anonymizer extras for addresses/customer IDs (§18 ❓; done: usernames, emails, phones, cards, secrets; `extra_patterns`).
