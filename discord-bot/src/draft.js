@@ -1,6 +1,6 @@
 // Draft Sales Reply: the customer message goes to Quixotic AI as the invoking employee; the result is a private
 // draft the employee reviews and sends by hand (never auto-sent to the client; CLAUDE.md Rule 2).
-import {validateDraft} from './core.js';
+import {validateDraft} from './guard.js';
 import {askQuixotic,NotLinkedError} from './quixotic.js';
 
 export async function draftReply({config,discordUserId,customerText},ask=askQuixotic){
