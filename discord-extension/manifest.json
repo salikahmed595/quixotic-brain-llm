@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Quixotic Reply Assistant",
+  "version": "0.1.0",
+  "description": "Reads the open Discord chat only when you click, and shows a private Quixotic AI reply draft to copy. Never sends.",
+  "permissions": ["sidePanel"],
+  "background": { "service_worker": "background.js" },
+  "side_panel": { "default_path": "panel.html" },
+  "action": { "default_title": "Quixotic Reply Assistant" }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "quixotic-discord-reply-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Chrome extension: private Quixotic AI reply drafts for the open Discord chat (never sends)",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
