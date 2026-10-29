@@ -4,16 +4,31 @@
   <meta charset="utf-8">
   <title>Quixotic Reply Assistant</title>
   <style>
-    body { font: 14px system-ui, sans-serif; margin: 16px; color: #1f2328; background: #fff; }
-    @media (prefers-color-scheme: dark) { body { color: #e6edf3; background: #0d1117; } }
-    h1 { font-size: 16px; margin: 0 0 8px; }
-    .note { opacity: .75; }
+    :root { --fg: #1f2328; --bg: #fff; --muted: #59636e; --line: #d1d9e0; --accent: #5865f2; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --bg: #0d1117; --muted: #9198a1; --line: #3d444d; } }
+    body { font: 14px system-ui, sans-serif; margin: 16px; color: var(--fg); background: var(--bg); }
+    h1 { font-size: 16px; margin: 0 0 12px; }
+    label { display: block; font-weight: 600; margin: 12px 0 4px; }
+    textarea { width: 100%; box-sizing: border-box; font: inherit; color: inherit; background: transparent;
+               border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+    button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    #draft { min-height: 120px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
   </style>
 </head>
 <body>
   <h1>Quixotic Reply Assistant</h1>
-  <p id="status">Loading…</p>
-  <p class="note">Drafts are private. Nothing is sent to Discord for you.</p>
-  <script src="panel.js"></script>
+  <label for="staff">Staff names (as shown in Discord)</label>
+  <textarea id="staff" rows="2" placeholder="Sara | Quixotic, Bilal"></textarea>
+  <p class="muted">Everyone else in the chat counts as the customer. Bots are skipped.</p>
+  <div class="row"><button id="go">Draft reply</button></div>
+  <p id="status" class="muted" role="status"></p>
+  <label for="draft">Draft (private, not sent)</label>
+  <textarea id="draft" readonly></textarea>
+  <div class="row"><button id="copy" disabled>Copy</button></div>
+  <p class="muted">Check prices, dates and promises before you paste and send it yourself.</p>
+  <script type="module" src="panel.js"></script>
 </body>
 </html>
