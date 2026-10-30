@@ -65,3 +65,8 @@ test('panel follows the owner design: goal + tone chips, Suggest Reply, step gui
   for(const s of ['Sign in','Add staff names','Open a chat']) assert.match(html,new RegExp(s));
   assert.doesNotMatch(html,/fonts\.googleapis|<link[^>]+https?:/);   // no third-party requests from the panel
 });
+
+test('panel has a Client Brain card with a create button',()=>{
+  const html=readFileSync(root+'panel.html','utf8');
+  assert.match(html,/id="brain"/);assert.match(html,/Create Mini Brain/);
+});

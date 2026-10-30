@@ -41,3 +41,12 @@ test('image-only message has empty text (skipped later), not an error',()=>{
 test('page without a chat gives an empty list',()=>{
   assert.deepEqual(readFrom('<html><body><p>Friends</p></body></html>'),[]);
 });
+
+// Client Brain step 1 (owner 2026-10-30): the Discord user id from the avatar link keeps a client recognisable when
+// they change their display name. Grouped messages inherit it; default avatars carry no id.
+test('each message carries the sender\'s Discord user id when the avatar shows it',()=>{
+  const msgs=readFrom(fixture);
+  assert.equal(msgs[0].authorId,'111222333');
+  assert.equal(msgs[1].authorId,'111222333');
+  assert.equal(msgs[2].authorId,'');
+});

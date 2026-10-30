@@ -64,6 +64,16 @@
     .why{background:#f8f8fa;border:1px solid #f0f0f2;border-radius:12px;padding:12px;font-size:11px;line-height:1.7;color:#686b76}
     .status{font-size:12px;line-height:1.5;color:#a44d1e;margin:0}
     .footer-note{font-size:10px;color:#9699a2;line-height:1.6;border-top:1px solid var(--line);padding-top:12px;margin:0}
+    .brain{border:1.5px solid #ffd3b8;border-radius:16px;background:linear-gradient(180deg,#fff6ef,#fff);padding:14px;display:flex;flex-direction:column;gap:10px}
+    .brain-head{display:flex;align-items:center;gap:10px}
+    .brain-icon{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--ink);color:#fff;font-size:17px;flex-shrink:0}
+    .brain-head b{font-size:13px;display:block}.brain-head small{font-size:10px;color:var(--muted);display:block;margin-top:2px}
+    .facts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+    .facts li{display:flex;gap:8px;align-items:baseline;font-size:12px;line-height:1.45}
+    .facts .tag{flex-shrink:0;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#c04f16;background:#fff0e6;border:1px solid #ffd3b8;border-radius:6px;padding:2px 6px}
+    .facts .unsure{color:var(--muted);font-size:10px}
+    select{width:100%;border:1px solid #e6e6e9;border-radius:10px;padding:9px 10px;background:#fff;font:inherit}
+    .small-btn{border:0;border-radius:10px;background:var(--o);color:#fff;font-weight:800;font-size:12px;padding:10px 12px}
     .row{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
     .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#22242c;color:#fff;border-radius:12px;padding:11px 16px;font-size:12px;box-shadow:0 10px 24px #0002;z-index:30;max-width:90vw}
   </style>
@@ -102,6 +112,16 @@
     <section id="app" hidden>
       <div class="body" style="padding:0">
         <div class="context"><div class="context-icon" aria-hidden="true">✓</div><div><b id="contextTitle">Ready to read this chat</b><small id="contextSub">Discord, Twitch, X: just open the chat. Other sites: highlight it first.</small></div></div>
+        <section class="brain" id="brain" hidden aria-live="polite">
+          <div class="brain-head"><div class="brain-icon" aria-hidden="true">🧠</div><div><b id="brainTitle">Client Brain</b><small id="brainSub">Who this customer is</small></div></div>
+          <ul class="facts" id="facts"></ul>
+          <div id="brainNew" hidden>
+            <p class="muted" style="margin-bottom:8px">No Mini Brain for this customer yet. Create one to remember what they like across chats and employees.</p>
+            <select id="brainDept" hidden aria-label="Client's department"></select>
+            <button class="small-btn" id="brainCreate" type="button" style="margin-top:8px">🧠 Create Mini Brain</button>
+          </div>
+          <p class="muted" id="brainNote"></p>
+        </section>
         <div>
           <div class="section-label">What do you want to do?</div>
           <div class="choices" id="goals">

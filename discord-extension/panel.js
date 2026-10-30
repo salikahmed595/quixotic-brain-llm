@@ -4,6 +4,7 @@ import {askQuixotic} from './lib/quixotic.js';
 import {signIn,signOut,QUIXOTIC_URL} from './lib/auth.js';
 import {siteFor} from './lib/sites.js';
 import {readWith} from './lib/read.js';
+import {customerOf,lookupClient,createClient,makeApi,FACT_LABELS} from './lib/client.js';
 
 const $=id=>document.getElementById(id);
 const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match'};
@@ -90,10 +91,62 @@ async function ask(question){
   return askQuixotic({apiUrl:QUIXOTIC_URL,headers:{'X-CSRF-Token':csrf},question});
 }
 
+// Client Brain card: looked up each time Suggest Reply reads the chat; never blocks the draft.
+const brain={customer:null};
+async function quixoticApi(){const {csrf}=await chrome.storage.local.get('csrf');return makeApi({apiUrl:QUIXOTIC_URL,csrf});}
+function showBrain({client,facts},customer){
+  $('brain').hidden=false;$('brainNote').textContent='';
+  $('brainTitle').textContent=client?`${client.display_name}'s Mini Brain`:customer.name;
+  $('brainSub').textContent=client?(client.department?`Shared with ${client.department}`:'Saved client'):'New customer';
+  $('brainNew').hidden=Boolean(client);
+  const list=$('facts');list.replaceChildren();
+  for(const f of facts){
+    const li=document.createElement('li'),tag=document.createElement('span'),text=document.createElement('span');
+    tag.className='tag';tag.textContent=FACT_LABELS[f.category]||f.category;text.textContent=f.statement;
+    li.append(tag,text);
+    if(f.status&&f.status!=='confirmed'){const u=document.createElement('span');u.className='unsure';u.textContent=f.status;li.append(u);}
+    list.append(li);
+  }
+  if(client&&!facts.length) $('brainNote').textContent='No saved facts yet. Facts you confirm will show here.';
+}
+async function loadBrain(messages){
+  const customer=customerOf(messages,state.staffNames);
+  brain.customer=customer;
+  if(!customer){$('brain').hidden=true;return;}
+  try{showBrain(await lookupClient({customer,api:await quixoticApi()}),customer);}
+  catch(e){$('brain').hidden=false;$('facts').replaceChildren();$('brainNew').hidden=true;$('brainTitle').textContent='Client Brain';
+    $('brainSub').textContent=customer.name;$('brainNote').textContent=e.message;}
+}
+async function departmentChoices(api){
+  const me=await api('/v1/auth/me');
+  if(me.departments?.length) return me.departments.map(d=>d.name);
+  return (await api('/v1/auth/signup-options')).departments.map(d=>d.name);   // all-department roles
+}
+$('brainCreate').addEventListener('click',async()=>{
+  if(!brain.customer) return;
+  $('brainCreate').disabled=true;
+  try{
+    const api=await quixoticApi(),sel=$('brainDept');
+    let department=sel.hidden?null:sel.value;
+    if(sel.hidden){
+      const names=await departmentChoices(api);
+      if(names.length>1){
+        sel.replaceChildren(...names.map(n=>Object.assign(document.createElement('option'),{value:n,textContent:n})));
+        sel.hidden=false;$('brainNote').textContent="Choose the client's department, then click Create again.";return;
+      }
+      department=names[0]||null;
+    }
+    showBrain(await createClient({customer:brain.customer,department,api}),brain.customer);
+    sel.hidden=true;toast('Mini Brain created.');
+  }catch(e){$('brainNote').textContent=e.message;}
+  finally{$('brainCreate').disabled=false;}
+});
+
 async function suggest(){
   $('go').disabled=true;$('go').textContent='✦ Reading the conversation…';status('');
   try{
     const {app,messages}=await readChat();
+    loadBrain(messages);
     const out=await draftFromChat({messages,staffNames:state.staffNames,ask,goal:state.goal,tone:state.tone,app});
     if(!out.ok){status(out.text);$('result').hidden=true;return;}
     $('replyText').textContent=out.draft;$('result').hidden=false;$('whyToggle').hidden=false;
