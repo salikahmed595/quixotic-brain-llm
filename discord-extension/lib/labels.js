@@ -4,5 +4,5 @@ export function parseStaffNames(text){
 }
 
 export function labelMessages(messages,staffNames){
-  return messages.map(m=>({...m,isStaff:staffNames.has(String(m.author||'').trim().toLowerCase())}));
+  return messages.map(m=>({...m,isStaff:Boolean(m.fromMe)||staffNames.has(String(m.author||'').trim().toLowerCase())}));
 }

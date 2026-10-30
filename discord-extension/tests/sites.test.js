@@ -21,3 +21,8 @@ test('Twitch (channel, popout chat and creator dashboard) uses its own chat read
     const s=siteFor(u);assert.equal(s.app,'Twitch',u);assert.equal(s.file,'readers/twitch.js');assert.equal(s.builtIn,true);
   }
 });
+
+test('X direct messages use their own reader',()=>{
+  const s=siteFor('https://x.com/messages/123-456');
+  assert.equal(s.app,'X');assert.equal(s.file,'readers/x.js');assert.equal(s.builtIn,true);
+});

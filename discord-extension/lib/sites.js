@@ -3,6 +3,7 @@
 const APPS=[
   {app:'Discord',hosts:['discord.com'],file:'readers/discord.js'},
   {app:'Twitch',hosts:['www.twitch.tv','dashboard.twitch.tv'],file:'readers/twitch.js'},
+  {app:'X',hosts:['x.com'],file:'readers/x.js'},
 ];
 const BLOCKED=['chromewebstore.google.com','chrome.google.com'];   // Chrome never lets extensions read these
 

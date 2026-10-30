@@ -3,6 +3,7 @@ import {draftFromChat} from './lib/draft.js';
 import {askQuixotic} from './lib/quixotic.js';
 import {signIn,signOut,QUIXOTIC_URL} from './lib/auth.js';
 import {siteFor} from './lib/sites.js';
+import {readWith} from './lib/read.js';
 
 const $=id=>document.getElementById(id);
 const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match'};
@@ -72,13 +73,16 @@ async function readChat(){
   if(!site.builtIn&&!await chrome.permissions.contains({origins:[site.origin]})){
     try{await chrome.permissions.request({origins:[site.origin]});}catch{/* the Q-icon click may still allow this tab */}
   }
+  const run=async file=>{
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:[file]});
+    const [{result}]=await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>globalThis.quixoticReadChat(document)});
+    return result;
+  };
   let messages;
-  try{
-    await chrome.scripting.executeScript({target:{tabId:tab.id},files:[site.file]});
-    [{result:messages}]=await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>globalThis.quixoticReadChat(document)});
-  }catch{throw new Error('I could not read this page. Allow this site when asked, or click the orange Q icon on the toolbar, then try again.');}
-  if(!site.builtIn&&!messages?.length) throw new Error('Highlight the conversation on the page first, then click Suggest Reply.');
-  return {app:site.app,messages:messages||[]};
+  try{messages=await readWith(site,run);}
+  catch{throw new Error('I could not read this page. Allow this site when asked, or click the orange Q icon on the toolbar, then try again.');}
+  if(!messages.length) throw new Error(site.builtIn?`No ${site.app} chat found on screen. Open the conversation, or highlight it, then try again.`:'Highlight the conversation on the page first, then click Suggest Reply.');
+  return {app:site.app,messages};
 }
 
 async function ask(question){

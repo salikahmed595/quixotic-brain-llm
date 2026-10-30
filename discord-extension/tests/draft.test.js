@@ -82,3 +82,8 @@ test('passes the app name through and asks for staff names without assuming Disc
   const none=await draftFromChat({messages:chat,staffNames:'',ask});
   assert.doesNotMatch(none.text,/Discord/);
 });
+
+test('messages the reader marks as sent by me count as staff even without a matching name',()=>{
+  const out=labelMessages([{id:'1',author:'',fromMe:true,content:'hi'},{id:'2',author:'',content:'yo'}],parseStaffNames('Sara'));
+  assert.deepEqual(out.map(m=>m.isStaff),[true,false]);
+});
