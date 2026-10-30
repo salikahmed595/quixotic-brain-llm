@@ -61,3 +61,11 @@ test('the question names the app the chat came from, or just "a chat" for highli
   assert.match(buildConversationQuestion(msgs,'1',{app:'Twitch'}),/^Below is a Twitch chat between/);
   assert.match(buildConversationQuestion(msgs,'1'),/^Below is a chat between/);
 });
+
+// Owner 2026-10-30: drafts felt robotic ("Hey Cinnamon Angel — thanks for accepting! Love your streams..."). The
+// question now asks for a short, human DM that builds a connection and never invents facts about the customer.
+test('asks for a short human DM: texting style, no dashes or quote marks, nothing invented, one easy question',()=>{
+  const q=buildConversationQuestion([{id:'1',author:'ali',isStaff:false,isBot:false,content:'hi'}],'1',{app:'Discord'});
+  for(const rule of [/like a real person texting/i,/1-2 short sentences/i,/no em dashes/i,/never invent/i,/full display name/i,/question/i,/only the message text/i])
+    assert.match(q,rule);
+});

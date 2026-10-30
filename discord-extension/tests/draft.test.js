@@ -87,3 +87,14 @@ test('messages the reader marks as sent by me count as staff even without a matc
   const out=labelMessages([{id:'1',author:'',fromMe:true,content:'hi'},{id:'2',author:'',content:'yo'}],parseStaffNames('Sara'));
   assert.deepEqual(out.map(m=>m.isStaff),[true,false]);
 });
+
+test('draft is cleaned of quote markers, wrapping quotes, a "Staff:" label and em dashes',async()=>{
+  for(const [raw,clean] of [
+    ['>> Hey Cinnamon Angel — thanks for accepting!','Hey Cinnamon Angel, thanks for accepting!'],
+    ['"yo whats up"','yo whats up'],
+    ['Staff: sure thing – what size?','sure thing, what size?'],
+  ]){
+    const out=await draftFromChat({messages:chat,staffNames:'Sara | Quixotic',ask:fakeAsk(raw)});
+    assert.equal(out.draft,clean);
+  }
+});
