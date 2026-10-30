@@ -74,3 +74,11 @@ test('goal and tone reach the question; result says how many messages were read'
   assert.match(ask.calls[0],/artwork idea/i);
   assert.equal(out.messagesRead,3);
 });
+
+test('passes the app name through and asks for staff names without assuming Discord',async()=>{
+  const ask=fakeAsk('ok');
+  await draftFromChat({messages:chat,staffNames:'Sara | Quixotic',ask,app:'Discord'});
+  assert.match(ask.calls[0],/Discord chat/);
+  const none=await draftFromChat({messages:chat,staffNames:'',ask});
+  assert.doesNotMatch(none.text,/Discord/);
+});

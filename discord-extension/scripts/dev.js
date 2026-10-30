@@ -6,7 +6,7 @@ import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {EXTENSION_FILES} from './pack.js';
 
-const isPanel=f=>f==='panel.html'||f==='panel.js'||f.startsWith('lib/');   // reloading the panel picks these up
+const isPanel=f=>f==='panel.html'||f==='panel.js'||f.startsWith('lib/')||f.startsWith('readers/');   // read fresh on panel reload or click
 const hash=(root,files)=>{const h=createHash('sha256');for(const f of files) h.update(f+'\0').update(readFileSync(join(root,f)));return h.digest('hex').slice(0,16);};
 
 export function devBuild(root,out){

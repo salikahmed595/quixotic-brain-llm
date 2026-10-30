@@ -1,4 +1,4 @@
-// Who is staff: the employee lists staff Discord names in the panel; everyone else (not a bot) is the customer.
+// Who is staff: the employee lists staff names as the chat shows them in the panel; everyone else (not a bot) is the customer.
 export function parseStaffNames(text){
   return new Set(String(text||'').split(/[,\n]/).map(s=>s.trim().toLowerCase()).filter(Boolean));
 }

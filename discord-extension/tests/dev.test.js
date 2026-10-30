@@ -22,13 +22,13 @@ test('dev build adds the auto-update script and a version stamp to the loaded fo
   }finally{rmSync(out,{recursive:true,force:true});}
 });
 
-test('stamp: panel-only edits change "panel"; manifest or content-script edits change "core"',()=>{
+test('stamp: panel-only edits change "panel"; manifest or background edits change "core"',()=>{
   const src=tmp(),a=tmp(),b=tmp(),c=tmp();
   try{
     pack(root,src);cpSync(join(root,'scripts'),join(src,'scripts'),{recursive:true});
     devBuild(src,a);
     writeFileSync(join(src,'panel.js'),readFileSync(join(src,'panel.js'),'utf8')+'\n// edit');devBuild(src,b);
-    writeFileSync(join(src,'reader.js'),readFileSync(join(src,'reader.js'),'utf8')+'\n// edit');devBuild(src,c);
+    writeFileSync(join(src,'background.js'),readFileSync(join(src,'background.js'),'utf8')+'\n// edit');devBuild(src,c);
     const s=d=>JSON.parse(readFileSync(join(d,'dev-stamp.json'),'utf8'));
     assert.notEqual(s(a).panel,s(b).panel);assert.equal(s(a).core,s(b).core);
     assert.notEqual(s(b).core,s(c).core);

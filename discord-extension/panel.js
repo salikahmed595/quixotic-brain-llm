@@ -2,6 +2,7 @@
 import {draftFromChat} from './lib/draft.js';
 import {askQuixotic} from './lib/quixotic.js';
 import {signIn,signOut,QUIXOTIC_URL} from './lib/auth.js';
+import {siteFor} from './lib/sites.js';
 
 const $=id=>document.getElementById(id);
 const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match'};
@@ -37,7 +38,7 @@ $('signin').addEventListener('submit',async e=>{
 
 $('staffForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  if(!$('staff').value.trim()){authStatus('Type at least your own Discord name.');return;}
+  if(!$('staff').value.trim()){authStatus('Type at least your own name as the chat shows it.');return;}
   state.staffNames=$('staff').value;state.editingStaff=false;
   await chrome.storage.local.set({staffNames:state.staffNames});
   authStatus('');render();toast('Saved. Now open the customer chat and click Suggest Reply.');
@@ -60,11 +61,24 @@ for(const [group,key] of [['goals','goal'],['tones','tone']]){
   });
 }
 
+// Reads the open tab only now, on click (owner 2026-10-30: any messaging site). Apps in lib/sites.js have their own
+// reader; on other sites the employee highlights the conversation and allows that site once.
 async function readChat(){
   const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
-  if(!tab?.id) throw new Error('Open the customer chat on discord.com in this tab first.');
-  try{return (await chrome.tabs.sendMessage(tab.id,{type:'quixotic-read-chat'})).messages;}
-  catch{throw new Error('Open the customer chat on discord.com in this tab. Just installed? Reload the Discord page once.');}
+  if(!tab?.id) throw new Error('Open the customer chat in this tab first.');
+  if(!tab.url) throw new Error('Click the orange Q icon on the toolbar while the chat is open, so I can read that page.');
+  const site=siteFor(tab.url);
+  if(!site) throw new Error('Chrome does not let extensions read this page. Open the chat website in this tab.');
+  if(!site.builtIn&&!await chrome.permissions.contains({origins:[site.origin]})){
+    try{await chrome.permissions.request({origins:[site.origin]});}catch{/* the Q-icon click may still allow this tab */}
+  }
+  let messages;
+  try{
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:[site.file]});
+    [{result:messages}]=await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>globalThis.quixoticReadChat(document)});
+  }catch{throw new Error('I could not read this page. Allow this site when asked, or click the orange Q icon on the toolbar, then try again.');}
+  if(!site.builtIn&&!messages?.length) throw new Error('Highlight the conversation on the page first, then click Suggest Reply.');
+  return {app:site.app,messages:messages||[]};
 }
 
 async function ask(question){
@@ -75,7 +89,8 @@ async function ask(question){
 async function suggest(){
   $('go').disabled=true;$('go').textContent='✦ Reading the conversation…';status('');
   try{
-    const out=await draftFromChat({messages:await readChat(),staffNames:state.staffNames,ask,goal:state.goal,tone:state.tone});
+    const {app,messages}=await readChat();
+    const out=await draftFromChat({messages,staffNames:state.staffNames,ask,goal:state.goal,tone:state.tone,app});
     if(!out.ok){status(out.text);$('result').hidden=true;return;}
     $('replyText').textContent=out.draft;$('result').hidden=false;$('whyToggle').hidden=false;
     $('contextTitle').textContent=`${out.messagesRead} messages read from this chat`;
@@ -92,6 +107,6 @@ $('again').addEventListener('click',suggest);
 $('whyToggle').addEventListener('click',()=>{$('why').hidden=!$('why').hidden;});
 
 $('copy').addEventListener('click',async()=>{
-  try{await navigator.clipboard.writeText($('replyText').textContent);toast('Copied! Paste it into Discord, check it, then send.');}
+  try{await navigator.clipboard.writeText($('replyText').textContent);toast('Copied! Paste it into the chat, check it, then send.');}
   catch{toast('Select the reply text and copy it with Ctrl+C.');}
 });

@@ -55,3 +55,9 @@ test('unknown goal or tone is refused instead of guessed',()=>{
   assert.throws(()=>buildConversationQuestion([M(1,'hi')],'1',{goal:'discount'}),/goal/);
   assert.throws(()=>buildConversationQuestion([M(1,'hi')],'1',{tone:'angry'}),/tone/);
 });
+
+test('the question names the app the chat came from, or just "a chat" for highlighted text',()=>{
+  const msgs=[{id:'1',author:'ali',isStaff:false,isBot:false,content:'hi'}];
+  assert.match(buildConversationQuestion(msgs,'1',{app:'Twitch'}),/^Below is a Twitch chat between/);
+  assert.match(buildConversationQuestion(msgs,'1'),/^Below is a chat between/);
+});

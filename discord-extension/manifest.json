@@ -2,13 +2,16 @@
   "manifest_version": 3,
   "name": "Quixotic Reply Assistant",
   "version": "0.1.0",
-  "description": "Reads the open Discord chat only when you click, and shows a private Quixotic AI reply draft to copy. Never sends.",
+  "description": "Reads the chat open in this tab only when you click (Discord, or any site where you highlight it) and shows a private Quixotic AI reply draft to copy. Never sends.",
   "permissions": [
     "sidePanel",
-    "storage"
+    "storage",
+    "scripting",
+    "activeTab"
   ],
   "host_permissions": [
-    "https://maqsad.quixoticcreatives.com/*"
+    "https://maqsad.quixoticcreatives.com/*",
+    "https://discord.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -25,21 +28,14 @@
       "128": "icons/icon128.png"
     }
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://discord.com/*"
-      ],
-      "js": [
-        "reader.js",
-        "content.js"
-      ]
-    }
-  ],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ]
 }

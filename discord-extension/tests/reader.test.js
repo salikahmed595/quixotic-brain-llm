@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 
-const src=readFileSync(new URL('../reader.js',import.meta.url),'utf8');
+const src=readFileSync(new URL('../readers/discord.js',import.meta.url),'utf8');
 // reader.js is a classic content script; run it inside a DOM window like Chrome would.
 function readFrom(html){
   const dom=new JSDOM(html,{runScripts:'outside-only'});
