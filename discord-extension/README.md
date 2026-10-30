@@ -36,3 +36,14 @@ Only the chat Discord has loaded on screen is read; scroll up first to include o
 
 ## Tests
 `npm install` then `npm test` (Node 22+; jsdom is a test-only dependency).
+
+## Developing: auto-update the copy loaded in Chrome
+
+```
+npm run dev -- C:\path\to\folder-loaded-in-chrome --watch
+```
+
+This copies the extension into that folder plus `dev-reload.js`. Click **Reload** on the extension card once; after that,
+the open panel reloads itself when panel files change, and the whole extension reloads when the manifest, background or
+content scripts change (then refresh the Discord tab). The employee download (`npm run pack`, the portal zip) never
+includes `dev-reload.js`. Icons are drawn by `npm run icons`.

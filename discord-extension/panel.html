@@ -12,20 +12,24 @@
     button,input,textarea{font:inherit}button{cursor:pointer}
     button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #ffd5bb;outline-offset:2px}
     [hidden]{display:none!important}
-    .head{padding:22px 20px 16px;border-bottom:1px solid var(--line)}
+    .head{position:relative;overflow:hidden;padding:22px 20px 20px;color:#fff;background:radial-gradient(120% 90% at 100% 0%,#ff7a2e 0%,#c2410c 38%,#1d1b22 78%)}
+    .head:after{content:'';position:absolute;right:-40px;bottom:-60px;width:180px;height:180px;border-radius:50%;background:#ff8a3d;filter:blur(60px);opacity:.35;pointer-events:none}
     .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .logo{display:grid;place-items:center;width:34px;height:34px;background:var(--o);color:#fff;border-radius:11px;font-size:18px;font-weight:800;box-shadow:0 8px 18px #f26a2135}
-    .brand b{font-size:15px;letter-spacing:-.4px}.brand small{display:block;font-size:11px;color:var(--muted)}
-    .eyebrow{color:var(--o);letter-spacing:1.4px;font-size:10px;font-weight:800;text-transform:uppercase}
-    h1{font-size:22px;letter-spacing:-1px;line-height:1.2;margin:6px 0}
-    .head p{font-size:12px;line-height:1.6;color:#858892;margin:0}
+    .logo{display:grid;place-items:center;width:38px;height:38px;background:linear-gradient(135deg,#ff8a3d,#e2501a);color:#fff;border-radius:12px;font-size:20px;font-weight:800;box-shadow:0 0 0 3px #ffffff22,0 10px 24px #ff6a1f80}
+    .brand b{font-size:15px;letter-spacing:-.4px}.brand small{display:block;font-size:11px;color:#ffffffa8}
+    .live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;background:#ffffff1f;border:1px solid #ffffff30;border-radius:99px;padding:5px 9px}
+    .live:before{content:'';width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px #4ade8040}
+    .eyebrow{color:#ffd2b5;letter-spacing:1.4px;font-size:10px;font-weight:800;text-transform:uppercase}
+    h1{font-size:25px;letter-spacing:-1px;line-height:1.15;margin:6px 0;background:linear-gradient(90deg,#fff 55%,#ffc9a6);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .head p{font-size:12px;line-height:1.6;color:#ffffffc0;margin:0;position:relative;z-index:1}
     .body{padding:18px 18px 24px;display:flex;flex-direction:column;gap:18px}
     .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
     .step{border:1px solid var(--line);border-radius:13px;padding:11px 12px;display:flex;gap:10px;align-items:flex-start;color:var(--muted)}
     .step .num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:#f1f1f4;color:#777;flex-shrink:0}
     .step b{display:block;font-size:12px;color:inherit}.step small{display:block;font-size:11px;margin-top:2px}
-    .step.current{border-color:#ffd3b8;background:var(--o2);color:var(--ink)}
-    .step.current .num{background:var(--o);color:#fff}
+    .step.current{border-color:#ffb98f;background:linear-gradient(90deg,#fff0e6,#fff);color:var(--ink);box-shadow:inset 4px 0 0 var(--o),0 8px 20px #f26a2122}
+    .step.current .num{background:var(--o);color:#fff;animation:pulse 1.8s ease-out infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 #f26a2170}100%{box-shadow:0 0 0 9px #f26a2100}}
     .step.done{color:var(--green)}.step.done .num{background:#d8f4e3;color:#168153}
     .now{font-size:10px;font-weight:800;color:#c04f16;text-transform:uppercase;letter-spacing:1px}
     .card{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
@@ -39,12 +43,17 @@
     .section-label{font-size:11px;font-weight:800;margin-bottom:9px}
     .choices{display:flex;gap:7px;flex-wrap:wrap}
     .chip{border:1px solid #e8e8ec;background:#fff;border-radius:10px;padding:9px 11px;font-size:11px;color:#666973;font-weight:700}
-    .chip[aria-pressed="true"]{color:#c04f16;background:#fff1e9;border-color:#ffd3b8}
-    .generate,.primary-btn{width:100%;height:48px;background:var(--o);border:0;border-radius:13px;color:#fff;font-weight:800;font-size:13px;box-shadow:0 8px 17px #f26a2128}
-    .generate:hover,.primary-btn:hover{background:#df5b17}
+    .chip{transition:all .15s}.chip:hover{border-color:#ffc6a3}
+    .chip[aria-pressed="true"]{color:#fff;background:var(--ink);border-color:var(--ink);box-shadow:0 6px 14px #20222a30}
+    .generate,.primary-btn{position:relative;overflow:hidden;width:100%;height:50px;background:linear-gradient(135deg,#ff8a3d,#e2501a);border:0;border-radius:14px;color:#fff;font-weight:800;font-size:14px;letter-spacing:.2px;box-shadow:0 12px 26px #f26a2155,inset 0 1px 0 #ffffff40;transition:transform .15s,box-shadow .15s}
+    .generate:after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,#ffffff55,transparent);animation:shine 2.8s ease-in-out infinite}
+    @keyframes shine{0%,55%{left:-60%}100%{left:130%}}
+    .generate:hover,.primary-btn:hover{transform:translateY(-1px);box-shadow:0 16px 30px #f26a2170,inset 0 1px 0 #ffffff40}
+    @media (prefers-reduced-motion:reduce){.generate:after,.step.current .num{animation:none}}
     .generate:disabled,.primary-btn:disabled{opacity:.6;cursor:default}
     .hint{text-align:center;font-size:10px;color:#a2a2a9;margin-top:-10px}
-    .result{border:1px solid #ffd7bf;border-radius:16px;overflow:hidden;background:#fffaf6}
+    .result{border:1.5px solid #ffb98f;border-radius:16px;overflow:hidden;background:#fffaf6;box-shadow:0 14px 30px #f26a2120;animation:pop .25s ease-out}
+    @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     .result-head{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffeadc}
     .result-head b{font-size:12px}.result-head span{color:#d36b2a;font-size:10px;font-weight:800}
     .reply{padding:15px;font-size:13px;line-height:1.75;white-space:pre-wrap;min-height:100px}
@@ -61,7 +70,7 @@
 </head>
 <body>
   <header class="head">
-    <div class="brand"><div class="logo" aria-hidden="true">Q</div><div><b>Quixotic Reply</b><small>Your AI chat assistant</small></div></div>
+    <div class="brand"><div class="logo" aria-hidden="true">Q</div><div><b>Quixotic Reply</b><small>Your AI chat assistant</small></div><span class="live">Private</span></div>
     <span class="eyebrow">✦ Quixotic AI</span>
     <h1>What should I reply?</h1>
     <p>I read the Discord chat open in this tab so your reply feels natural and relevant.</p>

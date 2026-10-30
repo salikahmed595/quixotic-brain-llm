@@ -11,6 +11,7 @@ test('pack list covers every file the extension loads',()=>{
   const needed=new Set(['manifest.json',manifest.background.service_worker,manifest.side_panel.default_path,
     ...manifest.content_scripts.flatMap(c=>c.js),'panel.js']);
   for(const f of readdirSync(root+'lib')) needed.add('lib/'+f);   // panel.js imports from lib/
+  for(const f of Object.values(manifest.icons)) needed.add(f);
   for(const f of needed) assert.ok(EXTENSION_FILES.includes(f),`missing ${f}`);
 });
 

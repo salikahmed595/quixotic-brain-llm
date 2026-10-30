@@ -4,7 +4,8 @@ import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const EXTENSION_FILES=['manifest.json','background.js','panel.html','panel.js','reader.js','content.js',
-  'lib/auth.js','lib/conversation.js','lib/draft.js','lib/guard.js','lib/labels.js','lib/quixotic.js'];
+  'lib/auth.js','lib/conversation.js','lib/draft.js','lib/guard.js','lib/labels.js','lib/quixotic.js',
+  'icons/icon16.png','icons/icon32.png','icons/icon48.png','icons/icon128.png'];
 
 export function pack(root,out){
   rmSync(out,{recursive:true,force:true});
