@@ -12,16 +12,16 @@ export function cleanDraft(text){
 
 const isCustomer=m=>!m.isBot&&!m.isStaff&&String(m.content||'').trim();
 
-export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clientFacts=[]}){
+export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clientFacts=[],style='',previous=''}){
   const names=parseStaffNames(staffNames);
   if(!names.size) return {ok:false,text:'Add the staff names (as shown in the chat) first, so I know who is the customer.'};
   const chat=labelMessages(messages,names);
   const target=chat.filter(isCustomer).at(-1);
   if(!target) return {ok:false,text:'No customer message in view. Scroll to the chat and try again.'};
-  const res=await ask(buildConversationQuestion(chat,target.id,{goal,tone,app,clientFacts}));
+  const res=await ask(buildConversationQuestion(chat,target.id,{goal,tone,app,clientFacts,style,previous}));
   const messagesRead=chat.filter(m=>!m.isBot&&String(m.content||'').trim()).length;
   const draft=cleanDraft(res.answer).replace(/@everyone|@here/g,'[mention removed]');
   const check=validateDraft(draft);
   if(!check.ok) return {ok:false,text:`Draft blocked for review: ${check.reason}`};
-  return {ok:true,draft,confidence:res.confidence,text:draft,messagesRead,latest:target};
+  return {ok:true,draft,confidence:res.confidence,text:draft,messagesRead,latest:target,chat};
 }

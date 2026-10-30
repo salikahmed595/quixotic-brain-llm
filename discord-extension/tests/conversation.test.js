@@ -66,7 +66,7 @@ test('the question names the app the chat came from, or just "a chat" for highli
 // question now asks for a short, human DM that builds a connection and never invents facts about the customer.
 test('asks for a short human DM: texting style, no dashes or quote marks, nothing invented, one easy question',()=>{
   const q=buildConversationQuestion([{id:'1',author:'ali',isStaff:false,isBot:false,content:'hi'}],'1',{app:'Discord'});
-  for(const rule of [/like a real person texting/i,/1-2 short sentences/i,/no em dashes/i,/never invent/i,/full display name/i,/question/i,/only the message text/i])
+  for(const rule of [/like a real person texting/i,/1-3 short sentences/i,/no em dashes/i,/never invent/i,/full display name/i,/question/i,/only the message text/i])
     assert.match(q,rule);
 });
 
@@ -86,4 +86,30 @@ test('more options: next question, three reply variations, three artwork ideas',
   assert.match(v,/3 different replies/);assert.match(v,/numbered 1\. 2\. 3\./);assert.doesNotMatch(v,/Reply with only the message text/);
   const i=buildConversationQuestion(msgs,'1',{goal:'ideas'});
   assert.match(i,/3 artwork ideas/);assert.match(i,/not a chat message/);
+});
+
+// Owner master prompt 2026-10-30 (kept out of the public repo): its general rules are built in; the employee's own
+// style is a setting stored in their browser.
+test('built-in rules from the owner prompt: honest, no pressure, nothing invented, not every reply a question',()=>{
+  const q=buildConversationQuestion([{id:'1',author:'a',isStaff:false,isBot:false,content:'hi'}],'1');
+  for(const rule of [/at most one question, and only when it fits/i,/never claim you watched their stream or played a game/i,
+    /can't afford|spent too much/i,/no pressure/i,/never invent prices, discounts, deposits, payment terms or deadlines/i,
+    /if they ask whether you are selling, be honest/i,/do not ask something already answered/i]) assert.match(q,rule);
+});
+
+test('the employee\'s own style is added as their preference, capped so the chat still fits',()=>{
+  const msgs=[{id:'1',author:'a',isStaff:false,isBot:false,content:'hi'}];
+  const q=buildConversationQuestion(msgs,'1',{style:'I say ohh, yeahh, ofcc ^^ '+'x'.repeat(3000)});
+  assert.match(q,/How I \(the staff member\) like to write:\nI say ohh, yeahh, ofcc \^\^/);
+  assert.ok(q.split('How I (the staff member) like to write:\n')[1].split('\n')[0].length<=1200);
+  assert.doesNotMatch(buildConversationQuestion(msgs,'1'),/like to write/);
+});
+
+test('rewrite buttons: shorter, warmer, more direct, more natural rewrite the current draft (fenced as data)',()=>{
+  const msgs=[{id:'1',author:'a',isStaff:false,isBot:false,content:'hi'}];
+  for(const [goal,word] of [['shorter',/shorter/i],['warmer',/warmer/i],['direct',/more direct/i],['natural',/more natural/i]]){
+    const q=buildConversationQuestion(msgs,'1',{goal,previous:'yo bro wanna see my work?'});
+    assert.match(q,word);assert.match(q,/Current draft \(data\): yo bro wanna see my work\?/);
+  }
+  assert.throws(()=>buildConversationQuestion(msgs,'1',{goal:'shorter'}),/draft/);
 });

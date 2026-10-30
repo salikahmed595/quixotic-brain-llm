@@ -4,7 +4,7 @@ import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const EXTENSION_FILES=['manifest.json','background.js','panel.html','panel.js','readers/discord.js','readers/selection.js','readers/twitch.js','readers/x.js',
-  'lib/auth.js','lib/client.js','lib/conversation.js','lib/draft.js','lib/facts.js','lib/guard.js','lib/highlight.js','lib/options.js','lib/profile.js','lib/labels.js','lib/quixotic.js','lib/read.js','lib/sites.js',
+  'lib/auth.js','lib/client.js','lib/conversation.js','lib/draft.js','lib/facts.js','lib/guard.js','lib/highlight.js','lib/options.js','lib/profile.js','lib/labels.js','lib/quixotic.js','lib/read.js','lib/sites.js','lib/warnings.js',
   'icons/icon16.png','icons/icon32.png','icons/icon48.png','icons/icon128.png'];
 
 export function pack(root,out){

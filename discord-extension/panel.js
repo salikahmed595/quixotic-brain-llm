@@ -11,10 +11,11 @@ import {parseStaffNames,labelMessages} from './lib/labels.js';
 import {profileOf,STAGES,stagePayload,noteFact} from './lib/profile.js';
 import {highlightParts} from './lib/highlight.js';
 import {parseOptions} from './lib/options.js';
+import {warningsFor} from './lib/warnings.js';
 
 const $=id=>document.getElementById(id);
 const el=(tag,props={},...kids)=>{const n=Object.assign(document.createElement(tag),props);n.append(...kids);return n;};
-const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match'};
+const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match',style:'',draft:'',chat:[]};
 const authStatus=t=>{$('authStatus').textContent=t;};
 const status=t=>{$('status').textContent=t;};
 function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{$('toast').hidden=true;},2300);}
@@ -32,8 +33,16 @@ function render(){
   $('conn').textContent=state.signedIn?'Connected':'Signed out';$('conn').classList.toggle('on',state.signedIn);
 }
 
-chrome.storage.local.get(['csrf','staffNames']).then(({csrf,staffNames})=>{
-  state.signedIn=Boolean(csrf);state.staffNames=staffNames||'';$('staff').value=state.staffNames;render();
+chrome.storage.local.get(['csrf','staffNames','style']).then(({csrf,staffNames,style})=>{
+  state.signedIn=Boolean(csrf);state.staffNames=staffNames||'';state.style=style||'';$('staff').value=state.staffNames;render();
+});
+
+// "My reply style" (owner master prompt 2026-10-30): the employee's own writing style, kept only in this browser.
+$('editStyle').addEventListener('click',()=>{menu(false);$('styleText').value=state.style;$('styleForm').hidden=false;$('styleText').focus();});
+$('styleCancel').addEventListener('click',()=>{$('styleForm').hidden=true;});
+$('styleForm').addEventListener('submit',async e=>{
+  e.preventDefault();state.style=$('styleText').value.trim();
+  await chrome.storage.local.set({style:state.style});$('styleForm').hidden=true;toast('Saved. Every suggestion now follows your style.');
 });
 
 $('signin').addEventListener('submit',async e=>{
@@ -235,6 +244,9 @@ for(const b of document.querySelectorAll('#tones .chip')) b.addEventListener('cl
 });
 
 function showReply(text){
+  state.draft=text;
+  const warns=warningsFor({messages:state.chat,draft:text,facts:confirmed()});
+  $('warnings').hidden=!warns.length;$('warnings').replaceChildren(...warns.map(w=>el('li',{textContent:w.text})));
   const terms=[...profileOf(confirmed()).tags,...confirmed().filter(f=>f.category==='art_preference').map(f=>f.value)].filter(Boolean);
   $('replyText').replaceChildren(...highlightParts(text,terms).map(p=>p.hit?el('mark',{textContent:p.text}):document.createTextNode(p.text)));
 }
@@ -245,7 +257,10 @@ function copyText(t,msg='Copied! Paste it into the chat, check it, then send.'){
 async function generate(goal){
   const {app,messages}=await readChat();
   await loadBrain(messages,app);
-  return draftFromChat({messages,staffNames:state.staffNames,ask,goal,tone:state.tone,app,clientFacts:confirmed()});
+  const out=await draftFromChat({messages,staffNames:state.staffNames,ask,goal,tone:state.tone,app,clientFacts:confirmed(),
+    style:state.style,previous:state.draft});
+  if(out.chat) state.chat=out.chat;
+  return out;
 }
 
 async function suggest(goal='reply'){
@@ -274,6 +289,7 @@ async function suggest(goal='reply'){
 $('go').addEventListener('click',()=>suggest('reply'));
 $('again').addEventListener('click',()=>suggest(state.goal));
 for(const b of document.querySelectorAll('#goals .opt')) b.addEventListener('click',()=>suggest(b.dataset.goal));
+for(const b of document.querySelectorAll('#rewrites .mini')) b.addEventListener('click',()=>{if(state.draft) suggest(b.dataset.rewrite);});
 $('whyToggle').addEventListener('click',()=>{$('why').hidden=!$('why').hidden;});
 $('copy').addEventListener('click',()=>copyText($('replyText').textContent));
 $('copyMini').addEventListener('click',()=>copyText($('replyText').textContent));
