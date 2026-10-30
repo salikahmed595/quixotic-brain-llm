@@ -5,6 +5,8 @@ import {signIn,signOut,QUIXOTIC_URL} from './lib/auth.js';
 import {siteFor} from './lib/sites.js';
 import {readWith} from './lib/read.js';
 import {customerOf,lookupClient,createClient,makeApi,FACT_LABELS} from './lib/client.js';
+import {suggestFacts,saveFacts} from './lib/facts.js';
+import {parseStaffNames,labelMessages} from './lib/labels.js';
 
 const $=id=>document.getElementById(id);
 const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match'};
@@ -92,7 +94,7 @@ async function ask(question){
 }
 
 // Client Brain card: looked up each time Suggest Reply reads the chat; never blocks the draft.
-const brain={customer:null};
+const brain={customer:null,client:null,messages:[],app:null,suggested:[]};
 async function quixoticApi(){const {csrf}=await chrome.storage.local.get('csrf');return makeApi({apiUrl:QUIXOTIC_URL,csrf});}
 function showBrain({client,facts},customer){
   $('brain').hidden=false;$('brainNote').textContent='';
@@ -107,14 +109,39 @@ function showBrain({client,facts},customer){
     if(f.status&&f.status!=='confirmed'){const u=document.createElement('span');u.className='unsure';u.textContent=f.status;li.append(u);}
     list.append(li);
   }
-  if(client&&!facts.length) $('brainNote').textContent='No saved facts yet. Facts you confirm will show here.';
+  if(client&&!facts.length) $('brainNote').textContent='No saved facts yet. Tick suggested facts below to save them.';
+  brain.client=client;
+  showSuggestions(client?suggestFacts(labelMessages(brain.messages,parseStaffNames(state.staffNames)),facts):[]);
 }
-async function loadBrain(messages){
+// Step 2: facts found in the customer's own messages; saved only when the employee ticks them.
+function showSuggestions(list){
+  brain.suggested=list;$('suggest').hidden=!list.length;
+  $('suggestList').replaceChildren(...list.map((f,i)=>{
+    const li=document.createElement('li'),box=document.createElement('input'),label=document.createElement('label'),
+      tag=document.createElement('span'),text=document.createElement('span');
+    box.type='checkbox';box.id=`sf${i}`;box.dataset.i=String(i);label.htmlFor=box.id;label.title=`From: "${f.source_text}"`;
+    tag.className='tag';tag.textContent=FACT_LABELS[f.category];text.textContent=f.statement;
+    label.append(tag,text);li.append(box,label);return li;
+  }));
+}
+$('saveFacts').addEventListener('click',async()=>{
+  const ticked=[...document.querySelectorAll('#suggestList input:checked')].map(b=>brain.suggested[Number(b.dataset.i)]);
+  if(!ticked.length){$('brainNote').textContent='Tick the facts that are right, then save.';return;}
+  $('saveFacts').disabled=true;
+  try{
+    const api=await quixoticApi(),out=await saveFacts({clientId:brain.client.id,facts:ticked,app:brain.app,api});
+    showBrain(await lookupClient({customer:brain.customer,api}),brain.customer);
+    if(out.errors.length) $('brainNote').textContent=`Not saved: ${out.errors.join('; ')}`;
+    if(out.saved) toast(`Saved ${out.saved} fact${out.saved>1?'s':''} to the Mini Brain.`);
+  }catch(e){$('brainNote').textContent=e.message;}
+  finally{$('saveFacts').disabled=false;}
+});
+async function loadBrain(messages,app){
   const customer=customerOf(messages,state.staffNames);
-  brain.customer=customer;
+  Object.assign(brain,{customer,messages,app});
   if(!customer){$('brain').hidden=true;return;}
   try{showBrain(await lookupClient({customer,api:await quixoticApi()}),customer);}
-  catch(e){$('brain').hidden=false;$('facts').replaceChildren();$('brainNew').hidden=true;$('brainTitle').textContent='Client Brain';
+  catch(e){$('brain').hidden=false;$('facts').replaceChildren();$('brainNew').hidden=true;$('suggest').hidden=true;$('brainTitle').textContent='Client Brain';
     $('brainSub').textContent=customer.name;$('brainNote').textContent=e.message;}
 }
 async function departmentChoices(api){
@@ -146,7 +173,7 @@ async function suggest(){
   $('go').disabled=true;$('go').textContent='✦ Reading the conversation…';status('');
   try{
     const {app,messages}=await readChat();
-    loadBrain(messages);
+    loadBrain(messages,app);
     const out=await draftFromChat({messages,staffNames:state.staffNames,ask,goal:state.goal,tone:state.tone,app});
     if(!out.ok){status(out.text);$('result').hidden=true;return;}
     $('replyText').textContent=out.draft;$('result').hidden=false;$('whyToggle').hidden=false;

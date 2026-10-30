@@ -69,4 +69,5 @@ test('panel follows the owner design: goal + tone chips, Suggest Reply, step gui
 test('panel has a Client Brain card with a create button',()=>{
   const html=readFileSync(root+'panel.html','utf8');
   assert.match(html,/id="brain"/);assert.match(html,/Create Mini Brain/);
+  assert.match(html,/id="suggestList"/);assert.match(html,/Save ticked facts/);
 });
