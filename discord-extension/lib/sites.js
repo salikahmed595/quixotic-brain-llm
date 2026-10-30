@@ -2,6 +2,7 @@
 // and are allowed in manifest.json; any other website reads the text the employee highlights, after they allow it.
 const APPS=[
   {app:'Discord',hosts:['discord.com'],file:'readers/discord.js'},
+  {app:'Twitch',hosts:['www.twitch.tv','dashboard.twitch.tv'],file:'readers/twitch.js'},
 ];
 const BLOCKED=['chromewebstore.google.com','chrome.google.com'];   // Chrome never lets extensions read these
 

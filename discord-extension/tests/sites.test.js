@@ -15,3 +15,9 @@ test('any other website reads the highlighted conversation and needs the employe
 test('browser pages and missing URLs cannot be read',()=>{
   for(const u of ['chrome://extensions','https://chromewebstore.google.com/x','about:blank','',undefined,'not a url']) assert.equal(siteFor(u),null,String(u));
 });
+
+test('Twitch (channel, popout chat and creator dashboard) uses its own chat reader',()=>{
+  for(const u of ['https://www.twitch.tv/somechannel','https://www.twitch.tv/popout/somechannel/chat','https://dashboard.twitch.tv/u/me/stream-manager']){
+    const s=siteFor(u);assert.equal(s.app,'Twitch',u);assert.equal(s.file,'readers/twitch.js');assert.equal(s.builtIn,true);
+  }
+});

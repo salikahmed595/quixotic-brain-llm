@@ -34,7 +34,7 @@ test('background opens the panel when the toolbar button is clicked',()=>{
 });
 
 test('readers only read: they never type, click, send or call the network',()=>{
-  for(const f of ['readers/discord.js','readers/selection.js']){
+  for(const f of ['readers/discord.js','readers/selection.js','readers/twitch.js']){
     const js=readFileSync(root+f,'utf8');
     assert.match(js,/globalThis\.quixoticReadChat=/,f);
     assert.doesNotMatch(js,/textbox|contenteditable|dispatchEvent|\.click\(|fetch\(|XMLHttpRequest|sendMessage/i,f);
@@ -48,7 +48,7 @@ test('panel never writes into Discord: it only copies to the clipboard',()=>{
 });
 
 test('always-allowed sites: the Quixotic AI site and the apps with their own reader',()=>{
-  assert.deepEqual(manifest.host_permissions,['https://maqsad.quixoticcreatives.com/*','https://discord.com/*']);
+  assert.deepEqual(manifest.host_permissions,['https://maqsad.quixoticcreatives.com/*','https://discord.com/*','https://www.twitch.tv/*','https://dashboard.twitch.tv/*']);
 });
 
 test('panel never stores the password',()=>{
