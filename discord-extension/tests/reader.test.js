@@ -50,3 +50,9 @@ test('each message carries the sender\'s Discord user id when the avatar shows i
   assert.equal(msgs[1].authorId,'111222333');
   assert.equal(msgs[2].authorId,'');
 });
+
+test('each message carries the sender\'s avatar picture for the profile card',()=>{
+  const msgs=readFrom(fixture);
+  assert.equal(msgs[0].authorAvatar,'https://cdn.discordapp.com/avatars/111222333/abc.webp?size=80');
+  assert.equal(msgs[1].authorAvatar,msgs[0].authorAvatar);
+});

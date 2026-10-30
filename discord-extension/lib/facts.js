@@ -31,15 +31,37 @@ function factsIn(text){
   return out;
 }
 
+// Client type from what they say about themselves (owner 2026-10-30: "what is the client type").
+const TYPES=[['Streamer',/\bmy (?:stream|streams|twitch|kick)\b|\bi stream\b|\bwhen i(?:'m| am)? live\b|\bmy viewers\b/],
+  ['Content creator',/\bmy (?:channel|youtube|tiktok|videos?|content)\b/],['Business',/\bmy (?:business|company|brand|shop|store)\b/]];
+// How they write, from the words they actually use; never personality guesses (backend/client_memory/rules.py).
+const SLANG=['yo','bro','ngl','fr','lol','lmao','rn','u','ur','tbh','bet','fam','lowkey','bruh','pls','imo'];
+const EMOJI=/\p{Extended_Pictographic}/u;
+
+function styleFacts(msgs){
+  const out=[],texts=msgs.map(m=>String(m.content));
+  const used=SLANG.filter(s=>texts.some(t=>new RegExp(String.raw`(^|[^\w'])${s}($|[^\w'])`,'i').test(t)));
+  if(used.length>=2){const m=msgs.find(x=>used.some(s=>new RegExp(String.raw`(^|[^\w'])${s}($|[^\w'])`,'i').test(x.content)));
+    out.push([m,'slang',`Writes casually with slang (${used.slice(0,5).join(', ')})`]);}
+  const e=msgs.find(x=>EMOJI.test(x.content));if(e) out.push([e,'emoji','Uses emoji']);
+  const words=texts.map(t=>t.trim().split(/\s+/).length);
+  if(msgs.length>=3&&words.reduce((a,b)=>a+b,0)/words.length<=8) out.push([msgs.at(-1),'short messages','Writes short messages']);
+  return out.map(([m,value,statement])=>['communication',value,statement,m]);
+}
+
 export function suggestFacts(messages,existing=[]){
   const seen=new Set(existing.map(f=>`${f.category}:${String(f.value||'').toLowerCase()}`));
-  const out=[];
-  for(const m of messages.filter(isCustomer)) for(const [category,value,statement] of factsIn(String(m.content))){
+  for(const f of existing){const t=String(f.statement).match(/^Client type:\s*(.+)$/);if(t) seen.add(`other:${t[1].toLowerCase()}`);}
+  const out=[],msgs=messages.filter(isCustomer);
+  const add=(category,value,statement,m)=>{
     const key=`${category}:${value.toLowerCase()}`;
-    if(seen.has(key)) continue;
+    if(seen.has(key)) return;
     seen.add(key);
     out.push({category,value,statement,source_id:String(m.id),source_text:String(m.content).slice(0,2000)});
-  }
+  };
+  for(const [name,re] of TYPES){const m=msgs.find(x=>re.test(String(x.content).toLowerCase()));if(m){add('other',name,`Client type: ${name}`,m);break;}}
+  for(const m of msgs) for(const [category,value,statement] of factsIn(String(m.content))) add(category,value,statement,m);
+  for(const [category,value,statement,m] of styleFacts(msgs)) add(category,value,statement,m);
   return out;
 }
 

@@ -52,3 +52,20 @@ test('saveFacts posts each ticked fact to the client and reports which failed',a
   assert.deepEqual(calls.map(x=>x[0]),['/v1/clients/cl1/memories','/v1/clients/cl1/memories']);
   assert.equal(out.saved,1);assert.deepEqual(out.errors,['$50: budget already set']);
 });
+
+// Owner 2026-10-30: the Mini Brain also keeps the client type and how they write (seen in their messages, not guessed).
+test('suggests the client type and how they write, quoting the message that shows it',()=>{
+  const facts=suggestFacts([c('1','yo bro got any cool ideas for my stream? 👀🔥'),c('2','ngl i want it fr'),c('3','lol ok')]);
+  const type=facts.find(f=>f.statement.startsWith('Client type'));
+  assert.equal(type.statement,'Client type: Streamer');assert.equal(type.category,'other');assert.equal(type.source_id,'1');
+  const talk=facts.filter(f=>f.category==='communication').map(f=>f.statement);
+  assert.ok(talk.includes('Writes casually with slang (yo, bro, ngl, fr, lol)'),talk);
+  assert.ok(talk.includes('Uses emoji'),talk);
+  assert.ok(talk.includes('Writes short messages'),talk);
+});
+
+test('never suggests personality guesses: style comes only from words actually used',()=>{
+  const facts=suggestFacts([c('1','Hello, I would like a logo for my business, please.')]);
+  assert.ok(!facts.some(f=>f.category==='communication'));
+  assert.ok(!facts.some(f=>/rich|poor|angry|lazy/i.test(f.statement)));
+});

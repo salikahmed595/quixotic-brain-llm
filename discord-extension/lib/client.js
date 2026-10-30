@@ -9,7 +9,7 @@ export const FACT_LABELS={art_preference:'Art style',platform:'Platform',game:'G
 export function customerOf(messages,staffNames){
   const m=labelMessages(messages,parseStaffNames(staffNames))
     .filter(x=>!x.isBot&&!x.isStaff&&String(x.author||'').trim()&&String(x.content||'').trim()).at(-1);
-  return m?{name:m.author.trim(),discordId:m.authorId||''}:null;
+  return m?{name:m.author.trim(),discordId:m.authorId||'',avatar:m.authorAvatar||''}:null;
 }
 
 // Discord id is the strong match; an exact name only matches a client saved without an id (same name may be someone else).

@@ -9,7 +9,7 @@ const chat=[
 
 // Client Brain step 1 (owner 2026-10-30): find the customer of the open chat and their Mini Brain.
 test('the customer is the author of the latest non-staff, non-bot message',()=>{
-  assert.deepEqual(customerOf(chat,'riggs'),{name:'Cinnamon Angel ♡',discordId:'999'});
+  assert.deepEqual(customerOf(chat,'riggs'),{name:'Cinnamon Angel ♡',discordId:'999',avatar:''});
   assert.equal(customerOf(chat.slice(1,3),'riggs'),null);
   assert.deepEqual(customerOf([{id:'1',author:'',content:'hi'}],'riggs'),null);   // highlighted text without a name
 });

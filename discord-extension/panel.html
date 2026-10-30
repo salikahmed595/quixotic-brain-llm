@@ -5,161 +5,244 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Quixotic Reply</title>
   <style>
-    /* Owner design (quixotic_slm_extension_simple.html, right-hand panel). No web fonts: the panel makes no third-party requests. */
-    :root{--o:#f26a21;--o2:#fff0e6;--ink:#20222a;--muted:#898c96;--line:#ececf0;--bg:#f7f7fa;--green:#249569}
+    /* Owner design 2026-10-30 (orange-and-white Reply Assistant with Client Brain). No web fonts: no third-party requests. */
+    :root{--o:#f26a21;--o1:#ff8a3d;--o2:#fff3ea;--ob:#ffd9c2;--ink:#1f2128;--ink2:#5d606b;--muted:#8d909a;--line:#efeff3;--green:#22a06b}
     *{box-sizing:border-box}
-    body{margin:0;color:var(--ink);font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;background:#fff;font-size:13px}
-    button,input,textarea{font:inherit}button{cursor:pointer}
-    button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #ffd5bb;outline-offset:2px}
+    body{margin:0;color:var(--ink);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:linear-gradient(180deg,#fff7f1 0,#fff 220px);font-size:13px}
+    button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer}
+    :focus-visible{outline:3px solid #ffd0b0;outline-offset:2px}
     [hidden]{display:none!important}
-    .head{position:relative;overflow:hidden;padding:22px 20px 20px;color:#fff;background:radial-gradient(120% 90% at 100% 0%,#ff7a2e 0%,#c2410c 38%,#1d1b22 78%)}
-    .head:after{content:'';position:absolute;right:-40px;bottom:-60px;width:180px;height:180px;border-radius:50%;background:#ff8a3d;filter:blur(60px);opacity:.35;pointer-events:none}
-    .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .logo{display:grid;place-items:center;width:38px;height:38px;background:linear-gradient(135deg,#ff8a3d,#e2501a);color:#fff;border-radius:12px;font-size:20px;font-weight:800;box-shadow:0 0 0 3px #ffffff22,0 10px 24px #ff6a1f80}
-    .brand b{font-size:15px;letter-spacing:-.4px}.brand small{display:block;font-size:11px;color:#ffffffa8}
-    .live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;background:#ffffff1f;border:1px solid #ffffff30;border-radius:99px;padding:5px 9px}
-    .live:before{content:'';width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px #4ade8040}
-    .eyebrow{color:#ffd2b5;letter-spacing:1.4px;font-size:10px;font-weight:800;text-transform:uppercase}
-    h1{font-size:25px;letter-spacing:-1px;line-height:1.15;margin:6px 0;background:linear-gradient(90deg,#fff 55%,#ffc9a6);-webkit-background-clip:text;background-clip:text;color:transparent}
-    .head p{font-size:12px;line-height:1.6;color:#ffffffc0;margin:0;position:relative;z-index:1}
-    .body{padding:18px 18px 24px;display:flex;flex-direction:column;gap:18px}
+    .wrap{padding:14px 14px 22px;display:flex;flex-direction:column;gap:12px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 6px 22px #f26a210d;padding:14px}
+    .muted{color:var(--muted);font-size:11.5px;line-height:1.5;margin:0}
+    .status{font-size:12px;line-height:1.5;color:#b4501b;margin:0}
+    /* top bar */
+    .top{display:flex;align-items:center;gap:10px;padding:14px 14px 0}
+    .logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--o1),#e2501a);color:#fff;font-weight:800;font-size:20px;box-shadow:0 8px 18px #f26a2140}
+    .brand b{display:block;font-size:16px;letter-spacing:-.3px}.brand small{display:block;color:var(--ink2);font-size:12px}
+    .conn{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink2)}
+    .conn:before{content:'';width:8px;height:8px;border-radius:50%;background:#c7c8ce}.conn.on:before{background:var(--green)}
+    .icon-btn{border:0;background:none;width:30px;height:30px;border-radius:9px;font-size:16px;color:var(--ink2)}.icon-btn:hover{background:#f4f4f7}
+    .menu{position:absolute;right:14px;top:56px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px #0002;padding:6px;z-index:20;display:flex;flex-direction:column;min-width:170px}
+    .menu button{border:0;background:none;text-align:left;padding:9px 10px;border-radius:8px;font-size:12.5px}.menu button:hover{background:var(--o2)}
+    /* setup */
     .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-    .step{border:1px solid var(--line);border-radius:13px;padding:11px 12px;display:flex;gap:10px;align-items:flex-start;color:var(--muted)}
+    .step{border:1px solid var(--line);border-radius:13px;padding:11px 12px;display:flex;gap:10px;align-items:flex-start;color:var(--muted);background:#fff}
     .step .num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:#f1f1f4;color:#777;flex-shrink:0}
     .step b{display:block;font-size:12px;color:inherit}.step small{display:block;font-size:11px;margin-top:2px}
-    .step.current{border-color:#ffb98f;background:linear-gradient(90deg,#fff0e6,#fff);color:var(--ink);box-shadow:inset 4px 0 0 var(--o),0 8px 20px #f26a2122}
-    .step.current .num{background:var(--o);color:#fff;animation:pulse 1.8s ease-out infinite}
-    @keyframes pulse{0%{box-shadow:0 0 0 0 #f26a2170}100%{box-shadow:0 0 0 9px #f26a2100}}
-    .step.done{color:var(--green)}.step.done .num{background:#d8f4e3;color:#168153}
+    .step.current{border-color:#ffb98f;background:linear-gradient(90deg,#fff0e6,#fff);color:var(--ink);box-shadow:inset 4px 0 0 var(--o)}
+    .step.current .num{background:var(--o);color:#fff}.step.done{color:var(--green)}.step.done .num{background:#d8f4e3;color:#168153}
     .now{font-size:10px;font-weight:800;color:#c04f16;text-transform:uppercase;letter-spacing:1px}
-    .card{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
-    label{font-size:11px;font-weight:800}
-    input,textarea{width:100%;border:1px solid #e6e6e9;border-radius:10px;padding:9px 10px;background:#fff;color:inherit}
+    form.card{display:flex;flex-direction:column;gap:8px}
+    label.f{font-size:11px;font-weight:800}
+    input[type=text],input[type=password],input:not([type]),textarea,select{width:100%;border:1px solid #e6e6ea;border-radius:11px;padding:9px 10px;background:#fff}
     textarea{resize:vertical}
-    .muted{color:var(--muted);font-size:11px;line-height:1.5;margin:0}
-    .context{background:#f2fbf6;border:1px solid #d9f2e4;border-radius:13px;padding:12px;display:flex;align-items:center;gap:10px}
-    .context-icon{background:#d8f4e3;color:#168153;width:35px;height:35px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0}
-    .context b{font-size:12px;display:block}.context small{color:#5b9476;font-size:10px;display:block;margin-top:3px}
-    .section-label{font-size:11px;font-weight:800;margin-bottom:9px}
-    .choices{display:flex;gap:7px;flex-wrap:wrap}
-    .chip{border:1px solid #e8e8ec;background:#fff;border-radius:10px;padding:9px 11px;font-size:11px;color:#666973;font-weight:700}
-    .chip{transition:all .15s}.chip:hover{border-color:#ffc6a3}
-    .chip[aria-pressed="true"]{color:#fff;background:var(--ink);border-color:var(--ink);box-shadow:0 6px 14px #20222a30}
-    .generate,.primary-btn{position:relative;overflow:hidden;width:100%;height:50px;background:linear-gradient(135deg,#ff8a3d,#e2501a);border:0;border-radius:14px;color:#fff;font-weight:800;font-size:14px;letter-spacing:.2px;box-shadow:0 12px 26px #f26a2155,inset 0 1px 0 #ffffff40;transition:transform .15s,box-shadow .15s}
-    .generate:after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,#ffffff55,transparent);animation:shine 2.8s ease-in-out infinite}
-    @keyframes shine{0%,55%{left:-60%}100%{left:130%}}
-    .generate:hover,.primary-btn:hover{transform:translateY(-1px);box-shadow:0 16px 30px #f26a2170,inset 0 1px 0 #ffffff40}
-    @media (prefers-reduced-motion:reduce){.generate:after,.step.current .num{animation:none}}
-    .generate:disabled,.primary-btn:disabled{opacity:.6;cursor:default}
-    .hint{text-align:center;font-size:10px;color:#a2a2a9;margin-top:-10px}
-    .result{border:1.5px solid #ffb98f;border-radius:16px;overflow:hidden;background:#fffaf6;box-shadow:0 14px 30px #f26a2120;animation:pop .25s ease-out}
-    @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-    .result-head{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffeadc}
-    .result-head b{font-size:12px}.result-head span{color:#d36b2a;font-size:10px;font-weight:800}
-    .reply{padding:15px;font-size:13px;line-height:1.75;white-space:pre-wrap;min-height:100px}
-    .result-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 12px}
-    .act{border:1px solid #f4dcca;background:#fff;border-radius:10px;padding:11px;font-size:11px;font-weight:800;color:#a44d1e}
-    .act.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
-    .link{border:0;background:none;padding:0;color:#858892;font-size:11px;font-weight:700;text-decoration:underline}
-    .why{background:#f8f8fa;border:1px solid #f0f0f2;border-radius:12px;padding:12px;font-size:11px;line-height:1.7;color:#686b76}
-    .status{font-size:12px;line-height:1.5;color:#a44d1e;margin:0}
-    .footer-note{font-size:10px;color:#9699a2;line-height:1.6;border-top:1px solid var(--line);padding-top:12px;margin:0}
-    .brain{border:1.5px solid #ffd3b8;border-radius:16px;background:linear-gradient(180deg,#fff6ef,#fff);padding:14px;display:flex;flex-direction:column;gap:10px}
-    .brain-head{display:flex;align-items:center;gap:10px}
-    .brain-icon{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--ink);color:#fff;font-size:17px;flex-shrink:0}
-    .brain-head b{font-size:13px;display:block}.brain-head small{font-size:10px;color:var(--muted);display:block;margin-top:2px}
-    .facts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+    .btn{height:46px;border:0;border-radius:14px;background:linear-gradient(135deg,var(--o1),#e2501a);color:#fff;font-weight:800;font-size:14px;box-shadow:0 10px 22px #f26a2145;width:100%}
+    .btn:hover{filter:brightness(1.04)}.btn:disabled{opacity:.6;cursor:default}
+    .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 4px 12px #0000000a}
+    .small-btn{border:0;border-radius:10px;background:var(--o);color:#fff;font-weight:800;font-size:12px;padding:9px 12px}
+    /* profile */
+    .profile{display:flex;gap:12px;align-items:flex-start}
+    .avatar{width:58px;height:58px;border-radius:50%;object-fit:cover;flex-shrink:0;background:linear-gradient(135deg,#5b3df5,#a855f7);display:grid;place-items:center;color:#fff;font-weight:800;font-size:22px;box-shadow:0 0 0 3px #fff,0 6px 16px #5b3df540}
+    .pmain{flex:1;min-width:0}
+    .pname{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:800;letter-spacing:-.3px;overflow-wrap:anywhere}
+    .app-badge{font-size:10px;font-weight:800;color:#5865f2;background:#eef0ff;border-radius:6px;padding:2px 6px}
+    .psub{color:var(--ink2);font-size:12px;margin-top:2px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+    .chip-t{font-size:11.5px;background:#f6f6f9;border:1px solid #ededf2;border-radius:9px;padding:4px 9px}
+    .stage{border:1px solid var(--ob);background:var(--o2);color:#c04f16;font-weight:800;border-radius:99px;padding:5px 9px;font-size:11.5px;width:auto}
+    .prow{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}
+    .link-btn{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 11px;font-size:11.5px;font-weight:700}
+    /* tabs */
+    .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+    .tab{border:1px solid var(--line);background:#fff;border-radius:13px;padding:9px 4px;font-size:11.5px;font-weight:700;color:var(--ink2);box-shadow:0 3px 10px #0000000a}
+    .tab[aria-selected="true"]{background:linear-gradient(135deg,var(--o1),#e2501a);color:#fff;border-color:transparent;box-shadow:0 8px 18px #f26a2140}
+    /* latest message */
+    .label{font-size:11.5px;color:var(--ink2);margin-bottom:8px}
+    .latest{display:flex;gap:10px;align-items:flex-start}
+    .latest .avatar{width:34px;height:34px;font-size:14px;box-shadow:none}
+    .bubble{background:#f5f5f8;border-radius:14px;padding:9px 12px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+    /* reply */
+    .reply-card{border:1.5px solid var(--ob);background:linear-gradient(180deg,#fff6ef,#fff)}
+    .rhead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+    .spark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--o1),#e2501a);color:#fff;font-size:15px}
+    .rhead b{font-size:15px}
+    .badge{font-size:10.5px;font-weight:800;color:#c04f16;background:var(--o2);border:1px solid var(--ob);border-radius:99px;padding:3px 8px}
+    .regen{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 10px;font-size:11.5px;font-weight:700}
+    .reply-box{position:relative;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 38px 12px 12px;font-size:13.5px;line-height:1.7;white-space:pre-wrap;min-height:70px;overflow-wrap:anywhere}
+    .reply-box mark{background:none;color:var(--o);font-weight:800}
+    .copy-mini{position:absolute;top:8px;right:8px;border:0;background:none;font-size:15px;color:var(--ink2)}
+    .tones{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+    .chip{border:1px solid var(--line);background:#fff;border-radius:11px;padding:8px 11px;font-size:12px;font-weight:700;color:var(--ink2)}
+    .chip[aria-pressed="true"]{background:linear-gradient(135deg,var(--o1),#e2501a);color:#fff;border-color:transparent}
+    .variants{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+    .variant{display:flex;gap:8px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 10px;font-size:12.5px;line-height:1.55}
+    .variant span{flex:1;overflow-wrap:anywhere}.variant button{border:0;background:var(--o2);color:#c04f16;border-radius:8px;font-size:11px;font-weight:800;padding:5px 8px}
+    .why-btn{border:0;background:none;padding:0;color:var(--muted);font-size:11px;font-weight:700;text-decoration:underline;margin-top:8px}
+    .why{background:#f8f8fa;border:1px solid #f0f0f2;border-radius:12px;padding:10px;font-size:11px;line-height:1.6;color:#686b76;margin-top:6px}
+    .opts-title{font-size:12.5px;color:var(--ink2);margin:2px 2px -4px}
+    .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .opt{display:flex;gap:8px;align-items:center;text-align:left;border:1px solid var(--line);background:#fff;border-radius:14px;padding:10px;box-shadow:0 3px 10px #0000000a}
+    .opt i{font-style:normal;font-size:18px}.opt b{display:block;font-size:12px}.opt small{display:block;font-size:10.5px;color:var(--muted)}
+    .opt:hover{border-color:var(--ob)}
+    /* brain */
+    .facts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
     .facts li{display:flex;gap:8px;align-items:baseline;font-size:12px;line-height:1.45}
-    .facts .tag{flex-shrink:0;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#c04f16;background:#fff0e6;border:1px solid #ffd3b8;border-radius:6px;padding:2px 6px}
+    .tag{flex-shrink:0;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#c04f16;background:var(--o2);border:1px solid var(--ob);border-radius:6px;padding:2px 6px}
+    .unsure{color:var(--muted);font-size:10px}
     .suggest-list li{align-items:center}.suggest-list input{width:16px;height:16px;accent-color:var(--o);flex-shrink:0;margin:0}
-    .suggest-list label{display:flex;gap:8px;align-items:baseline;font-size:12px;font-weight:500;cursor:pointer}
-    .facts .unsure{color:var(--muted);font-size:10px}
-    select{width:100%;border:1px solid #e6e6e9;border-radius:10px;padding:9px 10px;background:#fff;font:inherit}
-    .small-btn{border:0;border-radius:10px;background:var(--o);color:#fff;font-weight:800;font-size:12px;padding:10px 12px}
-    .row{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .suggest-list label{display:flex;gap:8px;align-items:baseline;font-size:12px;cursor:pointer}
+    .sec{font-size:12px;font-weight:800;margin:4px 0 8px}
+    .addrow{display:grid;grid-template-columns:120px 1fr;gap:6px}
+    .hist li{font-size:12px;line-height:1.45;border-left:2px solid var(--ob);padding-left:9px}
+    .hist small{display:block;color:var(--muted);font-size:10.5px}
+    .idea{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-left:4px solid var(--o);border-radius:12px;padding:10px;font-size:12.5px;line-height:1.55;background:#fff}
+    .idea span{flex:1}.idea button{border:0;background:var(--o2);color:#c04f16;border-radius:8px;font-size:11px;font-weight:800;padding:5px 8px}
+    .footer-note{font-size:10.5px;color:#9699a2;line-height:1.6;margin:0}
     .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#22242c;color:#fff;border-radius:12px;padding:11px 16px;font-size:12px;box-shadow:0 10px 24px #0002;z-index:30;max-width:90vw}
+    @media (prefers-reduced-motion:no-preference){.card{transition:box-shadow .15s}}
   </style>
 </head>
 <body>
-  <header class="head">
-    <div class="brand"><div class="logo" aria-hidden="true">Q</div><div><b>Quixotic Reply</b><small>Your AI chat assistant</small></div><span class="live">Private</span></div>
-    <span class="eyebrow">✦ Quixotic AI</span>
-    <h1>What should I reply?</h1>
-    <p>I read the chat open in this tab (Discord, Twitch, X, or any site where you highlight it) so your reply feels natural and relevant.</p>
+  <header class="top">
+    <div class="logo" aria-hidden="true">Q</div>
+    <div class="brand"><b>Quixotic</b><small>Reply Assistant</small></div>
+    <span class="conn" id="conn">Signed out</span>
+    <button class="icon-btn" id="settings" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">⚙</button>
+    <button class="icon-btn" id="closePanel" type="button" aria-label="Close">✕</button>
   </header>
+  <div class="menu" id="menu" hidden role="menu">
+    <button id="editStaff" type="button" role="menuitem">Change staff names</button>
+    <button id="logout" type="button" role="menuitem">Sign out</button>
+  </div>
 
-  <main class="body">
-    <ol class="steps" id="steps" aria-label="Setup steps">
-      <li class="step" data-step="1"><span class="num">1</span><div><span class="now" hidden>Do this now</span><b>Sign in</b><small>Use your Quixotic AI account.</small></div></li>
-      <li class="step" data-step="2"><span class="num">2</span><div><span class="now" hidden>Do this now</span><b>Add staff names</b><small>Who is on our team in the chat.</small></div></li>
-      <li class="step" data-step="3"><span class="num">3</span><div><span class="now" hidden>Do this now</span><b>Open a chat, then Suggest Reply</b><small>Discord, Twitch and X messages are read for you. On other sites, highlight the conversation first.</small></div></li>
-    </ol>
+  <main class="wrap">
+    <section id="setup">
+      <ol class="steps" id="steps" aria-label="Setup steps">
+        <li class="step" data-step="1"><span class="num">1</span><div><span class="now" hidden>Do this now</span><b>Sign in</b><small>Use your Quixotic AI account.</small></div></li>
+        <li class="step" data-step="2"><span class="num">2</span><div><span class="now" hidden>Do this now</span><b>Add staff names</b><small>Who is on our team in the chat.</small></div></li>
+        <li class="step" data-step="3"><span class="num">3</span><div><span class="now" hidden>Do this now</span><b>Open a chat, then Suggest Reply</b><small>Discord, Twitch and X messages are read for you. On other sites, highlight the conversation first.</small></div></li>
+      </ol>
+    </section>
 
     <form class="card" id="signin" hidden>
-      <label for="ident">Quixotic AI username or email</label>
+      <label class="f" for="ident">Quixotic AI username or email</label>
       <input id="ident" autocomplete="username">
-      <label for="pw">Password</label>
+      <label class="f" for="pw">Password</label>
       <input id="pw" type="password" autocomplete="current-password">
-      <button class="primary-btn" id="login" type="submit">Sign in →</button>
+      <button class="btn" id="login" type="submit">Sign in →</button>
       <p class="muted">Same account as the Quixotic AI website. Your password is not saved.</p>
     </form>
 
     <form class="card" id="staffForm" hidden>
-      <label for="staff">Staff names, exactly as the chat shows them</label>
+      <label class="f" for="staff">Staff names, exactly as the chat shows them</label>
       <textarea id="staff" rows="3" placeholder="Sara | Quixotic, Bilal"></textarea>
       <p class="muted">Separate names with commas. Everyone else in the chat is treated as the customer. Bots are skipped.</p>
-      <button class="primary-btn" id="saveStaff" type="submit">Save names →</button>
+      <button class="btn" id="saveStaff" type="submit">Save names →</button>
     </form>
 
     <section id="app" hidden>
-      <div class="body" style="padding:0">
-        <div class="context"><div class="context-icon" aria-hidden="true">✓</div><div><b id="contextTitle">Ready to read this chat</b><small id="contextSub">Discord, Twitch, X: just open the chat. Other sites: highlight it first.</small></div></div>
-        <section class="brain" id="brain" hidden aria-live="polite">
-          <div class="brain-head"><div class="brain-icon" aria-hidden="true">🧠</div><div><b id="brainTitle">Client Brain</b><small id="brainSub">Who this customer is</small></div></div>
-          <ul class="facts" id="facts"></ul>
-          <div id="brainNew" hidden>
-            <p class="muted" style="margin-bottom:8px">No Mini Brain for this customer yet. Create one to remember what they like across chats and employees.</p>
-            <select id="brainDept" hidden aria-label="Client's department"></select>
-            <button class="small-btn" id="brainCreate" type="button" style="margin-top:8px">🧠 Create Mini Brain</button>
-          </div>
-          <div id="suggest" hidden>
-            <div class="section-label" style="margin:4px 0 6px">Found in this chat. Tick what is right:</div>
-            <ul class="facts suggest-list" id="suggestList"></ul>
-            <button class="small-btn" id="saveFacts" type="button" style="margin-top:8px">✓ Save ticked facts</button>
-          </div>
-          <p class="muted" id="brainNote"></p>
-        </section>
-        <div>
-          <div class="section-label">What do you want to do?</div>
-          <div class="choices" id="goals">
-            <button class="chip" type="button" data-goal="reply" aria-pressed="true">💬 Reply naturally</button>
-            <button class="chip" type="button" data-goal="pitch" aria-pressed="false">✨ Suggest artwork</button>
-            <button class="chip" type="button" data-goal="close" aria-pressed="false">🎯 Move toward sale</button>
+      <div class="wrap" style="padding:0">
+        <div class="card" id="profileCard">
+          <div class="profile">
+            <div class="avatar" id="pAvatar" aria-hidden="true">?</div>
+            <div class="pmain">
+              <div class="pname"><span id="pName">Open a customer chat</span><span class="app-badge" id="pApp" hidden></span></div>
+              <div class="psub" id="pSub">Then click Suggest Reply. I read only what is on screen.</div>
+              <div class="chips" id="pChips"></div>
+              <div class="prow" id="pRow" hidden>
+                <select class="stage" id="pStage" aria-label="Sales stage"></select>
+                <button class="link-btn" id="viewProfile" type="button">View Profile →</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div>
-          <div class="section-label">How should it sound?</div>
-          <div class="choices" id="tones">
-            <button class="chip" type="button" data-tone="match" aria-pressed="true">Like this client</button>
-            <button class="chip" type="button" data-tone="friendly" aria-pressed="false">Friendly</button>
-            <button class="chip" type="button" data-tone="professional" aria-pressed="false">Professional</button>
-          </div>
+
+        <div class="tabs" role="tablist" aria-label="Views">
+          <button class="tab" role="tab" type="button" data-tab="reply" aria-selected="true" aria-controls="tabReply">✦ AI Reply</button>
+          <button class="tab" role="tab" type="button" data-tab="brain" aria-selected="false" aria-controls="tabBrain">🧠 Client Brain</button>
+          <button class="tab" role="tab" type="button" data-tab="history" aria-selected="false" aria-controls="tabHistory">🕘 History</button>
+          <button class="tab" role="tab" type="button" data-tab="ideas" aria-selected="false" aria-controls="tabIdeas">🖼 Artwork Ideas</button>
         </div>
-        <button class="generate" id="go" type="button">✦ Suggest Reply →</button>
-        <div class="hint">One click · Uses the conversation on screen</div>
-        <p class="status" id="status" role="status"></p>
-        <div class="result" id="result" hidden>
-          <div class="result-head"><b>✦ Your suggested reply</b><span>READY TO EDIT</span></div>
-          <div class="reply" id="replyText"></div>
-          <div class="result-actions">
-            <button class="act primary" id="copy" type="button">Copy reply ⧉</button>
-            <button class="act" id="again" type="button">↻ Try another</button>
+
+        <div id="tabReply" role="tabpanel" class="wrap" style="padding:0">
+          <div class="card" id="latestCard" hidden>
+            <div class="label">Latest message</div>
+            <div class="latest"><div class="avatar" id="lAvatar" aria-hidden="true">?</div><div><div class="bubble" id="lText"></div><p class="muted" id="contextSub" style="margin-top:5px">Only what is on screen; nothing is stored</p></div></div>
           </div>
+
+          <button class="btn" id="go" type="button" data-goal="reply">✦ Suggest Reply →</button>
+          <p class="status" id="status" role="status"></p>
+
+          <div class="card reply-card" id="result" hidden>
+            <div class="rhead"><span class="spark" aria-hidden="true">✦</span><b>Suggested Reply</b><span class="badge" id="personal" hidden>● Personalized</span>
+              <button class="regen" id="again" type="button">↻ Regenerate</button></div>
+            <div class="reply-box"><span id="replyText"></span><button class="copy-mini" id="copyMini" type="button" aria-label="Copy reply">⧉</button></div>
+            <div class="variants" id="variants" hidden></div>
+            <div class="tones" id="tones" aria-label="How should it sound?">
+              <button class="chip" type="button" data-tone="match" aria-pressed="true">💬 Casual</button>
+              <button class="chip" type="button" data-tone="friendly" aria-pressed="false">☺ Friendly</button>
+              <button class="chip" type="button" data-tone="professional" aria-pressed="false">💼 Professional</button>
+            </div>
+            <button class="btn" id="copy" type="button">⧉ Copy Reply</button>
+            <button class="why-btn" id="whyToggle" type="button">⌄ Why did AI suggest this?</button>
+            <div class="why" id="why" hidden></div>
+          </div>
+
+          <div class="opts-title">More options</div>
+          <div class="opts" id="goals">
+            <button class="opt" type="button" data-goal="variations"><i aria-hidden="true">💡</i><span><b>More Replies</b><small>3 variations</small></span></button>
+            <button class="opt" type="button" data-goal="pitch"><i aria-hidden="true">🖼</i><span><b>Suggest Artwork</b><small>Pitch in the chat</small></span></button>
+            <button class="opt" type="button" data-goal="question"><i aria-hidden="true">🎯</i><span><b>Next Question</b><small>Keep conversation</small></span></button>
+            <button class="opt" type="button" data-goal="close"><i aria-hidden="true">⚡</i><span><b>Move to Sale</b><small>Next step, no promises</small></span></button>
+          </div>
+          <p class="footer-note">🔒 <b>You stay in control.</b> Replies are never sent automatically. Copy, paste it into the chat, check prices, dates and promises, then send it yourself.</p>
         </div>
-        <button class="link" id="whyToggle" type="button" hidden>⌄ Why did AI suggest this?</button>
-        <div class="why" id="why" hidden></div>
-        <p class="footer-note">🔒 <b>You stay in control.</b> Replies are never sent automatically. Copy, paste it into the chat, check prices, dates and promises, then send it yourself.</p>
-        <div class="row"><button class="link" id="editStaff" type="button">Change staff names</button><button class="link" id="logout" type="button">Sign out</button></div>
+
+        <div id="tabBrain" role="tabpanel" hidden>
+          <section class="card" id="brain" aria-live="polite">
+            <div class="sec" id="brainTitle">Client Brain</div>
+            <p class="muted" id="brainSub" style="margin:-4px 0 10px">Click Suggest Reply on a customer chat to load their Mini Brain.</p>
+            <ul class="facts" id="facts"></ul>
+            <div id="brainNew" hidden>
+              <p class="muted" style="margin-bottom:8px">No Mini Brain for this customer yet. Create one to remember what they like across chats and employees.</p>
+              <select id="brainDept" hidden aria-label="Client's department"></select>
+              <button class="small-btn" id="brainCreate" type="button" style="margin-top:8px">🧠 Create Mini Brain</button>
+            </div>
+            <div id="suggest" hidden>
+              <div class="sec" style="margin-top:14px">Found in this chat. Tick what is right:</div>
+              <ul class="facts suggest-list" id="suggestList"></ul>
+              <button class="small-btn" id="saveFacts" type="button" style="margin-top:8px">✓ Save ticked facts</button>
+            </div>
+            <form id="addFact" hidden style="margin-top:14px">
+              <div class="sec">Add what you know</div>
+              <div class="addrow">
+                <select id="addCat" aria-label="Kind of fact"></select>
+                <input id="addText" aria-label="Fact" placeholder="e.g. Client type: Streamer, or Calm, likes details">
+              </div>
+              <button class="small-btn" type="submit" style="margin-top:8px">＋ Add fact</button>
+            </form>
+            <p class="muted" id="brainNote" style="margin-top:10px"></p>
+          </section>
+        </div>
+
+        <div id="tabHistory" role="tabpanel" hidden>
+          <section class="card">
+            <div class="sec">History of this Mini Brain</div>
+            <ul class="facts hist" id="history"></ul>
+            <p class="muted" id="historyNote">Saved and changed facts show here, newest first.</p>
+          </section>
+        </div>
+
+        <div id="tabIdeas" role="tabpanel" hidden>
+          <section class="card" style="display:flex;flex-direction:column;gap:8px">
+            <div class="sec">Artwork ideas for this client</div>
+            <p class="muted">Based on this chat and their Mini Brain. Ideas for you; nothing is sent.</p>
+            <button class="btn" id="getIdeas" type="button">✦ Get 3 artwork ideas</button>
+            <div id="ideas" style="display:flex;flex-direction:column;gap:8px"></div>
+            <p class="status" id="ideasStatus" role="status"></p>
+          </section>
+        </div>
       </div>
     </section>
     <p class="status" id="authStatus" role="status"></p>

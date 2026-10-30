@@ -98,3 +98,10 @@ test('draft is cleaned of quote markers, wrapping quotes, a "Staff:" label and e
     assert.equal(out.draft,clean);
   }
 });
+
+test('the client\'s confirmed facts reach the question; the result returns the latest customer message',async()=>{
+  const ask=fakeAsk('ok bet');
+  const out=await draftFromChat({messages:chat,staffNames:'Sara | Quixotic',ask,clientFacts:[{category:'game',statement:'Mentioned Valorant'}]});
+  assert.match(ask.calls[0],/- Games: Mentioned Valorant/);
+  assert.equal(out.latest.content,'twitch size, budget $70 rn');
+});

@@ -16,7 +16,7 @@
   globalThis.quixoticReadChat=function(doc){
     const list=doc.querySelector(LIST);
     if(!list) return [];
-    let author='',authorId='',isBot=false;
+    let author='',authorId='',authorAvatar='',isBot=false;
     return [...list.querySelectorAll(ITEM)].map(li=>{
       const id=li.id.split('-').pop();
       const name=li.querySelector(`#message-username-${id} [class*="username"]`);
@@ -24,10 +24,11 @@
         author=name.textContent.trim();
         isBot=Boolean(li.querySelector('h3 [class*="botTag"]'));
         // Avatar link holds the user id (cdn.discordapp.com/avatars/<id>/...); default avatars have none.
-        authorId=(li.querySelector('img[class*="avatar"]')?.getAttribute('src')||'').match(/\/avatars\/(\d+)\//)?.[1]||'';
+        authorAvatar=li.querySelector('img[class*="avatar"]')?.getAttribute('src')||'';
+        authorId=authorAvatar.match(/\/avatars\/(\d+)\//)?.[1]||'';
       }
       // Match the content by this message's own id, so a reply's quoted preview is never read as its text.
-      return {id,author,authorId,isBot,content:textOf(li.querySelector(`#message-content-${id}:not([class*="replied"])`))};
+      return {id,author,authorId,authorAvatar,isBot,content:textOf(li.querySelector(`#message-content-${id}:not([class*="replied"])`))};
     });
   };
 })();
