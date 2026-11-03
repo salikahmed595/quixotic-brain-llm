@@ -15,7 +15,9 @@ const GOALS={
   ideas:'Suggest 3 artwork ideas for this customer (what to make and the look), each one short line. This is a list for staff, not a chat message.'
 };
 // Output format per goal: lists for the "More options" cards, otherwise one message.
-const OUTPUT={variations:'Give the 3 replies numbered 1. 2. 3., one per line, only the message text.',
+// Prompt pack §12 step 6: one recommended reply plus a shorter and a warmer alternative, from a single call.
+const THREE='Give 3 versions numbered 1. 2. 3., one per line, only the message text: 1. the best reply, 2. a shorter one, 3. a warmer one.';
+const OUTPUT={reply:THREE,answer_only:THREE,variations:'Give the 3 replies numbered 1. 2. 3., one per line, only the message text.',
   ideas:'Give the 3 ideas numbered 1. 2. 3., one per line.'};
 const TONES={
   match:"Match the customer's language, tone and slang so it reads natural and human.",

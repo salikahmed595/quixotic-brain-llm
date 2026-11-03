@@ -4,6 +4,11 @@ import {buildConversationQuestion} from './conversation.js';
 import {validateDraft} from './guard.js';
 import {gateFor} from './gate.js';
 import {stageOf} from './stage.js';
+import {evidenceFor} from './evidence.js';
+import {parseOptions} from './options.js';
+
+const THREE_WAY=new Set(['reply','answer_only']);
+const ALT_LABELS=['Short','Warm'];
 
 // Models sometimes wrap the reply as a quote or label it; employees should get text they can paste as is.
 export function cleanDraft(text){
@@ -29,8 +34,13 @@ export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clien
   if(gate.status==='HUMAN_HANDOFF')
     return {...base,ok:true,status:'HUMAN_HANDOFF',draft:gate.reply,text:gate.reply,evidence:gate.evidence,reason:gate.reason};
   const res=await ask(buildConversationQuestion(chat,target.id,{goal:answerOnly?'answer_only':goal,tone,app,clientFacts,style,previous,stage:base.stage.stage}));
-  const draft=cleanDraft(res.answer).replace(/@everyone|@here/g,'[mention removed]');
+  const clean=t=>cleanDraft(t).replace(/@everyone|@here/g,'[mention removed]');
+  const many=THREE_WAY.has(answerOnly?'answer_only':goal||'reply');
+  const [first,...rest]=many?parseOptions(res.answer).map(clean):[clean(res.answer)];
+  const draft=first;
   const check=validateDraft(draft);
   if(!check.ok) return {ok:false,text:`Draft blocked for review: ${check.reason}`};
-  return {...base,ok:true,status:'SUGGEST',draft,confidence:res.confidence,text:draft};
+  // Prompt pack §12/§21: Short and Warm alternatives; one that fails the guard is dropped, never shown.
+  const alternatives=rest.slice(0,2).map((text,i)=>({label:ALT_LABELS[i],text})).filter(a=>a.text&&validateDraft(a.text).ok);
+  return {...base,ok:true,status:'SUGGEST',draft,alternatives,evidence:evidenceFor(chat,target,draft),confidence:res.confidence,text:draft};
 }

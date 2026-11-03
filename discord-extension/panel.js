@@ -251,6 +251,15 @@ function showReply(text){
   const terms=[...profileOf(confirmed()).tags,...confirmed().filter(f=>f.category==='art_preference').map(f=>f.value)].filter(Boolean);
   $('replyText').replaceChildren(...highlightParts(text,terms).map(p=>p.hit?el('mark',{textContent:p.text}):document.createTextNode(p.text)));
 }
+// Prompt pack §12/§27: recommended reply plus Short and Warm options; "Use" swaps which one is in the reply box.
+function showOptions(options,current){
+  showReply(current.text);
+  const rest=options.filter(o=>o!==current);
+  $('variants').hidden=!rest.length;
+  $('variants').replaceChildren(...rest.map(o=>{const b=el('button',{type:'button',textContent:'Use'});
+    b.addEventListener('click',()=>showOptions(options,o));
+    return el('div',{className:'variant'},el('small',{className:'vlabel',textContent:o.label}),el('span',{textContent:o.text}),b);}));
+}
 function copyText(t,msg='Copied! Paste it into the chat, check it, then send.'){
   navigator.clipboard.writeText(t).then(()=>toast(msg),()=>toast('Select the text and copy it with Ctrl+C.'));
 }
@@ -273,15 +282,17 @@ async function suggest(goal='reply'){
     if(out.latest) showUnderstood(out);
     if(out.status==='NO_REPLY'){$('result').hidden=true;return;}
     if(!out.ok){status(out.text);$('result').hidden=true;return;}
-    const options=goal==='variations'?parseOptions(out.draft):[out.draft];
-    showReply(options[0]);
-    $('variants').hidden=options.length<2;
-    $('variants').replaceChildren(...options.slice(1).map(o=>{const b=el('button',{type:'button',textContent:'Use'});
-      b.addEventListener('click',()=>showReply(o));return el('div',{className:'variant'},el('span',{textContent:o}),b);}));
+    const options=goal==='variations'?parseOptions(out.draft).map((text,i)=>({label:`Option ${i+1}`,text})):
+      [{label:'Recommended',text:out.draft},...(out.alternatives||[])];
+    showOptions(options,options[0]);
     $('personal').hidden=!confirmed().length;
     $('result').hidden=false;
-    $('why').textContent=`Based on the last ${out.messagesRead} messages on screen`+(confirmed().length?`, ${confirmed().length} confirmed facts from the Mini Brain`:'')+
-      ` and Quixotic AI's approved company knowledge. Confidence: ${out.confidence??'unknown'}.`;
+    // Prompt pack §20/§21: what the reply is based on, quoting the evidence messages; confidence is the model's guess, not proof.
+    const said=(out.evidence||[]).map(id=>out.chat.find(m=>m.id===id)).filter(Boolean);
+    $('why').replaceChildren(
+      el('p',{textContent:`${out.stage?out.stage.next+' ':''}Based on the last ${out.messagesRead} messages on screen`+(confirmed().length?`, ${confirmed().length} confirmed facts from the Mini Brain`:'')+
+        ` and Quixotic AI's approved company knowledge. AI confidence (a guess, not proof): ${out.confidence??'unknown'}.`}),
+      ...(said.length?[el('b',{textContent:'Evidence from the chat'}),el('ul',{},...said.map(m=>el('li',{textContent:`"${m.content}"`})))]:[]));
     $('result').scrollIntoView({block:'nearest',behavior:'smooth'});
   }catch(e){
     if(/sign in/i.test(e.message)) await endSession(e.message);
