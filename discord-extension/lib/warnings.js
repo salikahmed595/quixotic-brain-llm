@@ -13,19 +13,28 @@ const questions=s=>String(s).split(/(?<=\?)/).filter(q=>q.includes('?')).map(wor
 const similar=(a,b)=>{const A=new Set(a),B=new Set(b),both=[...A].filter(x=>B.has(x)).length;return both/Math.max(new Set([...A,...B]).size,1)>=0.6;};
 const norm=s=>s.toLowerCase().replace(/\s+/g,'');
 
+const customerText=messages=>messages.filter(m=>!m.isBot&&!m.isStaff).map(m=>String(m.content||'')).join('\n');
+const staffTexts=messages=>messages.filter(m=>m.isStaff).map(m=>String(m.content||''));
+
+// Money amounts and payment terms in the draft that appear nowhere in the chat or the Mini Brain (also used by verify.js).
+export function unsupportedTerms({messages,draft,facts=[]}){
+  const known=norm(customerText(messages)+'\n'+staffTexts(messages).join('\n')+'\n'+facts.map(f=>`${f.statement} ${f.value||''}`).join('\n'));
+  return [...[...String(draft).matchAll(MONEY)],...[...String(draft).matchAll(TERMS)]].map(m=>m[0]).filter(t=>!known.includes(norm(t)));
+}
+export function repeatsQuestion({messages,draft}){
+  const asked=staffTexts(messages).flatMap(questions);
+  return questions(draft).some(q=>asked.some(a=>similar(q,a)));
+}
+
 export function warningsFor({messages,draft,facts=[]}){
-  const customer=messages.filter(m=>!m.isBot&&!m.isStaff).map(m=>String(m.content||'')).join('\n');
-  const staff=messages.filter(m=>m.isStaff).map(m=>String(m.content||''));
-  const known=norm(customer+'\n'+staff.join('\n')+'\n'+facts.map(f=>`${f.statement} ${f.value||''}`).join('\n'));
+  const customer=customerText(messages);
   const out=[];
   if(FINANCIAL.test(customer)) out.push({kind:'financial',text:'Money concern: reassure, no pressure, no payment talk.'});
   if(REFUSAL.test(customer)) out.push({kind:'refusal',text:'They said no: respect it and stop pitching.'});
-  const money=[...String(draft).matchAll(MONEY)].map(m=>m[0]).filter(m=>!known.includes(norm(m)));
-  const terms=[...String(draft).matchAll(TERMS)].map(m=>m[0]).filter(t=>!known.includes(norm(t)));
-  if(money.length||terms.length) out.push({kind:'price',text:`Check with the owner before sending: ${[...money,...terms].join(', ')} is not in the chat or Mini Brain.`});
+  const terms=unsupportedTerms({messages,draft,facts});
+  if(terms.length) out.push({kind:'price',text:`Check with the owner before sending: ${terms.join(', ')} is not in the chat or Mini Brain.`});
   if(PAYMENT.test(draft)) out.push({kind:'payment',text:'Says payment arrived: only send if the payment is verified.'});
   if(DEADLINE.test(draft)) out.push({kind:'deadline',text:'Promises a time: only send if the owner confirmed it.'});
-  const asked=staff.flatMap(questions);
-  if(questions(draft).some(q=>asked.some(a=>similar(q,a)))) out.push({kind:'repeat',text:'This question was already asked in the chat.'});
+  if(repeatsQuestion({messages,draft})) out.push({kind:'repeat',text:'This question was already asked in the chat.'});
   return out;
 }

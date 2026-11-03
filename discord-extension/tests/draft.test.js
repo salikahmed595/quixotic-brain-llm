@@ -92,7 +92,7 @@ test('draft is cleaned of quote markers, wrapping quotes, a "Staff:" label and e
   for(const [raw,clean] of [
     ['>> Hey Cinnamon Angel — thanks for accepting!','Hey Cinnamon Angel, thanks for accepting!'],
     ['"yo whats up"','yo whats up'],
-    ['Staff: sure thing – what size?','sure thing, what size?'],
+    ['Staff: sure thing – which game is it for?','sure thing, which game is it for?'],
   ]){
     const out=await draftFromChat({messages:chat,staffNames:'Sara | Quixotic',ask:fakeAsk(raw)});
     assert.equal(out.draft,clean);

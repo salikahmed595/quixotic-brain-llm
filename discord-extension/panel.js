@@ -292,6 +292,7 @@ async function suggest(goal='reply'){
     $('why').replaceChildren(
       el('p',{textContent:`${out.stage?out.stage.next+' ':''}Based on the last ${out.messagesRead} messages on screen`+(confirmed().length?`, ${confirmed().length} confirmed facts from the Mini Brain`:'')+
         ` and Quixotic AI's approved company knowledge. AI confidence (a guess, not proof): ${out.confidence??'unknown'}.`}),
+      el('p',{textContent:out.check?`Checked in code: no stock AI phrases, links, fake viewer or gamer claims, extra questions, made-up prices, repeated questions or unasked pitches${out.check.revised?' (the first try failed, so it was rewritten once)':''}.`:''}),
       ...(said.length?[el('b',{textContent:'Evidence from the chat'}),el('ul',{},...said.map(m=>el('li',{textContent:`"${m.content}"`})))]:[]));
     $('result').scrollIntoView({block:'nearest',behavior:'smooth'});
   }catch(e){

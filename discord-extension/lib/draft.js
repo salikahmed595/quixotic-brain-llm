@@ -6,6 +6,7 @@ import {gateFor} from './gate.js';
 import {stageOf} from './stage.js';
 import {evidenceFor} from './evidence.js';
 import {parseOptions} from './options.js';
+import {verifyReply} from './verify.js';
 
 const THREE_WAY=new Set(['reply','answer_only']);
 const ALT_LABELS=['Short','Warm'];
@@ -33,14 +34,28 @@ export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clien
     return {...base,ok:false,status:'NO_REPLY',draft:null,evidence:gate.evidence,text:`No sales reply: the customer opted out. ${gate.reason}`};
   if(gate.status==='HUMAN_HANDOFF')
     return {...base,ok:true,status:'HUMAN_HANDOFF',draft:gate.reply,text:gate.reply,evidence:gate.evidence,reason:gate.reason};
-  const res=await ask(buildConversationQuestion(chat,target.id,{goal:answerOnly?'answer_only':goal,tone,app,clientFacts,style,previous,stage:base.stage.stage}));
+  const g=answerOnly?'answer_only':goal||'reply';
+  const opts={goal:g,tone,app,clientFacts,style,previous,stage:base.stage.stage};
   const clean=t=>cleanDraft(t).replace(/@everyone|@here/g,'[mention removed]');
-  const many=THREE_WAY.has(answerOnly?'answer_only':goal||'reply');
-  const [first,...rest]=many?parseOptions(res.answer).map(clean):[clean(res.answer)];
-  const draft=first;
-  const check=validateDraft(draft);
-  if(!check.ok) return {ok:false,text:`Draft blocked for review: ${check.reason}`};
-  // Prompt pack §12/§21: Short and Warm alternatives; one that fails the guard is dropped, never shown.
-  const alternatives=rest.slice(0,2).map((text,i)=>({label:ALT_LABELS[i],text})).filter(a=>a.text&&validateDraft(a.text).ok);
-  return {...base,ok:true,status:'SUGGEST',draft,alternatives,evidence:evidenceFor(chat,target,draft),confidence:res.confidence,text:draft};
+  const split=answer=>THREE_WAY.has(g)?parseOptions(answer).map(clean):[clean(answer)];
+  // Prompt pack §19: checked in code; ideas are a staff-only list, not a chat message, so they are not checked.
+  const verify=t=>g==='ideas'?{verdict:'PASS',violations:[]}:verifyReply(t,{chat,stage:base.stage.stage,facts:clientFacts,noSales:answerOnly});
+  let res=await ask(buildConversationQuestion(chat,target.id,opts));
+  let [draft,...rest]=split(res.answer);
+  if(!validateDraft(draft).ok) return {ok:false,text:`Draft blocked for review: ${validateDraft(draft).reason}`};
+  let check=verify(draft),revised=false;
+  if(check.verdict!=='PASS'){
+    // One rewrite that names what failed (§26 orchestrator); if it fails again the employee writes it themselves.
+    res=await ask(buildConversationQuestion(chat,target.id,{...opts,fix:check.violations.map(v=>v.text)}));
+    [draft,...rest]=split(res.answer);revised=true;
+    if(!validateDraft(draft).ok) return {ok:false,text:`Draft blocked for review: ${validateDraft(draft).reason}`};
+    check=verify(draft);
+    if(check.verdict!=='PASS') return {...base,ok:false,status:'NEED_CONTEXT',draft:null,
+      text:`No suggestion passed the checks (${check.violations.map(v=>v.text).join(' ')}) Please write it yourself.`};
+  }
+  // Prompt pack §12/§21: Short and Warm alternatives; one that fails the guard or the checker is dropped, never shown.
+  const alternatives=rest.slice(0,2).map((text,i)=>({label:ALT_LABELS[i],text}))
+    .filter(a=>a.text&&validateDraft(a.text).ok&&verify(a.text).verdict==='PASS');
+  return {...base,ok:true,status:'SUGGEST',draft,alternatives,evidence:evidenceFor(chat,target,draft),
+    check:{verdict:'PASS',revised},confidence:res.confidence,text:draft};
 }
