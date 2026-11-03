@@ -12,6 +12,7 @@ import {profileOf,STAGES,stagePayload,noteFact} from './lib/profile.js';
 import {highlightParts} from './lib/highlight.js';
 import {parseOptions} from './lib/options.js';
 import {warningsFor} from './lib/warnings.js';
+import {STAGES as CONV_STAGES,INTENTS} from './lib/stage.js';
 
 const $=id=>document.getElementById(id);
 const el=(tag,props={},...kids)=>{const n=Object.assign(document.createElement(tag),props);n.append(...kids);return n;};
@@ -269,10 +270,9 @@ async function suggest(goal='reply'){
   try{
     const out=await generate(goal);
     showGate(out);
+    if(out.latest) showUnderstood(out);
     if(out.status==='NO_REPLY'){$('result').hidden=true;return;}
     if(!out.ok){status(out.text);$('result').hidden=true;return;}
-    $('latestCard').hidden=false;setAvatar($('lAvatar'),brain.customer);$('lText').textContent=out.latest?.content||'';
-    $('contextSub').textContent=`${out.messagesRead} messages read · only what is on screen; nothing is stored`;
     const options=goal==='variations'?parseOptions(out.draft):[out.draft];
     showReply(options[0]);
     $('variants').hidden=options.length<2;
@@ -287,6 +287,17 @@ async function suggest(goal='reply'){
     if(/sign in/i.test(e.message)) await endSession(e.message);
     status(e.message);
   }finally{busy.disabled=false;busy.textContent='✦ Suggest Reply →';}
+}
+// Prompt pack §27: what the assistant understood, so the employee can see why the reply fits.
+function showUnderstood(out){
+  $('latestCard').hidden=false;setAvatar($('lAvatar'),brain.customer);$('lText').textContent=out.latest.content||'';
+  $('contextSub').textContent=`${out.messagesRead} messages read · only what is on screen; nothing is stored`;
+  const st=out.stage,closed=st.stage==='CLOSED';
+  const rows=[['Chat stage',CONV_STAGES[st.stage].label],['They want',INTENTS[st.intent]||st.intent],
+    ['History','Partial: only the messages on screen'],
+    ['Boundaries',closed?'Opted out: no sales':'No opt-out in the messages on screen'],['Next step',st.next]];
+  $('convMeta').replaceChildren(...rows.flatMap(([k,v])=>[el('dt',{textContent:k}),el('dd',{textContent:v,className:closed&&k!=='History'?'stop':''})]));
+  $('convMeta').hidden=false;
 }
 // Prompt pack §7/§17: the gate result is shown to the employee; NO_REPLY gives no text to send.
 function showGate(out){

@@ -80,6 +80,8 @@
     .variant span{flex:1;overflow-wrap:anywhere}.variant button{border:0;background:var(--o2);color:#c04f16;border-radius:8px;font-size:11px;font-weight:800;padding:5px 8px}
     .warns{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
     .warns li{background:#fff7e6;border:1px solid #ffe0a3;color:#8a5300;border-radius:10px;padding:7px 10px;font-size:11.5px;line-height:1.45}
+    .meta{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:10px 0 0;font-size:11.5px}
+    .meta dt{color:#8a8a8a;font-weight:600}.meta dd{margin:0;color:#222}.meta dd.stop{color:#b23c00;font-weight:700}
     .gate{background:#fff1ec;border:1px solid #ffc9b3;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.45}
     .gate b{display:block;color:#b23c00;margin-bottom:3px}.gate p{margin:0 0 6px}
     .warns li:before{content:'⚠ ';font-weight:800}
@@ -186,6 +188,7 @@
           <div class="card" id="latestCard" hidden>
             <div class="label">Latest message</div>
             <div class="latest"><div class="avatar" id="lAvatar" aria-hidden="true">?</div><div><div class="bubble" id="lText"></div><p class="muted" id="contextSub" style="margin-top:5px">Only what is on screen; nothing is stored</p></div></div>
+            <dl class="meta" id="convMeta" hidden aria-label="What the assistant understood"></dl>
           </div>
 
           <button class="btn" id="go" type="button" data-goal="reply">✦ Suggest Reply →</button>
