@@ -33,7 +33,7 @@ export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clien
   if(gate.status==='NO_REPLY'&&!answerOnly)
     return {...base,ok:false,status:'NO_REPLY',draft:null,evidence:gate.evidence,text:`No sales reply: the customer opted out. ${gate.reason}`};
   if(gate.status==='HUMAN_HANDOFF')
-    return {...base,ok:true,status:'HUMAN_HANDOFF',draft:gate.reply,text:gate.reply,evidence:gate.evidence,reason:gate.reason};
+    return {...base,ok:true,status:'HUMAN_HANDOFF',kind:gate.kind,draft:gate.reply,text:gate.reply,evidence:gate.evidence,reason:gate.reason};
   const g=answerOnly?'answer_only':goal||'reply';
   const opts={goal:g,tone,app,clientFacts,style,previous,stage:base.stage.stage,role};
   const clean=t=>cleanDraft(t).replace(/@everyone|@here/g,'[mention removed]');

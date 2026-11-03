@@ -325,7 +325,7 @@ function showGate(out){
   const gate=out.status==='NO_REPLY'||out.status==='HUMAN_HANDOFF';
   $('gateCard').hidden=!gate;$('answerOnly').hidden=out.status!=='NO_REPLY';
   if(!gate) return;
-  $('gateTitle').textContent=out.status==='NO_REPLY'?'No sales reply: the customer opted out':'Hand off to the team: the customer wants to pay';
+  $('gateTitle').textContent=out.status==='NO_REPLY'?'No sales reply: the customer opted out':out.kind==='privacy'?'Hand off to the team: data or privacy request':'Hand off to the team: the customer wants to pay';
   $('gateText').textContent=(out.status==='NO_REPLY'?'Respect it: no pitch and no follow-up.':out.reason);
   const said=out.chat?.find(m=>m.id===out.evidence?.[0]);
   if(said) $('gateText').textContent+=` They said: "${said.content}"`;

@@ -39,7 +39,7 @@ export function stageOf(chat){
   const pack=(stage,intent,evidence=latest?[latest.id]:[])=>({stage,intent,evidence,next:STAGES[stage].next});
   const gate=gateFor(chat);
   if(gate.status==='NO_REPLY') return pack('CLOSED','customer_declines',gate.evidence);
-  if(gate.status==='HUMAN_HANDOFF') return pack('READY','wants_payment_link',gate.evidence);
+  if(gate.status==='HUMAN_HANDOFF') return gate.kind==='privacy'?pack('SUPPORT','needs_support',gate.evidence):pack('READY','wants_payment_link',gate.evidence);
   const hit=RULES.find(([,,re])=>re.test(text(latest)));
   if(hit) return pack(hit[0],hit[1]);
   return pack(chat.some(m=>m.isStaff)?'RAPPORT':'DISCOVERY','casual_chat');

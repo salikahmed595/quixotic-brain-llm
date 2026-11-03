@@ -8,6 +8,11 @@ const FAKE=/\bi (?:saw|watched|caught) (?:your|ur) stream|\bbeen watching (?:you
 const ART=/\bcommissions?\b|\bemotes?\b|\bbanners?\b|\boverlays?\b|\bartwork\b|\b(?:our|my) (?:art|work|projects?|portfolio)\b|\bcustom (?:art|emotes?|designs?)\b|\billustrations?\b|\blogos?\b|\bvtuber model\b/i;
 const LONG_OK=new Set(['SCOPING','OBJECTION','SUPPORT','READY']);   // owner: explain properly for prices, concerns, terms
 const NO_PITCH=new Set(['DISCOVERY','RAPPORT']);
+const THEIRS=/\b(?:your|ur) budget\b|\byou (?:mentioned|said)\b|\bbudget of\b/i;
+const SECRET=/\bpasswords?\b|\bapi[- ]?keys?\b|\btokens?\b|\bdatabase\b|\bsystem prompt\b|\binternal (?:notes?|prompts?|instructions)\b/i;
+const OWN_ARTIST=/\b(?:my|a) (?:friend|artist|bf|gf|sister|brother|cousin|partner)\b[^.?!]{0,30}\b(?:makes?|draws?|did|does|made)\b|\bi (?:already )?have an artist\b/i;
+const PUT_DOWN=/\bbetter than\b|\bcheaper than\b|\binstead of\b|\breplace\b/i;
+const OFFER=/\bwe (?:can|could) (?:make|do|draw)\b|\bi (?:can|could) (?:make|draw)\b|\bquote\b|\bwanna see\b|\bcommission\b/i;
 const BUDGET_OK=new Set(['SCOPING','INTEREST','OBJECTION','READY']);
 const UPSELL=/\b(?:also|btw|another|more|add(?:-on)?|upgrade|new) (?:\w+ )?(?:emotes?|banners?|overlays?|art|commissions?|pack|set|designs?)\b|\bdiscount\b|\bwanna see\b|\bportfolio\b|\bour (?:other|new) \w+/i;
 
@@ -26,12 +31,19 @@ export function verifyReply(draft,{chat=[],stage=null,facts=[],noSales=false,rol
   if(words>(LONG_OK.has(stage)?110:65)) add('length',`Too long (${words} words).`);
   const terms=unsupportedTerms({messages:chat,draft:d,facts});
   if(terms.length) add('grounding',`Mentions ${terms.join(', ')}, which is not in the chat or Mini Brain.`);
+  // Scenario 7: an amount only the customer typed is not our approved price; it may be repeated only as their budget.
+  const customerOnly=unsupportedTerms({messages:chat.filter(m=>m.isStaff),draft:d,facts}).filter(t=>/\d/.test(t)&&!terms.includes(t));
+  if(customerOnly.length&&!THEIRS.test(d)) add('grounding',`States ${customerOnly.join(', ')} as our price, but only the customer said it.`);
+  if(SECRET.test(d)) add('secret','Mentions passwords, keys, tokens, databases or internal prompts.');
   if(repeatsQuestion({messages:chat,draft:d})) add('repeat','Repeats a question already asked in the chat.');
   const customerRaisedArt=chat.some(m=>!m.isBot&&!m.isStaff&&ART.test(text(m)));
   if(noSales&&ART.test(d)) add('pitch','Mentions art in a no-sales reply.');
   else if(NO_PITCH.has(stage)&&!customerRaisedArt&&ART.test(d)) add('pitch','Brings up art before the customer did.');
   // Seller role (pack §14 Fresh seller, §10/§15 support before any sale).
-  if(role==='support'&&UPSELL.test(d)) add('upsell','Sells something during a support chat; fix their issue first.');
+  if((role==='support'||stage==='SUPPORT')&&UPSELL.test(d)) add('upsell','Sells something during a support chat; fix their issue first.');
+  // Scenario 16: respect an existing artist; no put-downs and no replacement pitch.
+  if(chat.some(m=>!m.isBot&&!m.isStaff&&OWN_ARTIST.test(text(m)))&&(PUT_DOWN.test(d)||OFFER.test(d)))
+    add('respect','Pitches against the artist they already have.');
   const customerMentionedBudget=chat.some(m=>!m.isBot&&!m.isStaff&&/\bbudget\b|\$\s?\d|\bhow much\b|\bprice\b/i.test(text(m)));
   if(role==='fresh'&&!BUDGET_OK.has(stage)&&!customerMentionedBudget&&/\bbudget\b[^.!]*\?/i.test(d)) add('budget','Asks for a budget before there is a project to price.');
   return {verdict:v.length?'REVISE':'PASS',violations:v};

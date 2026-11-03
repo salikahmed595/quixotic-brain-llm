@@ -35,7 +35,10 @@ const STYLE='Write it like a real person texting a friend: usually 1-3 short sen
   'Never claim you watched their stream or played a game unless the chat says so. '+
   "If they say they can't afford it or spent too much, reassure them with no pressure and no payment talk. "+
   'If they ask whether you are selling, be honest and relaxed. Interest in an idea is not a purchase. '+
-  'Never invent prices, discounts, deposits, payment terms or deadlines.';
+  'Never invent prices, discounts, deposits, payment terms or deadlines. '+
+  // Prompt pack §25 scenarios 2 and 11.
+  'If the customer changed a detail, the newest message wins. '+
+  'Never confirm we offer a product, sample or turnaround unless the chat or confirmed facts show it; say you will check with the team.';
 // Seller role, picked by the employee, never guessed (owner prompt pack 2026-11-03, §14, §15, §28).
 export const ROLES={
   fresh:'You are the first seller talking to this person: understand them and build rapport before any offer, and ask about a budget only once there is a real project to price.',
@@ -72,13 +75,22 @@ export function buildConversationQuestion(messages,targetId,{goal='reply',tone='
     .sort((a,b)=>(BigInt(a.id)<BigInt(b.id)?-1:1));
   const target=chat.at(-1);
   if(!target||target.id!==String(targetId)) return null;
-  let budget=MAX_QUESTION_CHARS-HEADER.length;
-  const kept=[line(target).slice(0,budget)];
-  budget-=kept[0].length;
-  for(let i=chat.length-2;i>=0;i--){
-    const l=line(chat[i]);
-    if(l.length+1>budget) break;
-    kept.unshift(l);budget-=l.length+1;
-  }
-  return HEADER+kept.join('\n');
+  const fit=(budget,skip=new Set())=>{
+    const kept=[line(target).slice(0,budget)];let left=budget-kept[0].length,from=chat.length-1;
+    for(let i=chat.length-2;i>=0;i--){
+      if(skip.has(chat[i])) continue;
+      const l=line(chat[i]);
+      if(l.length+1>left) break;
+      kept.unshift(l);left-=l.length+1;from=i;
+    }
+    return {kept,from};
+  };
+  let {kept,from}=fit(MAX_QUESTION_CHARS-HEADER.length);
+  // Prompt pack §28 / scenario 1: never silently drop the customer's early requirements from a long chat.
+  const early=chat.slice(0,from).filter(m=>!m.isStaff&&REQUIREMENT.test(m.content)).slice(0,3);
+  if(!early.length) return HEADER+kept.join('\n');
+  const pinned=`Earlier requirements from the start of the chat:\n${early.map(m=>line(m).slice(0,240)).join('\n')}\n\nRecent messages:\n`;
+  ({kept}=fit(MAX_QUESTION_CHARS-HEADER.length-pinned.length,new Set(early)));
+  return HEADER+pinned+kept.join('\n');
 }
+const REQUIREMENT=/\b(?:want|need|looking for|colou?rs?|style|size|theme|deadline|budget|emotes?|banners?|overlays?|logo|character|oc)\b/i;

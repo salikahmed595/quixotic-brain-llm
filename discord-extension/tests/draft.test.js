@@ -19,14 +19,14 @@ test('staff names: comma or newline separated, trimmed, case-insensitive, blanks
 });
 
 test('draft is built from the labelled chat and ends on the latest customer message',async()=>{
-  const ask=fakeAsk('yo bet, purple twitch banner fits $70 👀');
+  const ask=fakeAsk('yo bet, a purple twitch banner for your budget of $70 👀');
   const out=await draftFromChat({messages:chat,staffNames:'Sara | Quixotic',ask});
   assert.equal(out.ok,true);
   const q=ask.calls[0];
   assert.match(q,/Customer: yo can u make a valorant banner\?\nStaff: sure! what size\?\nCustomer: twitch size, budget \$70 rn$/);
   assert.doesNotMatch(q,/Ticket claimed/);
   assert.match(out.text,/purple twitch banner/);
-  assert.equal(out.draft,'yo bet, purple twitch banner fits $70 👀');
+  assert.equal(out.draft,'yo bet, a purple twitch banner for your budget of $70 👀');
 });
 
 test('no staff names set: refuse instead of guessing who is staff',async()=>{

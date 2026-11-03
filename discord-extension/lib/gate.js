@@ -9,6 +9,10 @@ const PAY=/\b(?:where|how) (?:do|can|should) i pay\b|\bpay(?:ment)? (?:link|deta
 // §17: the only customer-facing text for a payment handoff; the team sends the official instructions, never the AI.
 export const HANDOFF_REPLY="Perfect, I'll have the team confirm the final details and send you the official payment instructions.";
 
+// Scenario 14: the only customer-facing text for a privacy or deletion request.
+export const DATA_REPLY="Got it, I'll pass this to the team so they can handle your data request properly.";
+const DATA=/\b(?:delete|remove|erase|wipe)\b[^.?!]{0,25}\b(?:my|our) (?:data|info|information|details|messages|records|account)\b|\bprivacy\b|\bgdpr\b|\bwhat data do you (?:have|keep|store)\b/i;
+
 const text=m=>String(m?.content||'');
 const isCustomer=m=>!m.isBot&&!m.isStaff&&text(m).trim();
 
@@ -19,8 +23,12 @@ export function gateFor(chat){
     return {status:'NO_REPLY',evidence:[customer[optIdx].id],
       reason:'The customer opted out of sales or contact. Respect it: no pitch and no follow-up.'};
   const latest=customer.at(-1);
+  // Scenario 14: privacy or deletion requests are handled by authorised staff, never answered by the AI.
+  if(latest&&DATA.test(text(latest)))
+    return {status:'HUMAN_HANDOFF',kind:'privacy',evidence:[latest.id],reply:DATA_REPLY,
+      reason:'The customer asked about their data or privacy. Pass it to the team member who handles data requests.'};
   if(latest&&PAY.test(text(latest)))
-    return {status:'HUMAN_HANDOFF',evidence:[latest.id],reply:HANDOFF_REPLY,
+    return {status:'HUMAN_HANDOFF',kind:'payment',evidence:[latest.id],reply:HANDOFF_REPLY,
       reason:'The customer wants to pay. The team must confirm the details and send the official payment instructions; never paste a link the AI wrote.'};
   return {status:'SUGGEST',evidence:[]};
 }
