@@ -80,6 +80,8 @@
     .variant span{flex:1;overflow-wrap:anywhere}.variant button{border:0;background:var(--o2);color:#c04f16;border-radius:8px;font-size:11px;font-weight:800;padding:5px 8px}
     .warns{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
     .warns li{background:#fff7e6;border:1px solid #ffe0a3;color:#8a5300;border-radius:10px;padding:7px 10px;font-size:11.5px;line-height:1.45}
+    .gate{background:#fff1ec;border:1px solid #ffc9b3;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.45}
+    .gate b{display:block;color:#b23c00;margin-bottom:3px}.gate p{margin:0 0 6px}
     .warns li:before{content:'⚠ ';font-weight:800}
     .rewrites{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
     .mini{border:1px dashed var(--ob);background:#fff;color:#c04f16;border-radius:99px;padding:5px 10px;font-size:11.5px;font-weight:700}
@@ -188,6 +190,8 @@
 
           <button class="btn" id="go" type="button" data-goal="reply">✦ Suggest Reply →</button>
           <p class="status" id="status" role="status"></p>
+          <div class="gate" id="gateCard" role="status" hidden><b id="gateTitle"></b><p id="gateText"></p>
+            <button class="mini" id="answerOnly" type="button" hidden>Write a non-sales reply anyway</button></div>
 
           <div class="card reply-card" id="result" hidden>
             <div class="rhead"><span class="spark" aria-hidden="true">✦</span><b>Suggested Reply</b><span class="badge" id="personal" hidden>● Personalized</span>

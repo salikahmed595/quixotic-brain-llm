@@ -15,7 +15,7 @@ import {warningsFor} from './lib/warnings.js';
 
 const $=id=>document.getElementById(id);
 const el=(tag,props={},...kids)=>{const n=Object.assign(document.createElement(tag),props);n.append(...kids);return n;};
-const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match',style:'',draft:'',chat:[]};
+const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match',style:'',draft:'',answerOnly:false,chat:[]};
 const authStatus=t=>{$('authStatus').textContent=t;};
 const status=t=>{$('status').textContent=t;};
 function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{$('toast').hidden=true;},2300);}
@@ -258,7 +258,7 @@ async function generate(goal){
   const {app,messages}=await readChat();
   await loadBrain(messages,app);
   const out=await draftFromChat({messages,staffNames:state.staffNames,ask,goal,tone:state.tone,app,clientFacts:confirmed(),
-    style:state.style,previous:state.draft});
+    style:state.style,previous:state.draft,answerOnly:state.answerOnly});
   if(out.chat) state.chat=out.chat;
   return out;
 }
@@ -268,6 +268,8 @@ async function suggest(goal='reply'){
   const busy=$('go');busy.disabled=true;busy.textContent='✦ Reading the conversation…';status('');
   try{
     const out=await generate(goal);
+    showGate(out);
+    if(out.status==='NO_REPLY'){$('result').hidden=true;return;}
     if(!out.ok){status(out.text);$('result').hidden=true;return;}
     $('latestCard').hidden=false;setAvatar($('lAvatar'),brain.customer);$('lText').textContent=out.latest?.content||'';
     $('contextSub').textContent=`${out.messagesRead} messages read · only what is on screen; nothing is stored`;
@@ -286,7 +288,18 @@ async function suggest(goal='reply'){
     status(e.message);
   }finally{busy.disabled=false;busy.textContent='✦ Suggest Reply →';}
 }
-$('go').addEventListener('click',()=>suggest('reply'));
+// Prompt pack §7/§17: the gate result is shown to the employee; NO_REPLY gives no text to send.
+function showGate(out){
+  const gate=out.status==='NO_REPLY'||out.status==='HUMAN_HANDOFF';
+  $('gateCard').hidden=!gate;$('answerOnly').hidden=out.status!=='NO_REPLY';
+  if(!gate) return;
+  $('gateTitle').textContent=out.status==='NO_REPLY'?'No sales reply: the customer opted out':'Hand off to the team: the customer wants to pay';
+  $('gateText').textContent=(out.status==='NO_REPLY'?'Respect it: no pitch and no follow-up.':out.reason);
+  const said=out.chat?.find(m=>m.id===out.evidence?.[0]);
+  if(said) $('gateText').textContent+=` They said: "${said.content}"`;
+}
+$('go').addEventListener('click',()=>{state.answerOnly=false;suggest('reply');});
+$('answerOnly').addEventListener('click',()=>{state.answerOnly=true;suggest('reply');});
 $('again').addEventListener('click',()=>suggest(state.goal));
 for(const b of document.querySelectorAll('#goals .opt')) b.addEventListener('click',()=>suggest(b.dataset.goal));
 for(const b of document.querySelectorAll('#rewrites .mini')) b.addEventListener('click',()=>{if(state.draft) suggest(b.dataset.rewrite);});

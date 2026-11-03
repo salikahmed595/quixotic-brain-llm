@@ -6,6 +6,7 @@ export const MAX_QUESTION_CHARS=4000;   // backend/api/v1/ask.py MAX_QUESTION_CH
 
 const GOALS={
   reply:"Reply naturally to the customer's last message.",
+  answer_only:'Answer their last message as a normal friendly chat. No selling: do not mention artwork, prices, commissions or your work.',
   pitch:'Suggest one fitting artwork idea based on what the customer asked for.',
   close:'Gently move toward a sale (scope, next step, a quote from the team), but never promise prices, dates or discounts.',
   question:'Keep the conversation going with one easy question about them, their stream, game or style.',
