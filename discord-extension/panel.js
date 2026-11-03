@@ -16,7 +16,7 @@ import {STAGES as CONV_STAGES,INTENTS} from './lib/stage.js';
 
 const $=id=>document.getElementById(id);
 const el=(tag,props={},...kids)=>{const n=Object.assign(document.createElement(tag),props);n.append(...kids);return n;};
-const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match',style:'',draft:'',answerOnly:false,chat:[]};
+const state={signedIn:false,staffNames:'',editingStaff:false,goal:'reply',tone:'match',style:'',draft:'',answerOnly:false,role:null,chat:[]};
 const authStatus=t=>{$('authStatus').textContent=t;};
 const status=t=>{$('status').textContent=t;};
 function toast(t){$('toast').textContent=t;$('toast').hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{$('toast').hidden=true;},2300);}
@@ -34,8 +34,17 @@ function render(){
   $('conn').textContent=state.signedIn?'Connected':'Signed out';$('conn').classList.toggle('on',state.signedIn);
 }
 
-chrome.storage.local.get(['csrf','staffNames','style']).then(({csrf,staffNames,style})=>{
-  state.signedIn=Boolean(csrf);state.staffNames=staffNames||'';state.style=style||'';$('staff').value=state.staffNames;render();
+chrome.storage.local.get(['csrf','staffNames','style','role']).then(({csrf,staffNames,style,role})=>{
+  state.signedIn=Boolean(csrf);state.staffNames=staffNames||'';state.style=style||'';$('staff').value=state.staffNames;setRole(role||null);render();
+});
+// Prompt pack §28: the seller role is picked by the employee (never guessed); click again to clear. Saved in this browser.
+function setRole(role){
+  state.role=role;
+  for(const b of document.querySelectorAll('#roles .chip')) b.setAttribute('aria-pressed',String(b.dataset.role===role));
+}
+for(const b of document.querySelectorAll('#roles .chip')) b.addEventListener('click',()=>{
+  setRole(state.role===b.dataset.role?null:b.dataset.role);
+  chrome.storage.local.set({role:state.role});
 });
 
 // "My reply style" (owner master prompt 2026-10-30): the employee's own writing style, kept only in this browser.
@@ -268,7 +277,7 @@ async function generate(goal){
   const {app,messages}=await readChat();
   await loadBrain(messages,app);
   const out=await draftFromChat({messages,staffNames:state.staffNames,ask,goal,tone:state.tone,app,clientFacts:confirmed(),
-    style:state.style,previous:state.draft,answerOnly:state.answerOnly});
+    style:state.style,previous:state.draft,answerOnly:state.answerOnly,role:state.role});
   if(out.chat) state.chat=out.chat;
   return out;
 }

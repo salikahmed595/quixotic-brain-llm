@@ -20,7 +20,7 @@ export function cleanDraft(text){
 
 const isCustomer=m=>!m.isBot&&!m.isStaff&&String(m.content||'').trim();
 
-export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clientFacts=[],style='',previous='',answerOnly=false}){
+export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clientFacts=[],style='',previous='',answerOnly=false,role=null}){
   const names=parseStaffNames(staffNames);
   if(!names.size) return {ok:false,text:'Add the staff names (as shown in the chat) first, so I know who is the customer.'};
   const chat=labelMessages(messages,names);
@@ -35,11 +35,11 @@ export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clien
   if(gate.status==='HUMAN_HANDOFF')
     return {...base,ok:true,status:'HUMAN_HANDOFF',draft:gate.reply,text:gate.reply,evidence:gate.evidence,reason:gate.reason};
   const g=answerOnly?'answer_only':goal||'reply';
-  const opts={goal:g,tone,app,clientFacts,style,previous,stage:base.stage.stage};
+  const opts={goal:g,tone,app,clientFacts,style,previous,stage:base.stage.stage,role};
   const clean=t=>cleanDraft(t).replace(/@everyone|@here/g,'[mention removed]');
   const split=answer=>THREE_WAY.has(g)?parseOptions(answer).map(clean):[clean(answer)];
   // Prompt pack §19: checked in code; ideas are a staff-only list, not a chat message, so they are not checked.
-  const verify=t=>g==='ideas'?{verdict:'PASS',violations:[]}:verifyReply(t,{chat,stage:base.stage.stage,facts:clientFacts,noSales:answerOnly});
+  const verify=t=>g==='ideas'?{verdict:'PASS',violations:[]}:verifyReply(t,{chat,stage:base.stage.stage,facts:clientFacts,noSales:answerOnly,role});
   let res=await ask(buildConversationQuestion(chat,target.id,opts));
   let [draft,...rest]=split(res.answer);
   if(!validateDraft(draft).ok) return {ok:false,text:`Draft blocked for review: ${validateDraft(draft).reason}`};

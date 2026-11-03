@@ -72,6 +72,7 @@
     .reply-box{position:relative;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 38px 12px 12px;font-size:13.5px;line-height:1.7;white-space:pre-wrap;min-height:70px;overflow-wrap:anywhere}
     .reply-box mark{background:none;color:var(--o);font-weight:800}
     .copy-mini{position:absolute;top:8px;right:8px;border:0;background:none;font-size:15px;color:var(--ink2)}
+    .roles{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0}.roles .chip{padding:6px 9px;font-size:11.5px}
     .tones{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
     .chip{border:1px solid var(--line);background:#fff;border-radius:11px;padding:8px 11px;font-size:12px;font-weight:700;color:var(--ink2)}
     .chip[aria-pressed="true"]{background:linear-gradient(135deg,var(--o1),#e2501a);color:#fff;border-color:transparent}
@@ -192,6 +193,12 @@
             <dl class="meta" id="convMeta" hidden aria-label="What the assistant understood"></dl>
           </div>
 
+          <div class="roles" id="roles" role="group" aria-label="My role in this chat">
+            <span class="muted">I'm the</span>
+            <button class="chip" type="button" data-role="fresh" aria-pressed="false" title="First seller: understand them before any offer">🌱 Fresh seller</button>
+            <button class="chip" type="button" data-role="upseller" aria-pressed="false" title="Returning customer: help first, add-on only if it fits">🔁 Upseller</button>
+            <button class="chip" type="button" data-role="support" aria-pressed="false" title="Existing order: fix the issue, sell nothing">🛠 Support</button>
+          </div>
           <button class="btn" id="go" type="button" data-goal="reply">✦ Suggest Reply →</button>
           <p class="status" id="status" role="status"></p>
           <div class="gate" id="gateCard" role="status" hidden><b id="gateTitle"></b><p id="gateText"></p>
