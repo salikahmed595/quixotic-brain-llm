@@ -88,6 +88,23 @@ class UserStore:
         with self.pool.connection() as c:
             c.execute("UPDATE users SET deactivated_by_portal=false WHERE tenant_id=%s AND id=%s", (self.tenant, user_id))
 
+    def apply_portal_role(self, user_id: UUID, portal_admin: bool) -> Optional[tuple[str, str]]:
+        """Owner decision: a Portal Admin is a Maqsad system_admin. Returns (from_role, to_role) when the role changed, else None.
+        Raises only what the Portal itself gave (role_set_by_portal); a role set by hand, and founder_ceo, are never touched."""
+        with self.pool.connection() as c, c.transaction():
+            u = c.execute("SELECT role, role_set_by_portal FROM users WHERE tenant_id=%s AND id=%s FOR UPDATE",
+                          (self.tenant, user_id)).fetchone()
+            if u is None:
+                return None
+            if portal_admin and u["role"] not in ("system_admin", "founder_ceo"):
+                to = "system_admin"
+            elif not portal_admin and u["role_set_by_portal"] and u["role"] == "system_admin":
+                to = "employee"
+            else:
+                return None
+            c.execute("UPDATE users SET role=%s, role_set_by_portal=%s WHERE id=%s", (to, to == "system_admin", user_id))
+            return u["role"], to
+
     def sync_portal_profile(self, user_id: UUID, full_name: str, email: Optional[str], username: str) -> None:
         """Name always; email and username only when nobody else holds them. Never role, departments or status."""
         with self.pool.connection() as c:
@@ -156,7 +173,8 @@ class UserStore:
                     can_publish: Optional[bool] = None, full_name: Optional[str] = None) -> None:
         with self.pool.connection() as c, c.transaction():
             if role is not None:
-                c.execute("UPDATE users SET role=%s WHERE tenant_id=%s AND id=%s", (role.value, self.tenant, user_id))
+                # a hand-set role is the administrator's word: the Portal's next hand-off may not take it back
+                c.execute("UPDATE users SET role=%s, role_set_by_portal=false WHERE tenant_id=%s AND id=%s", (role.value, self.tenant, user_id))
             if can_publish is not None:
                 c.execute("UPDATE users SET can_publish=%s WHERE tenant_id=%s AND id=%s", (can_publish, self.tenant, user_id))
             if full_name is not None:
