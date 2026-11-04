@@ -17,13 +17,15 @@ class SessionStore:
         self.pool, self.tenant = pool, tenant_id
 
     def create(self, user_id: UUID, ttl_seconds: int, mfa_passed: bool, ip: Optional[str] = None,
-               user_agent: Optional[str] = None) -> tuple[str, str]:
+               user_agent: Optional[str] = None, bound_ip: Optional[str] = None, bound_ua_hash: Optional[str] = None,
+               kind: Optional[str] = None) -> tuple[str, str]:
         """Returns (session_token, csrf_token). The session token is only ever sent in an HttpOnly cookie."""
         token, csrf = new_token(), secrets.token_urlsafe(24)
         with self.pool.connection() as c:
-            c.execute("INSERT INTO sessions (tenant_id, user_id, token_hash, csrf_token, mfa_passed, expires_at, ip, user_agent) "
-                      "VALUES (%s,%s,%s,%s,%s, now() + make_interval(secs => %s), %s, %s)",
-                      (self.tenant, user_id, token_hash(token), csrf, mfa_passed, ttl_seconds, ip, (user_agent or "")[:300]))
+            c.execute("INSERT INTO sessions (tenant_id, user_id, token_hash, csrf_token, mfa_passed, expires_at, ip, user_agent, "
+                      "bound_ip, bound_ua_hash, kind) VALUES (%s,%s,%s,%s,%s, now() + make_interval(secs => %s), %s, %s, %s, %s, %s)",
+                      (self.tenant, user_id, token_hash(token), csrf, mfa_passed, ttl_seconds, ip, (user_agent or "")[:300],
+                       bound_ip, bound_ua_hash, kind))
         return token, csrf
 
     def lookup(self, token: str) -> Optional[dict]:
@@ -31,7 +33,7 @@ class SessionStore:
         with self.pool.connection() as c:
             return c.execute("UPDATE sessions SET last_seen_at=now() WHERE tenant_id=%s AND token_hash=%s "
                              "AND revoked_at IS NULL AND expires_at > now() "
-                             "RETURNING id, user_id, csrf_token, mfa_passed, expires_at",
+                             "RETURNING id, user_id, csrf_token, mfa_passed, expires_at, bound_ip, bound_ua_hash, kind",
                              (self.tenant, token_hash(token))).fetchone()
 
     def mark_mfa_passed(self, session_id: UUID) -> None:

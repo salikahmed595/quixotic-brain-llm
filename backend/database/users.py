@@ -5,6 +5,8 @@ import json
 from typing import Optional
 from uuid import UUID
 
+import psycopg.errors
+
 from ..permissions.access import Principal
 from ..permissions.roles import Role
 
@@ -52,6 +54,52 @@ class UserStore:
     def get_by_email(self, email: str) -> Optional[dict]:
         with self.pool.connection() as c:
             return c.execute("SELECT * FROM users WHERE tenant_id=%s AND lower(email)=lower(%s)", (self.tenant, email)).fetchone()
+
+    # ---- Portal SSO (docs/PRD_GAPS.md "Portal SSO") ----
+    def get_by_portal_id(self, portal_user_id: int) -> Optional[dict]:
+        with self.pool.connection() as c:
+            return c.execute("SELECT * FROM users WHERE tenant_id=%s AND portal_user_id=%s", (self.tenant, portal_user_id)).fetchone()
+
+    def link_portal(self, user_id: UUID, portal_user_id: int) -> bool:
+        """Only an unlinked account can be linked, so a Maqsad user is never re-pointed at a different Portal user."""
+        with self.pool.connection() as c:
+            return c.execute("UPDATE users SET portal_user_id=%s WHERE tenant_id=%s AND id=%s AND portal_user_id IS NULL",
+                             (portal_user_id, self.tenant, user_id)).rowcount == 1
+
+    def create_portal_user(self, portal_user_id: int, username: str, email: str, full_name: str, password_hash: str) -> Optional[UUID]:
+        """Owner decision: Portal people get access with no approval step. Always an Employee with no departments; the Portal
+        never sends roles or departments. None if a unique value (username, email, portal id) was taken meanwhile."""
+        try:
+            with self.pool.connection() as c, c.transaction():
+                uid = c.execute(
+                    "INSERT INTO users (tenant_id, employee_id, email, full_name, password_hash, role, account_status, "
+                    "email_verified_at, portal_user_id) VALUES (%s,%s,%s,%s,%s,'employee','active',now(),%s) RETURNING id",
+                    (self.tenant, username, email, full_name, password_hash, portal_user_id)).fetchone()["id"]
+                c.execute("INSERT INTO account_status_history (user_id, from_status, to_status, note) "
+                          "VALUES (%s,NULL,'active','portal: created at first Portal sign-in')", (uid,))
+            return uid
+        except psycopg.errors.UniqueViolation:
+            return None
+
+    def sync_portal_profile(self, user_id: UUID, full_name: str, email: Optional[str], username: str) -> None:
+        """Name always; email and username only when nobody else holds them. Never role, departments or status."""
+        with self.pool.connection() as c:
+            c.execute("UPDATE users SET full_name=%s WHERE id=%s", (full_name, user_id))
+            if email:
+                c.execute("UPDATE users SET email=%s WHERE id=%s AND NOT EXISTS "
+                          "(SELECT 1 FROM users o WHERE o.tenant_id=%s AND o.id<>%s AND lower(o.email)=lower(%s))",
+                          (email, user_id, self.tenant, user_id, email))
+            c.execute("UPDATE users SET employee_id=%s WHERE id=%s AND NOT EXISTS "
+                      "(SELECT 1 FROM users o WHERE o.tenant_id=%s AND o.id<>%s AND lower(o.employee_id)=lower(%s))",
+                      (username, user_id, self.tenant, user_id, username))
+
+    def use_jti(self, jti: str, portal_user_id: int, expires_in_seconds: int) -> bool:
+        """True the first time a hand-off token id is seen, False on replay. Also purges ids that have expired."""
+        with self.pool.connection() as c, c.transaction():
+            c.execute("DELETE FROM portal_handoffs WHERE expires_at < now()")
+            return c.execute("INSERT INTO portal_handoffs (jti, portal_user_id, expires_at) "
+                             "VALUES (%s,%s, now() + make_interval(secs => %s)) ON CONFLICT DO NOTHING RETURNING jti",
+                             (jti, portal_user_id, expires_in_seconds)).fetchone() is not None
 
     def principal(self, user: dict) -> Principal:
         with self.pool.connection() as c:

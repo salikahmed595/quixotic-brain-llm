@@ -55,10 +55,11 @@ class FakeSessions:
     def __init__(self):
         self.rows = {}
 
-    def create(self, user_id, ttl_seconds, mfa_passed, ip=None, user_agent=None):
+    def create(self, user_id, ttl_seconds, mfa_passed, ip=None, user_agent=None, bound_ip=None, bound_ua_hash=None, kind=None):
         import secrets
         token, csrf = secrets.token_urlsafe(16), secrets.token_urlsafe(8)
-        self.rows[token] = dict(id=uuid4(), user_id=user_id, csrf_token=csrf, mfa_passed=mfa_passed, revoked=False)
+        self.rows[token] = dict(id=uuid4(), user_id=user_id, csrf_token=csrf, mfa_passed=mfa_passed, revoked=False,
+                                bound_ip=bound_ip, bound_ua_hash=bound_ua_hash, kind=kind, ttl=ttl_seconds)
         return token, csrf
 
     def lookup(self, token):

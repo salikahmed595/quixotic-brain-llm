@@ -5,12 +5,15 @@ Bearer header (non-browser clients). Only Active accounts pass (§5 FR-AUTH-03/0
 in this session (§5 FR-AUTH-06); cookie-authenticated writes need the session's CSRF token in `X-CSRF-Token`."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, Request
 
+from ..analytics import audit
 from ..auth.security import hash_api_key
 from ..permissions.access import Principal
 from ..permissions.roles import MFA_ROLES, P, Role, can
@@ -64,6 +67,13 @@ def current_session(request: Request, authorization: Optional[str] = Header(defa
         if sess:                                   # suspended / deactivated while signed in: end the session now
             svc.sessions.revoke(sess["id"])
         raise HTTPException(401, "authentication required")
+    if sess.get("bound_ip") is not None:               # Portal hand-off in a browser: office-only (docs/PRD_GAPS.md "Portal SSO")
+        ip = request.client.host if request.client else ""
+        ua_hash = hashlib.sha256(request.headers.get("user-agent", "").encode()).hexdigest()
+        if not (hmac.compare_digest(ip, sess["bound_ip"]) and hmac.compare_digest(ua_hash, sess["bound_ua_hash"] or "")):
+            svc.sessions.revoke(sess["id"])
+            audit.record(svc.ops, audit.FAILED_AUTHENTICATION, user["id"], user["employee_id"], reason="binding")
+            raise HTTPException(401, "authentication required")
     via_cookie = bearer is None
     if via_cookie and request.method not in SAFE_METHODS:
         if request.headers.get(CSRF_HEADER) != sess["csrf_token"]:
