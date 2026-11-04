@@ -4,6 +4,9 @@ ALTER TABLE users ADD COLUMN portal_user_id bigint;
 -- True only while the account is deactivated BECAUSE the Portal said so. Any other status change clears it, so a Maqsad
 -- administrator's deactivation can never be undone by the Portal's next hand-off.
 ALTER TABLE users ADD COLUMN deactivated_by_portal boolean NOT NULL DEFAULT false;
+-- True only while the role is system_admin BECAUSE the Portal said the person is an Admin there. Any role a Maqsad administrator
+-- sets by hand clears it, so the Portal can only ever take back what it gave.
+ALTER TABLE users ADD COLUMN role_set_by_portal boolean NOT NULL DEFAULT false;
 CREATE UNIQUE INDEX users_portal_user ON users (tenant_id, portal_user_id) WHERE portal_user_id IS NOT NULL;
 
 -- Each hand-off token (jti) may be used once. Rows are purged once the token could no longer verify anyway.

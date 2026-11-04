@@ -54,6 +54,14 @@ class PortalUsers(Users):
         self.rows[username] = u; self.depts[username] = set(); self.history[u["id"]] = [dict(note="portal: created")]
         return u["id"]
 
+    def apply_portal_role(self, uid, admin):               # mirrors UserStore.apply_portal_role (the SQL is checked on Postgres)
+        u = self.get(uid)
+        if admin and u["role"] not in ("system_admin", "founder_ceo"): to = "system_admin"
+        elif not admin and u.get("role_set_by_portal") and u["role"] == "system_admin": to = "employee"
+        else: return None
+        frm, u["role"], u["role_set_by_portal"] = u["role"], to, to == "system_admin"
+        return frm, to
+
     def sync_portal_profile(self, uid, name, email, username):
         u = self.get(uid); u["full_name"] = name
         if email and not any(o is not u and o["email"].lower() == email for o in self.rows.values()): u["email"] = email
@@ -306,3 +314,56 @@ def test_a_unique_clash_while_linking_or_syncing_is_not_a_crash():
     store = UserStore(Pool(), "quixotic")
     assert store.link_portal(uuid4(), 501) is False
     store.sync_portal_profile(uuid4(), "Sara K", "sara@portal.test", "sara.k")     # email and username clashes are skipped
+
+
+def _role_audit(svc): return [r[2] for r in svc.ops.audit_rows if r[2].get("action") == "portal_role_set"]
+
+
+def test_an_admin_claim_makes_a_system_admin_with_two_step_setup_and_an_audit_row():
+    c, svc = make(admin_mfa_required=True)
+    r = handoff(c, token(portal_role="admin"), json=True)
+    u = svc.users.get_by_portal_id(501)
+    assert u["role"] == "system_admin" and u["role_set_by_portal"] is True and r.json()["mfa"] == "setup"
+    assert _role_audit(svc)[0]["from_role"] == "employee" and _role_audit(svc)[0]["to_role"] == "system_admin"
+    assert svc.users.depts[u["employee_id"]] == set()                          # departments untouched
+
+
+def test_a_later_non_admin_claim_lowers_what_the_portal_gave():
+    c, svc = make()
+    handoff(c, token(portal_role="admin")); handoff(c, token(portal_role="seller"))
+    u = svc.users.get_by_portal_id(501)
+    assert u["role"] == "employee" and u["role_set_by_portal"] is False and _role_audit(svc)[-1]["to_role"] == "employee"
+
+
+def test_a_hand_set_role_and_founder_ceo_are_never_changed():
+    c, svc = make()
+    handoff(c, token()); u = svc.users.get_by_portal_id(501)
+    u["role"] = "knowledge_admin"                                              # set by a Maqsad admin: flag stays false
+    handoff(c, token(portal_role="seller")); assert u["role"] == "knowledge_admin"
+    handoff(c, token(portal_role="admin")); assert u["role"] == "system_admin"  # below admin: the Portal may raise it
+    u["role"], u["role_set_by_portal"] = "founder_ceo", True
+    handoff(c, token(portal_role="seller")); assert u["role"] == "founder_ceo"
+    handoff(c, token(portal_role="admin")); assert u["role"] == "founder_ceo"
+
+
+def test_a_missing_claim_counts_as_not_admin():
+    c, svc = make()
+    handoff(c, token(portal_role="admin")); handoff(c, token())              # an old token without the claim
+    assert svc.users.get_by_portal_id(501)["role"] == "employee"
+
+
+def test_a_manual_role_change_clears_the_flag():
+    import contextlib
+    from backend.database.users import UserStore
+    from backend.permissions.roles import Role
+    seen = []
+
+    class Pool:
+        @contextlib.contextmanager
+        def connection(self):
+            c = type("C", (), {"execute": lambda self, sql, *a: seen.append(sql),
+                               "transaction": contextlib.contextmanager(lambda self: (yield))})()
+            yield c
+
+    UserStore(Pool(), "quixotic").update_user(uuid4(), Role.KNOWLEDGE_ADMIN)
+    assert any("role=%s" in q and "role_set_by_portal=false" in q for q in seen)
