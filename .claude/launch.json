@@ -10,7 +10,7 @@
     {
       "name": "reply-panel",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["discord-extension/scripts/harness.js"],
+      "runtimeArgs": ["quixotic-extension/scripts/harness.js"],
       "port": 8765
     },
     {

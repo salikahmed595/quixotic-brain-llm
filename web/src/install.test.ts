@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { INSTALL_STEPS, DOWNLOAD_URL, EXTENSION_FOLDER } from './install.ts';
-import { ZIP_FOLDER } from '../../discord-extension/scripts/zip.js';
+import { ZIP_FOLDER } from '../../quixotic-extension/scripts/zip.js';
 
 test('seven steps, each with a title and plain instructions', () => {
   assert.equal(INSTALL_STEPS.length, 7);

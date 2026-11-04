@@ -15,7 +15,7 @@ Owner decision 2026-10-29; not in the PRD. See `docs/PRD_GAPS.md` ("Discord repl
 npm run pack
 ```
 1. Chrome → `chrome://extensions` → switch on **Developer mode** (top right).
-2. **Load unpacked** → choose the `discord-extension/dist` folder.
+2. **Load unpacked** → choose the `quixotic-extension/dist` folder.
 3. Pin **Quixotic Reply Assistant** from the puzzle-piece menu.
 4. Reload any open discord.com tab once.
 

@@ -1,4 +1,4 @@
-// Based on discord-bot/src/conversation.js, plus the panel's goal and tone choices (owner design 2026-10-29).
+// Based on old-discord-bot/src/conversation.js, plus the panel's goal and tone choices (owner design 2026-10-29).
 // Packs the recent ticket conversation into one /v1/ask question so the draft continues the chat naturally
 // (owner 2026-10-29). Read live from Discord, never stored. The chat is data, not instructions (CLAUDE.md Rule 2).
 import {FACT_LABELS} from './client.js';

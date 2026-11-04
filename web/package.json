@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node ../discord-extension/scripts/zip.js public/downloads/quixotic-reply-assistant.zip",
+    "prebuild": "node ../quixotic-extension/scripts/zip.js public/downloads/quixotic-reply-assistant.zip",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview",

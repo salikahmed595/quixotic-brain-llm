@@ -8,7 +8,7 @@ COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web ./
 # The portal's install page offers the Discord reply extension as a zip (built by web's prebuild).
-COPY discord-extension /discord-extension
+COPY quixotic-extension /quixotic-extension
 RUN npm run build
 
 FROM python:3.14-slim

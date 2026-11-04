@@ -1,7 +1,7 @@
-/* Owner 2026-10-29: guided install of the Discord reply helper (Chrome extension in discord-extension/).
+/* Owner 2026-10-29: guided install of the Discord reply helper (Chrome extension in quixotic-extension/).
    The zip is built into public/downloads by web's prebuild; not a PRD feature (docs/PRD_GAPS.md). */
 export const DOWNLOAD_URL = '/downloads/quixotic-reply-assistant.zip';
-export const EXTENSION_FOLDER = 'quixotic-reply-assistant';   // the folder inside the zip (discord-extension/scripts/zip.js)
+export const EXTENSION_FOLDER = 'quixotic-reply-assistant';   // the folder inside the zip (quixotic-extension/scripts/zip.js)
 
 export type StepAction = { kind: 'download' | 'copy' | 'link'; label: string; value: string };
 export type InstallStep = { title: string; text: string; tip?: string; action?: StepAction };

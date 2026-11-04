@@ -1,5 +1,5 @@
 {
-  "name": "quixotic-discord-reply-extension",
+  "name": "quixotic-extension",
   "version": "0.1.0",
   "private": true,
   "type": "module",
