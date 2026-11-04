@@ -90,7 +90,7 @@ test('messages the reader marks as sent by me count as staff even without a matc
 
 test('draft is cleaned of quote markers, wrapping quotes, a "Staff:" label and em dashes',async()=>{
   for(const [raw,clean] of [
-    ['>> Hey Cinnamon Angel — thanks for accepting!','Hey Cinnamon Angel, thanks for accepting!'],
+    ['>> Hey Maple Fox — thanks for accepting!','Hey Maple Fox, thanks for accepting!'],
     ['"yo whats up"','yo whats up'],
     ['Staff: sure thing – which game is it for?','sure thing, which game is it for?'],
   ]){
