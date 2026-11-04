@@ -62,9 +62,12 @@ class UserStore:
 
     def link_portal(self, user_id: UUID, portal_user_id: int) -> bool:
         """Only an unlinked account can be linked, so a Maqsad user is never re-pointed at a different Portal user."""
-        with self.pool.connection() as c:
-            return c.execute("UPDATE users SET portal_user_id=%s WHERE tenant_id=%s AND id=%s AND portal_user_id IS NULL",
-                             (portal_user_id, self.tenant, user_id)).rowcount == 1
+        try:
+            with self.pool.connection() as c:
+                return c.execute("UPDATE users SET portal_user_id=%s WHERE tenant_id=%s AND id=%s AND portal_user_id IS NULL",
+                                 (portal_user_id, self.tenant, user_id)).rowcount == 1
+        except psycopg.errors.UniqueViolation:           # another account already holds this Portal id: a clash, not a crash
+            return False
 
     def create_portal_user(self, portal_user_id: int, username: str, email: str, full_name: str, password_hash: str) -> Optional[UUID]:
         """Owner decision: Portal people get access with no approval step. Always an Employee with no departments; the Portal
@@ -81,17 +84,24 @@ class UserStore:
         except psycopg.errors.UniqueViolation:
             return None
 
+    def clear_portal_deactivation(self, user_id: UUID) -> None:
+        with self.pool.connection() as c:
+            c.execute("UPDATE users SET deactivated_by_portal=false WHERE tenant_id=%s AND id=%s", (self.tenant, user_id))
+
     def sync_portal_profile(self, user_id: UUID, full_name: str, email: Optional[str], username: str) -> None:
         """Name always; email and username only when nobody else holds them. Never role, departments or status."""
         with self.pool.connection() as c:
             c.execute("UPDATE users SET full_name=%s WHERE id=%s", (full_name, user_id))
-            if email:
-                c.execute("UPDATE users SET email=%s WHERE id=%s AND NOT EXISTS "
-                          "(SELECT 1 FROM users o WHERE o.tenant_id=%s AND o.id<>%s AND lower(o.email)=lower(%s))",
-                          (email, user_id, self.tenant, user_id, email))
-            c.execute("UPDATE users SET employee_id=%s WHERE id=%s AND NOT EXISTS "
-                      "(SELECT 1 FROM users o WHERE o.tenant_id=%s AND o.id<>%s AND lower(o.employee_id)=lower(%s))",
-                      (username, user_id, self.tenant, user_id, username))
+        for column, value in (("email", email), ("employee_id", username)):      # each on its own: one clash skips only that field
+            if not value:
+                continue
+            try:
+                with self.pool.connection() as c:
+                    c.execute(f"UPDATE users SET {column}=%s WHERE id=%s AND NOT EXISTS "
+                              f"(SELECT 1 FROM users o WHERE o.tenant_id=%s AND o.id<>%s AND lower(o.{column})=lower(%s))",
+                              (value, user_id, self.tenant, user_id, value))
+            except psycopg.errors.UniqueViolation:       # a race between the check and the update
+                pass
 
     def use_jti(self, jti: str, portal_user_id: int, expires_in_seconds: int) -> bool:
         """True the first time a hand-off token id is seen, False on replay. Also purges ids that have expired."""
@@ -157,14 +167,19 @@ class UserStore:
                     c.execute("INSERT INTO user_departments (user_id, department_id) VALUES (%s,%s)", (user_id, d))
 
     def set_status(self, user_id: UUID, to_status: str, actor: Optional[UUID], note: Optional[str] = None,
-                   expect: Optional[set] = None) -> Optional[str]:
+                   expect: Optional[set] = None, by_portal: bool = False) -> Optional[str]:
         """Change the account state and record it (FR-AUTH-07). Returns the previous state, or None when the user does not
         exist or is not in one of the `expect`ed states (so two admins cannot both decide the same request)."""
         if to_status not in ACCOUNT_STATES:
             raise ValueError(to_status)
         with self.pool.connection() as c, c.transaction():
             row = c.execute("SELECT account_status FROM users WHERE tenant_id=%s AND id=%s FOR UPDATE", (self.tenant, user_id)).fetchone()
-            if not row or (expect is not None and row["account_status"] not in expect):
+            if not row:
+                return None
+            matched = expect is None or row["account_status"] in expect
+            # The flag says "deactivated because the Portal said so": any other change, even a refused one, clears it.
+            c.execute("UPDATE users SET deactivated_by_portal=%s WHERE id=%s", (by_portal and matched and to_status == DEACTIVATED, user_id))
+            if not matched:
                 return None
             c.execute("UPDATE users SET account_status=%s WHERE id=%s", (to_status, user_id))
             c.execute("INSERT INTO account_status_history (user_id, from_status, to_status, actor_id, note) VALUES (%s,%s,%s,%s,%s)",

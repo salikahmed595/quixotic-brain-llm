@@ -70,11 +70,20 @@ class PortalUsers(Users):
 
     def status_history(self, uid): return self.history.get(uid, [])
 
-    def set_status(self, uid, to, actor, note=None, expect=None):
+    def clear_portal_deactivation(self, uid): self.get(uid)["deactivated_by_portal"] = False
+
+    def set_status(self, uid, to, actor, note=None, expect=None, by_portal=False):
         u = self.get(uid)
-        if expect is not None and u["account_status"] not in expect: return None
+        matched = expect is None or u["account_status"] in expect
+        u["deactivated_by_portal"] = by_portal and matched and to == "deactivated"    # mirrors UserStore.set_status
+        if not matched: return None
         prev, u["account_status"] = u["account_status"], to
         self.history.setdefault(uid, []).append(dict(note=note)); return prev
+
+
+class PortalOps(Ops):
+    def __init__(self): super().__init__(); self.revoked_keys = []
+    def revoke_user_api_keys(self, uid): self.revoked_keys.append(uid); return 1
 
 
 def make(**settings):
@@ -82,7 +91,7 @@ def make(**settings):
     users = PortalUsers()
     lang = LanguageService(s.roman_urdu_min_ratio)
     search = SearchService(FakeStore(vec=[cand(score=.95)]), FakeEmbedder(), None, lang, s)
-    svc = Services(settings=s, users=users, knowledge=None, ops=Ops(), analytics=None, search=search,
+    svc = Services(settings=s, users=users, knowledge=None, ops=PortalOps(), analytics=None, search=search,
                    ask=AskService(search, FakeGenerator(), s), ingestion=None, importer=None, storage=None, queue=None,
                    language=lang, embedder=FakeEmbedder(), limiter=SlidingWindowLimiter(), sessions=FakeSessions())
     svc.conversations = Chats()
@@ -154,9 +163,9 @@ def test_a_token_works_once_only():
 def test_suspended_and_maqsad_deactivated_are_refused_but_portal_deactivated_comes_back():
     c, svc = make(); handoff(c, token()); u = svc.users.get_by_portal_id(501)
     u["account_status"] = "suspended"; refused(handoff(c, token()))
-    svc.users.set_status(u["id"], "deactivated", None, "left the company"); refused(handoff(c, token()))
+    svc.users.set_status(u["id"], "deactivated", None, "portal: left the company"); refused(handoff(c, token()))   # the note text means nothing
     assert reasons(svc) == ["state", "state"]
-    svc.users.set_status(u["id"], "deactivated", None, "portal: no longer active")
+    svc.users.set_status(u["id"], "deactivated", None, "portal: no longer active", by_portal=True)
     assert handoff(c, token()).status_code == 303 and u["account_status"] == "active"
 
 
@@ -170,7 +179,9 @@ def test_username_clash_with_a_different_unlinked_user_is_refused():
 
 def test_existing_account_with_the_same_email_is_linked_and_audited():
     c, svc = make(); before = svc.users.rows["emp_104"]["id"]
+    old = svc.sessions.create(before, 600, True)[0]                         # a session someone already held on that account
     assert handoff(c, token(email="a@q.ai")).status_code == 303
+    assert svc.sessions.rows[old]["revoked"] and svc.ops.revoked_keys == [before]
     assert svc.users.get_by_portal_id(501)["id"] == before             # same account, now linked (and renamed to the Portal username)
     assert any(r[2].get("action") == "portal_linked" for r in svc.ops.audit_rows)
 
@@ -239,3 +250,59 @@ def test_status_push_with_a_bad_or_stale_signature_is_refused():
     assert _status(c, (501, "false"), secret="x" * 40).status_code == 401
     assert _status(c, (501, "false"), age=1000).status_code == 401
     assert svc.users.get_by_portal_id(501)["account_status"] == "active"
+
+
+def test_email_link_is_refused_for_admins_and_for_accounts_with_mfa():
+    c, svc = make()
+    refused(handoff(c, token(email="b@q.ai")))                              # a system admin's account
+    svc.users.rows["emp_104"]["mfa_enabled_at"] = "now"
+    refused(handoff(c, token(email="a@q.ai", sub="502", username="other")))  # an employee who set up two-step sign-in
+    assert reasons(svc) == ["link_refused", "link_refused"]
+    assert all(not u.get("portal_user_id") for u in svc.users.rows.values()) and svc.ops.revoked_keys == []
+
+
+def test_mfa_passed_in_the_browser_unlocks_the_chat_panels_server_session():
+    c, svc = make(admin_mfa_required=True)
+    handoff(c, token()); svc.users.get_by_portal_id(501)["role"] = "system_admin"
+    b1 = handoff(c, token()); secret = c.get("/v1/auth/mfa/setup").json()["secret"]
+    csrf = {"x-csrf-token": b1.cookies["qb_csrf"]}
+    assert c.post("/v1/auth/mfa/enable", headers=csrf, json={"code": pyotp.TOTP(secret).now()}).status_code == 200
+    server = {"Authorization": "Bearer " + handoff(c, token(), json=True).json()["token"]}
+    other = TestClient(create_app(svc))
+    r = other.get("/v1/auth/me", headers=server); assert r.status_code == 401 and r.json()["detail"] == "mfa_required"
+    b2 = handoff(c, token())
+    assert c.post("/v1/auth/mfa/verify", headers={"x-csrf-token": b2.cookies["qb_csrf"]},
+                  json={"code": pyotp.TOTP(secret).now()}).status_code == 200
+    assert other.get("/v1/auth/me", headers=server).status_code == 200
+
+
+def test_an_admin_deactivation_is_never_undone_by_a_handoff():
+    c, svc = make(); handoff(c, token()); u = svc.users.get_by_portal_id(501)
+    admin = {"Authorization": "Bearer " + svc.sessions.create(svc.users.rows["emp_9"]["id"], 600, True)[0]}
+    assert _status(c, (501, "false")).status_code == 200 and u["deactivated_by_portal"]
+    # the admin deactivates the already-deactivated account: refused as a transition, but the Portal's claim on it is gone
+    assert c.post(f"/v1/admin/users/{u['id']}/status", headers=admin, json={"status": "deactivated"}).status_code == 409
+    assert not u["deactivated_by_portal"]
+    refused(handoff(c, token())); assert reasons(svc)[-1] == "state"
+    svc.users.set_status(u["id"], "deactivated", None, "portal: no longer active", by_portal=True)   # Portal again...
+    svc.users.set_status(u["id"], "deactivated", None, "admin", expect={"deactivated"})              # ...then any other change
+    refused(handoff(c, token()))
+
+
+def test_a_unique_clash_while_linking_or_syncing_is_not_a_crash():
+    import contextlib
+    import psycopg.errors
+    from backend.database.users import UserStore
+
+    def execute(self, sql, *a):
+        if "full_name" not in sql:                       # the name is not unique; every unique column clashes
+            raise psycopg.errors.UniqueViolation("dup")
+
+    class Pool:
+        @contextlib.contextmanager
+        def connection(self):
+            yield type("C", (), {"execute": execute})()
+
+    store = UserStore(Pool(), "quixotic")
+    assert store.link_portal(uuid4(), 501) is False
+    store.sync_portal_profile(uuid4(), "Sara K", "sara@portal.test", "sara.k")     # email and username clashes are skipped

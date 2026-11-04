@@ -70,6 +70,10 @@ class FakeSessions:
         for r in self.rows.values():
             if r["id"] == sid: r["mfa_passed"] = True
 
+    def mark_portal_server_mfa_passed(self, user_id):
+        for r in self.rows.values():
+            if r["user_id"] == user_id and r["kind"] == "portal_server" and not r["revoked"]: r["mfa_passed"] = True
+
     def revoke(self, sid):
         for r in self.rows.values():
             if r["id"] == sid: r["revoked"] = True

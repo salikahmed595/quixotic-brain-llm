@@ -40,6 +40,12 @@ class SessionStore:
         with self.pool.connection() as c:
             c.execute("UPDATE sessions SET mfa_passed=true WHERE id=%s", (session_id,))
 
+    def mark_portal_server_mfa_passed(self, user_id: UUID) -> None:
+        """The person passed their code in the browser: the Portal server's chat session for them has passed it too."""
+        with self.pool.connection() as c:
+            c.execute("UPDATE sessions SET mfa_passed=true WHERE tenant_id=%s AND user_id=%s AND kind='portal_server' "
+                      "AND revoked_at IS NULL AND expires_at > now()", (self.tenant, user_id))
+
     def revoke(self, session_id: UUID) -> None:
         with self.pool.connection() as c:
             c.execute("UPDATE sessions SET revoked_at=now() WHERE id=%s AND revoked_at IS NULL", (session_id,))
