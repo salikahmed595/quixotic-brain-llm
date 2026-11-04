@@ -28,7 +28,7 @@ from ...learning.feedback import style_hints
 from ...notifications.mail import reset_email, send_safely, verification_email
 from ...permissions.access import Principal
 from ...permissions.roles import ROLE_LABELS, Role, permissions_of
-from ..deps import (CSRF_COOKIE, SESSION_COOKIE, SessionInfo, current_principal, current_session, get_services,
+from ..deps import (apply_portal_admin, CSRF_COOKIE, SESSION_COOKIE, SessionInfo, current_principal, current_session, get_services,
                     mfa_required)
 from ..services import Services
 from .integrations import valid_signature
@@ -164,12 +164,8 @@ async def portal_login(request: Request, svc: Services = Depends(get_services)):
         if not created:
             svc.users.sync_portal_profile(user["id"], " ".join(str(claims.get("name") or user["full_name"]).split())[:80] or user["full_name"],
                                           _email(claims), claims["_username"])
-        # Owner decision: Portal Admin = Maqsad system_admin. A missing claim (old token) counts as not admin.
-        change = svc.users.apply_portal_role(user["id"], claims.get("portal_role") == "admin")
-        if change:
-            svc.sessions.revoke_user(user["id"])               # the new role (and its two-step rule) applies from this sign-in
-            audit.record(svc.ops, audit.PERMISSION_CHANGE, user["id"], user["employee_id"], action="portal_role_set",
-                         actor="portal", from_role=change[0], to_role=change[1])
+        # Owner rule: Portal Admin = Maqsad admin. Only a boolean `true` counts; a missing or any other claim is not admin.
+        apply_portal_admin(svc, user, claims.get("portal_admin") is True)
         user = svc.users.get(user["id"])
     except _Refused as e:
         raise _refuse(svc, str(e), request, sub=sub)
