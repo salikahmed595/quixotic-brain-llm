@@ -7,11 +7,18 @@ from __future__ import annotations
 import base64
 import io
 import re
+import secrets
+import time
+from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs
 from typing import Optional
 from uuid import UUID
 
+import jwt
 import segno
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from ...analytics import audit
@@ -24,6 +31,7 @@ from ...permissions.roles import ROLE_LABELS, Role, permissions_of
 from ..deps import (CSRF_COOKIE, SESSION_COOKIE, SessionInfo, current_principal, current_session, get_services,
                     mfa_required)
 from ..services import Services
+from .integrations import valid_signature
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 throttle = LoginThrottle()
@@ -41,8 +49,8 @@ def _client(request: Request) -> tuple[str, str]:
     return (request.client.host if request.client else "unknown"), request.headers.get("user-agent", "")
 
 
-def _set_session_cookies(response: Response, svc: Services, token: str, csrf: str) -> None:
-    secure, ttl = svc.settings.secure_cookies, svc.settings.session_ttl_seconds
+def _set_session_cookies(response: Response, svc: Services, token: str, csrf: str, ttl: Optional[int] = None) -> None:
+    secure, ttl = svc.settings.secure_cookies, ttl or svc.settings.session_ttl_seconds
     response.set_cookie(SESSION_COOKIE, token, max_age=ttl, httponly=True, secure=secure, samesite="lax", path="/")
     response.set_cookie(CSRF_COOKIE, csrf, max_age=ttl, httponly=False, secure=secure, samesite="lax", path="/")
 
@@ -68,6 +76,10 @@ def login(body: LoginRequest, request: Request, response: Response, svc: Service
         throttle.failure(ident)
         audit.record(svc.ops, audit.FAILED_AUTHENTICATION, None, ident)
         raise HTTPException(401, "invalid credentials")
+    if user.get("portal_user_id"):                           # Portal people sign in through the Portal only (owner decision)
+        throttle.failure(ident)
+        audit.record(svc.ops, audit.FAILED_AUTHENTICATION, user["id"], user["employee_id"], reason="portal_only")
+        raise HTTPException(401, "invalid credentials")
     state = user["account_status"]
     if state != "active":
         audit.record(svc.ops, audit.FAILED_AUTHENTICATION, user["id"], user["employee_id"], reason=state)
@@ -86,6 +98,121 @@ def login(body: LoginRequest, request: Request, response: Response, svc: Service
     audit.record(svc.ops, audit.USER_LOGIN, user["id"], user["employee_id"])
     mfa = "none" if not needs_mfa else ("verify" if user.get("mfa_enabled_at") else "setup")
     return {"status": "ok", "mfa": mfa, "csrf_token": csrf}
+
+
+# ---- Portal single sign-on (docs/PRD_GAPS.md "Portal SSO") ----
+class _Refused(Exception):
+    """Carries the real reason for the audit log; the caller only ever sees the same 401."""
+
+
+def _refuse(svc: Services, reason: str, request: Request, user: Optional[dict] = None, sub: Optional[str] = None) -> HTTPException:
+    audit.record(svc.ops, audit.FAILED_AUTHENTICATION, user["id"] if user else None,
+                 user["employee_id"] if user else (f"portal:{sub}" if sub else None), reason=reason, via="portal",
+                 ip=_client(request)[0])
+    return HTTPException(401, "sign-in failed")                # one body for every refusal: nothing to learn from it
+
+
+def _verify_portal_token(svc: Services, token: str) -> dict:
+    s = svc.settings
+    try:
+        key = Ed25519PublicKey.from_public_bytes(base64.b64decode(s.portal_public_key))
+        claims = jwt.decode(token, key, algorithms=["EdDSA"], audience="maqsad", issuer=s.portal_issuer, leeway=10,
+                            options={"require": ["iss", "aud", "sub", "jti", "exp", "iat"]})
+    except jwt.ExpiredSignatureError:
+        raise _Refused("expired")
+    except jwt.InvalidAudienceError:
+        raise _Refused("aud")
+    except jwt.InvalidIssuerError:
+        raise _Refused("iss")
+    except jwt.MissingRequiredClaimError:
+        raise _Refused("claims")
+    except jwt.PyJWTError:
+        raise _Refused("bad_sig")
+    sub, username, jti = str(claims["sub"]), str(claims.get("username") or "").strip(), str(claims["jti"])
+    if not sub.isdigit() or len(sub) > 18 or not username or len(username) > 64 or any(c.isspace() for c in username) or not jti \
+            or not all(isinstance(claims.get(k), str) and claims[k] for k in ("ip", "ua_hash")) \
+            or not isinstance(claims["exp"], (int, float)) or not isinstance(claims["iat"], (int, float)) or claims["exp"] - claims["iat"] > 120:
+        raise _Refused("claims")                               # a longer-lived token than the contract allows is not one of ours
+    claims["_sub"], claims["_username"] = int(sub), username
+    return claims
+
+
+@router.post("/portal")
+async def portal_login(request: Request, svc: Services = Depends(get_services)):
+    if not svc.settings.portal_public_key:
+        raise HTTPException(404, "not found")                  # feature off: the endpoint does not exist
+    raw = await request.body()
+    token = (parse_qs(raw.decode("utf-8", "replace")).get("token") or [""])[0]
+    as_json = "application/json" in request.headers.get("accept", "")
+    sub = None
+    try:
+        if as_json and not valid_signature(svc.settings.portal_hook_secret, request.headers.get("x-quixotic-timestamp"),
+                                           request.headers.get("x-quixotic-signature"), raw):
+            raise _Refused("bad_hmac")                         # only the Portal server may get a bearer token
+        claims = _verify_portal_token(svc, token)
+        sub = str(claims["_sub"])
+        if not svc.users.use_jti(claims["jti"], claims["_sub"], int(claims["exp"] - time.time()) + 10 + 1):
+            raise _Refused("replay")
+        user, created = _portal_user(svc, claims)
+        if user["account_status"] == "deactivated":
+            hist = svc.users.status_history(user["id"])
+            if not (hist and (hist[-1].get("note") or "").startswith("portal:")):
+                raise _Refused("state")                        # a Maqsad admin deactivated them: only a Maqsad admin undoes it
+            svc.users.set_status(user["id"], "active", None, "portal: active again", expect={"deactivated"})
+            audit.record(svc.ops, audit.PERMISSION_CHANGE, user["id"], user["employee_id"], action="portal_reactivated")
+        elif user["account_status"] != "active":
+            raise _Refused("state")                            # suspended / rejected / pending
+        if not created:
+            svc.users.sync_portal_profile(user["id"], " ".join(str(claims.get("name") or user["full_name"]).split())[:80] or user["full_name"],
+                                          _email(claims), claims["_username"])
+        user = svc.users.get(user["id"])
+    except _Refused as e:
+        raise _refuse(svc, str(e), request, sub=sub)
+    needs_mfa = mfa_required(user, svc)
+    ip, ua = _client(request)
+    ttl = svc.settings.portal_session_ttl_seconds
+    ua_hash = claims.get("ua_hash") if isinstance(claims.get("ua_hash"), str) else ""
+    bound = dict(bound_ip=str(claims.get("ip") or ""), bound_ua_hash=ua_hash, kind="portal")
+    if as_json:
+        bound = dict(kind="portal_server")                     # never leaves the Portal server, which enforces office-only itself
+    token_, csrf = svc.sessions.create(user["id"], ttl, mfa_passed=not needs_mfa, ip=ip, user_agent=ua, **bound)
+    svc.users.record_login(user["id"])
+    audit.record(svc.ops, audit.USER_LOGIN, user["id"], user["employee_id"], via="portal")
+    mfa = "none" if not needs_mfa else ("verify" if user.get("mfa_enabled_at") else "setup")
+    if as_json:
+        return {"token": token_, "csrf_token": csrf, "mfa": mfa,
+                "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=ttl)).isoformat()}
+    response = RedirectResponse("/", status_code=303)
+    _set_session_cookies(response, svc, token_, csrf, ttl)
+    return response
+
+
+def _email(claims: dict) -> Optional[str]:
+    e = str(claims.get("email") or "").strip().lower()
+    return e if EMAIL_RE.match(e) else None
+
+
+def _portal_user(svc: Services, claims: dict) -> tuple[dict, bool]:
+    """Find, link or create the Maqsad user for this Portal user. (user, created). Fails closed on any clash."""
+    pid, username, email = claims["_sub"], claims["_username"], _email(claims)
+    user = svc.users.get_by_portal_id(pid)
+    if user:
+        return user, False
+    other = svc.users.get_by_email(email) if email else None
+    if other:                                                  # owner decision: an existing account with the same email is linked
+        if other.get("portal_user_id") or not svc.users.link_portal(other["id"], pid):
+            raise _Refused("clash")
+        audit.record(svc.ops, audit.PERMISSION_CHANGE, other["id"], other["employee_id"], action="portal_linked", portal_user_id=pid)
+        return svc.users.get(other["id"]), False
+    if svc.users.username_or_email_taken(username, email or f"portal-{pid}@portal.invalid"):
+        raise _Refused("clash")                                # same username, different unlinked person: never merge silently
+    free_email = email if email else f"portal-{pid}@portal.invalid"
+    uid = svc.users.create_portal_user(pid, username, free_email, " ".join(str(claims.get("name") or username).split())[:80],
+                                       hash_password(secrets.token_urlsafe(48)))
+    if uid is None:
+        raise _Refused("clash")
+    audit.record(svc.ops, audit.PERMISSION_CHANGE, uid, username, action="portal_user_created", portal_user_id=pid)
+    return svc.users.get(uid), True
 
 
 @router.post("/logout")
@@ -246,7 +373,7 @@ def password_reset_request(body: EmailBody, request: Request, svc: Services = De
     """FR-AUTH-06 password reset. Always 202 (no account enumeration). Only Active accounts get a link."""
     ip, _ = _client(request)
     user = svc.users.get_by_login(body.identifier.strip())
-    if user and user["account_status"] == "active" and mail_limiter.allow(f"{ip}:{user['id']}", MAILS_PER_HOUR):
+    if user and user["account_status"] == "active" and not user.get("portal_user_id") and mail_limiter.allow(f"{ip}:{user['id']}", MAILS_PER_HOUR):
         token = svc.one_time.issue(user["id"], "reset_password", svc.settings.one_time_link_ttl_seconds)
         send_safely(svc.mailer, user["email"], *reset_email(user["full_name"], f"{svc.settings.public_url}/#/reset?token={token}"))
     return {"status": "if the account exists, a reset link was sent"}
@@ -261,7 +388,7 @@ class ResetConfirm(BaseModel):
 def password_reset_confirm(body: ResetConfirm, svc: Services = Depends(get_services)):
     uid = svc.one_time.consume(body.token, "reset_password")
     user = svc.users.get(uid) if uid else None
-    if not user or user["account_status"] != "active":
+    if not user or user["account_status"] != "active" or user.get("portal_user_id"):
         raise HTTPException(400, "This link is not valid any more. Ask for a new one.")
     problem = password_problem(body.new_password, user["employee_id"], user["email"].split("@")[0], user["full_name"])
     if problem:
