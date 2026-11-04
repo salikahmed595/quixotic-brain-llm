@@ -155,8 +155,7 @@ async def portal_login(request: Request, svc: Services = Depends(get_services)):
             raise _Refused("replay")
         user, created = _portal_user(svc, claims)
         if user["account_status"] == "deactivated":
-            hist = svc.users.status_history(user["id"])
-            if not (hist and (hist[-1].get("note") or "").startswith("portal:")):
+            if not user.get("deactivated_by_portal"):
                 raise _Refused("state")                        # a Maqsad admin deactivated them: only a Maqsad admin undoes it
             svc.users.set_status(user["id"], "active", None, "portal: active again", expect={"deactivated"})
             audit.record(svc.ops, audit.PERMISSION_CHANGE, user["id"], user["employee_id"], action="portal_reactivated")
@@ -200,8 +199,14 @@ def _portal_user(svc: Services, claims: dict) -> tuple[dict, bool]:
         return user, False
     other = svc.users.get_by_email(email) if email else None
     if other:                                                  # owner decision: an existing account with the same email is linked
-        if other.get("portal_user_id") or not svc.users.link_portal(other["id"], pid):
+        if other.get("portal_user_id"):
             raise _Refused("clash")
+        if other["role"] != "employee" or other.get("mfa_enabled_at"):
+            raise _Refused("link_refused")                     # never hand a privileged account to whoever controls a Portal email
+        if not svc.users.link_portal(other["id"], pid):
+            raise _Refused("clash")
+        svc.sessions.revoke_user(other["id"])                  # whoever held this account before must sign in again, via the Portal
+        svc.ops.revoke_user_api_keys(other["id"])
         audit.record(svc.ops, audit.PERMISSION_CHANGE, other["id"], other["employee_id"], action="portal_linked", portal_user_id=pid)
         return svc.users.get(other["id"]), False
     if svc.users.username_or_email_taken(username, email or f"portal-{pid}@portal.invalid"):
@@ -257,6 +262,8 @@ def _check_code(info: SessionInfo, svc: Services, code: str, secret_enc: Optiona
         raise HTTPException(401, "That code is not correct. Check the time on your phone and try again.")
     throttle.success(key)
     svc.sessions.mark_mfa_passed(info.session["id"])
+    if info.session.get("kind") == "portal":              # the chat panel's server session is the same person: no second prompt
+        svc.sessions.mark_portal_server_mfa_passed(info.user["id"])
 
 
 @router.post("/mfa/enable")

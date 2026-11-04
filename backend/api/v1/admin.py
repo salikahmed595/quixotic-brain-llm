@@ -144,6 +144,8 @@ def change_status(user_id: UUID, body: StatusChange, actor: Principal = Depends(
     user = svc.users.get(user_id)
     if user is None:
         raise HTTPException(404, "user not found")
+    if user["account_status"] == "deactivated" and body.status == "deactivated":
+        svc.users.clear_portal_deactivation(user_id)        # an administrator's word wins over the Portal's (hand-offs stop reactivating)
     if body.status not in ADMIN_STATE_EDGES.get(user["account_status"], set()):
         raise HTTPException(409, f"an account that is {user['account_status']} cannot become {body.status} here")
     prev = svc.users.set_status(user_id, body.status, actor.user_id, body.note, expect={user["account_status"]})

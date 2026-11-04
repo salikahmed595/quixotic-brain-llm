@@ -142,7 +142,7 @@ def portal_status(body: PortalStatus, _: bytes = Depends(portal_signed), svc: Se
     user = svc.users.get_by_portal_id(body.portal_user_id)
     if user:
         if user["account_status"] == "active":
-            svc.users.set_status(user["id"], "deactivated", None, "portal: no longer active", expect={"active"})
+            svc.users.set_status(user["id"], "deactivated", None, "portal: no longer active", expect={"active"}, by_portal=True)
         svc.sessions.revoke_user(user["id"])
         audit.record(svc.ops, audit.ADMIN_ACTION, user["id"], user["employee_id"], action="portal_deactivated")
     return {"status": "ok"}
