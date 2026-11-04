@@ -120,3 +120,25 @@ test('S16: when a friend makes their art, no attack and no replacement pitch',as
   const out=await run([S('nice emotes!'),C('thanks, my friend makes all my art')],ask);
   assert.equal(out.draft,'thats awesome, love that your friend does it for you');
 });
+
+// Found by running the real panel (2026-11-04).
+test('the server saying it has no approved answer is never offered as a reply to the customer',async()=>{
+  const ask=askSeq("I couldn't find an approved answer in the company knowledge base.");
+  const out=await run([C('whats your favourite colour?')],ask);
+  assert.equal(ask.calls.length,1);
+  assert.equal(out.ok,false);assert.equal(out.status,'NEED_CONTEXT');assert.equal(out.draft,null);
+  assert.match(out.text,/approved answer/i);assert.match(out.text,/write it yourself/i);
+});
+
+test('a data request is labelled as one, not as an order problem',async()=>{
+  const out=await run([C('please delete my data')],askSeq('x'));
+  assert.equal(out.stage.intent,'data_request');
+  assert.doesNotMatch(out.stage.next,/fix their issue/i);
+});
+
+test('rewrite buttons still work on a no-sales reply, and it stays no-sales',async()=>{
+  const ask=askSeq('all good, btw we do custom emotes','all good');
+  const out=await run([C('not interested lol, anyway what game are u playing')],ask,{answerOnly:true,goal:'shorter',previous:'all good, enjoy the stream'});
+  assert.match(ask.calls[0],/Make it shorter/);
+  assert.equal(out.draft,'all good');
+});

@@ -16,7 +16,7 @@ export const STAGES={
 export const INTENTS={casual_chat:'Casual chat',gaming_question:'Gaming question',art_need:'Described an art need',
   art_question:'Art question',asks_examples:'Wants examples',quote_request:'Asked about price',deadline_question:'Asked about timing',
   price_objection:'Price concern',trust_objection:'Trust concern',wants_payment_link:'Wants to pay',customer_declines:'Said no',
-  needs_support:'Needs help with an order'};
+  needs_support:'Needs help with an order',data_request:'Data or privacy request'};
 
 // First match wins; support comes before any sales intent (§10: no cross-sell before the support issue is solved).
 const RULES=[
@@ -39,7 +39,7 @@ export function stageOf(chat){
   const pack=(stage,intent,evidence=latest?[latest.id]:[])=>({stage,intent,evidence,next:STAGES[stage].next});
   const gate=gateFor(chat);
   if(gate.status==='NO_REPLY') return pack('CLOSED','customer_declines',gate.evidence);
-  if(gate.status==='HUMAN_HANDOFF') return gate.kind==='privacy'?pack('SUPPORT','needs_support',gate.evidence):pack('READY','wants_payment_link',gate.evidence);
+  if(gate.status==='HUMAN_HANDOFF') return gate.kind==='privacy'?{...pack('SUPPORT','data_request',gate.evidence),next:'Pass it to the team member who handles data requests.'}:pack('READY','wants_payment_link',gate.evidence);
   const hit=RULES.find(([,,re])=>re.test(text(latest)));
   if(hit) return pack(hit[0],hit[1]);
   return pack(chat.some(m=>m.isStaff)?'RAPPORT':'DISCOVERY','casual_chat');

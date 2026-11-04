@@ -10,6 +10,8 @@ import {verifyReply} from './verify.js';
 
 const THREE_WAY=new Set(['reply','answer_only']);
 const ALT_LABELS=['Short','Warm'];
+const REWRITE_GOALS=new Set(['shorter','warmer','direct','natural']);
+const SERVER_NOTE=/I couldn'?t find an approved answer in the company knowledge base|I'm Quixotic AI, the office assistant/i;
 
 // Models sometimes wrap the reply as a quote or label it; employees should get text they can paste as is.
 export function cleanDraft(text){
@@ -34,19 +36,24 @@ export async function draftFromChat({messages,staffNames,ask,goal,tone,app,clien
     return {...base,ok:false,status:'NO_REPLY',draft:null,evidence:gate.evidence,text:`No sales reply: the customer opted out. ${gate.reason}`};
   if(gate.status==='HUMAN_HANDOFF')
     return {...base,ok:true,status:'HUMAN_HANDOFF',kind:gate.kind,draft:gate.reply,text:gate.reply,evidence:gate.evidence,reason:gate.reason};
-  const g=answerOnly?'answer_only':goal||'reply';
+  const g=answerOnly&&!REWRITE_GOALS.has(goal)?'answer_only':goal||'reply';
   const opts={goal:g,tone,app,clientFacts,style,previous,stage:base.stage.stage,role};
   const clean=t=>cleanDraft(t).replace(/@everyone|@here/g,'[mention removed]');
   const split=answer=>THREE_WAY.has(g)?parseOptions(answer).map(clean):[clean(answer)];
   // Prompt pack §19: checked in code; ideas are a staff-only list, not a chat message, so they are not checked.
   const verify=t=>g==='ideas'?{verdict:'PASS',violations:[]}:verifyReply(t,{chat,stage:base.stage.stage,facts:clientFacts,noSales:answerOnly,role});
   let res=await ask(buildConversationQuestion(chat,target.id,opts));
+  // backend/retrieval/ask.py: these are messages to the employee, never text to send to a customer (PRD §6 FR-CHAT-04).
+  const noAnswer={...base,ok:false,status:'NEED_CONTEXT',draft:null,
+    text:'Quixotic AI has no approved answer for this. Please write it yourself, or use Report missing information in Quixotic AI.'};
+  if(SERVER_NOTE.test(res.answer)) return noAnswer;
   let [draft,...rest]=split(res.answer);
   if(!validateDraft(draft).ok) return {ok:false,text:`Draft blocked for review: ${validateDraft(draft).reason}`};
   let check=verify(draft),revised=false;
   if(check.verdict!=='PASS'){
     // One rewrite that names what failed (§26 orchestrator); if it fails again the employee writes it themselves.
     res=await ask(buildConversationQuestion(chat,target.id,{...opts,fix:check.violations.map(v=>v.text)}));
+    if(SERVER_NOTE.test(res.answer)) return noAnswer;
     [draft,...rest]=split(res.answer);revised=true;
     if(!validateDraft(draft).ok) return {ok:false,text:`Draft blocked for review: ${validateDraft(draft).reason}`};
     check=verify(draft);

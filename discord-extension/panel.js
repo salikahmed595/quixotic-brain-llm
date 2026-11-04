@@ -282,9 +282,11 @@ async function generate(goal){
   return out;
 }
 
+const countOf=(n,word)=>`${n} ${word}${n===1?'':'s'}`;
+
 async function suggest(goal='reply'){
   state.goal=goal;
-  const busy=$('go');busy.disabled=true;busy.textContent='✦ Reading the conversation…';status('');
+  const busy=$('go');busy.disabled=true;busy.textContent='✦ Reading the conversation…';status('');$('gateCard').hidden=true;
   try{
     const out=await generate(goal);
     showGate(out);
@@ -298,8 +300,10 @@ async function suggest(goal='reply'){
     $('result').hidden=false;
     // Prompt pack §20/§21: what the reply is based on, quoting the evidence messages; confidence is the model's guess, not proof.
     const said=(out.evidence||[]).map(id=>out.chat.find(m=>m.id===id)).filter(Boolean);
+    const handoff=out.status==='HUMAN_HANDOFF';
     $('why').replaceChildren(
-      el('p',{textContent:`${out.stage?out.stage.next+' ':''}Based on the last ${out.messagesRead} messages on screen`+(confirmed().length?`, ${confirmed().length} confirmed facts from the Mini Brain`:'')+
+      el('p',{textContent:handoff?`${out.stage.next} This is a fixed message for this situation; the AI was not asked.`:
+        `${out.stage?out.stage.next+' ':''}Based on ${countOf(out.messagesRead,'message')} on screen`+(confirmed().length?`, ${countOf(confirmed().length,'confirmed fact')} from the Mini Brain`:'')+
         ` and Quixotic AI's approved company knowledge. AI confidence (a guess, not proof): ${out.confidence??'unknown'}.`}),
       el('p',{textContent:out.check?`Checked in code: no stock AI phrases, links, fake viewer or gamer claims, extra questions, made-up prices, repeated questions or unasked pitches${out.check.revised?' (the first try failed, so it was rewritten once)':''}.`:''}),
       ...(said.length?[el('b',{textContent:'Evidence from the chat'}),el('ul',{},...said.map(m=>el('li',{textContent:`"${m.content}"`})))]:[]));
@@ -312,7 +316,7 @@ async function suggest(goal='reply'){
 // Prompt pack §27: what the assistant understood, so the employee can see why the reply fits.
 function showUnderstood(out){
   $('latestCard').hidden=false;setAvatar($('lAvatar'),brain.customer);$('lText').textContent=out.latest.content||'';
-  $('contextSub').textContent=`${out.messagesRead} messages read · only what is on screen; nothing is stored`;
+  $('contextSub').textContent=`${countOf(out.messagesRead,'message')} read · only what is on screen; nothing is stored`;
   const st=out.stage,closed=st.stage==='CLOSED';
   const rows=[['Chat stage',CONV_STAGES[st.stage].label],['They want',INTENTS[st.intent]||st.intent],
     ['History','Partial: only the messages on screen'],
