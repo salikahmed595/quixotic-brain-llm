@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from ...analytics import audit
 from ...permissions.roles import P
-from ..deps import get_services, require
+from ..deps import apply_portal_admin, get_services, require
 from ..services import Services
 
 router = APIRouter(prefix="/v1/integrations", tags=["integrations"])
@@ -131,14 +131,24 @@ def remove_identity(identity_id: UUID, p=Depends(require(P.MANAGE_SYSTEM)), svc:
 class PortalStatus(BaseModel):
     portal_user_id: int
     active: bool
+    portal_admin: Any = False                  # only a JSON true counts; missing or anything else is not admin
 
 
 @router.post("/portal/status")
 def portal_status(body: PortalStatus, _: bytes = Depends(portal_signed), svc: Services = Depends(get_services)):
-    """active=false: deactivate the linked account and end its sessions at once. active=true changes nothing here: the person's
-    next hand-off reactivates it (only if the Portal deactivated it, see auth.portal_login)."""
-    if body.active:
+    """Applies the Portal's admin flag first (a deactivated admin is lowered too; a demotion while still active also ends their
+    sessions), then active=false deactivates the account. active=true changes nothing else here: the person's next hand-off
+    reactivates it (only if the Portal deactivated it, see auth.portal_login)."""
+    user = svc.users.get_by_portal_id(body.portal_user_id)
+    if user is None:
         return {"status": "ok"}
+    apply_portal_admin(svc, user, body.active and body.portal_admin is True)
+    if not body.active:
+        if user["account_status"] == "active":
+            svc.users.set_status(user["id"], "deactivated", None, "portal: no longer active", expect={"active"}, by_portal=True)
+        svc.sessions.revoke_user(user["id"])
+        audit.record(svc.ops, audit.ADMIN_ACTION, user["id"], user["employee_id"], action="portal_deactivated")
+    return {"status": "ok"}
     user = svc.users.get_by_portal_id(body.portal_user_id)
     if user:
         if user["account_status"] == "active":

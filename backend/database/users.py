@@ -89,26 +89,30 @@ class UserStore:
             c.execute("UPDATE users SET deactivated_by_portal=false WHERE tenant_id=%s AND id=%s", (self.tenant, user_id))
 
     def apply_portal_role(self, user_id: UUID, portal_admin: bool) -> Optional[tuple[str, str]]:
-        """Owner decision: a Portal Admin is a Maqsad system_admin. Returns (from_role, to_role) when the role changed, else None.
-        Raises only what the Portal itself gave (role_set_by_portal); a role set by hand, and founder_ceo, are never touched."""
+        """Owner rule: Portal Admin = Maqsad admin. Returns (from_role, to_role) when the role changed, else None.
+        A Portal Admin is raised to system_admin even if a Maqsad admin had lowered them by hand (the old role is kept in
+        role_before_portal). Lowering gives that role back, and only when the Portal was the one that raised them; a role set by
+        hand (role_set_by_portal false) and founder_ceo are never touched."""
         with self.pool.connection() as c, c.transaction():
-            u = c.execute("SELECT role, role_set_by_portal FROM users WHERE tenant_id=%s AND id=%s FOR UPDATE",
+            u = c.execute("SELECT role, role_set_by_portal, role_before_portal FROM users WHERE tenant_id=%s AND id=%s FOR UPDATE",
                           (self.tenant, user_id)).fetchone()
             if u is None:
                 return None
             if portal_admin and u["role"] not in ("system_admin", "founder_ceo"):
                 to = "system_admin"
             elif not portal_admin and u["role_set_by_portal"] and u["role"] == "system_admin":
-                to = "employee"
+                to = u["role_before_portal"] if u["role_before_portal"] in {r.value for r in Role} - {"system_admin", "founder_ceo"} else "employee"
             else:
                 return None
-            c.execute("UPDATE users SET role=%s, role_set_by_portal=%s WHERE id=%s", (to, to == "system_admin", user_id))
+            raised = to == "system_admin"
+            c.execute("UPDATE users SET role=%s, role_set_by_portal=%s, role_before_portal=%s WHERE tenant_id=%s AND id=%s",
+                      (to, raised, u["role"] if raised else None, self.tenant, user_id))
             return u["role"], to
 
     def sync_portal_profile(self, user_id: UUID, full_name: str, email: Optional[str], username: str) -> None:
         """Name always; email and username only when nobody else holds them. Never role, departments or status."""
         with self.pool.connection() as c:
-            c.execute("UPDATE users SET full_name=%s WHERE id=%s", (full_name, user_id))
+            c.execute("UPDATE users SET full_name=%s WHERE tenant_id=%s AND id=%s", (full_name, self.tenant, user_id))
         for column, value in (("email", email), ("employee_id", username)):      # each on its own: one clash skips only that field
             if not value:
                 continue

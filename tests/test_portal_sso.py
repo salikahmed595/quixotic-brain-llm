@@ -57,9 +57,11 @@ class PortalUsers(Users):
     def apply_portal_role(self, uid, admin):               # mirrors UserStore.apply_portal_role (the SQL is checked on Postgres)
         u = self.get(uid)
         if admin and u["role"] not in ("system_admin", "founder_ceo"): to = "system_admin"
-        elif not admin and u.get("role_set_by_portal") and u["role"] == "system_admin": to = "employee"
+        elif not admin and u.get("role_set_by_portal") and u["role"] == "system_admin":
+            to = u.get("role_before_portal") or "employee"
         else: return None
-        frm, u["role"], u["role_set_by_portal"] = u["role"], to, to == "system_admin"
+        frm = u["role"]; u["role"], u["role_set_by_portal"] = to, to == "system_admin"
+        u["role_before_portal"] = frm if to == "system_admin" else None
         return frm, to
 
     def sync_portal_profile(self, uid, name, email, username):
@@ -239,7 +241,8 @@ def test_a_portal_bearer_cannot_read_someone_elses_chat():
 
 
 def _status(c, body, secret=HOOK, age=0):
-    raw = f'{{"portal_user_id": {body[0]}, "active": {body[1]}}}'.encode(); ts = str(int(time.time()) - age)
+    extra = f', "portal_admin": {body[2]}' if len(body) > 2 else ""
+    raw = f'{{"portal_user_id": {body[0]}, "active": {body[1]}{extra}}}'.encode(); ts = str(int(time.time()) - age)
     return c.post("/v1/integrations/portal/status", content=raw, headers={"content-type": "application/json",
                   "x-quixotic-timestamp": ts, "x-quixotic-signature": sign(secret, ts, raw)})
 
@@ -321,7 +324,7 @@ def _role_audit(svc): return [r[2] for r in svc.ops.audit_rows if r[2].get("acti
 
 def test_an_admin_claim_makes_a_system_admin_with_two_step_setup_and_an_audit_row():
     c, svc = make(admin_mfa_required=True)
-    r = handoff(c, token(portal_role="admin"), json=True)
+    r = handoff(c, token(portal_admin=True), json=True)
     u = svc.users.get_by_portal_id(501)
     assert u["role"] == "system_admin" and u["role_set_by_portal"] is True and r.json()["mfa"] == "setup"
     assert _role_audit(svc)[0]["from_role"] == "employee" and _role_audit(svc)[0]["to_role"] == "system_admin"
@@ -330,7 +333,7 @@ def test_an_admin_claim_makes_a_system_admin_with_two_step_setup_and_an_audit_ro
 
 def test_a_later_non_admin_claim_lowers_what_the_portal_gave():
     c, svc = make()
-    handoff(c, token(portal_role="admin")); handoff(c, token(portal_role="seller"))
+    handoff(c, token(portal_admin=True)); handoff(c, token(portal_admin=False))
     u = svc.users.get_by_portal_id(501)
     assert u["role"] == "employee" and u["role_set_by_portal"] is False and _role_audit(svc)[-1]["to_role"] == "employee"
 
@@ -339,16 +342,17 @@ def test_a_hand_set_role_and_founder_ceo_are_never_changed():
     c, svc = make()
     handoff(c, token()); u = svc.users.get_by_portal_id(501)
     u["role"] = "knowledge_admin"                                              # set by a Maqsad admin: flag stays false
-    handoff(c, token(portal_role="seller")); assert u["role"] == "knowledge_admin"
-    handoff(c, token(portal_role="admin")); assert u["role"] == "system_admin"  # below admin: the Portal may raise it
+    handoff(c, token(portal_admin=False)); assert u["role"] == "knowledge_admin"
+    handoff(c, token(portal_admin=True)); assert u["role"] == "system_admin"  # a hand demotion does not stop the Portal's rule
+    assert u["role_before_portal"] == "knowledge_admin"
     u["role"], u["role_set_by_portal"] = "founder_ceo", True
-    handoff(c, token(portal_role="seller")); assert u["role"] == "founder_ceo"
-    handoff(c, token(portal_role="admin")); assert u["role"] == "founder_ceo"
+    handoff(c, token(portal_admin=False)); assert u["role"] == "founder_ceo"
+    handoff(c, token(portal_admin=True)); assert u["role"] == "founder_ceo"
 
 
 def test_a_missing_claim_counts_as_not_admin():
     c, svc = make()
-    handoff(c, token(portal_role="admin")); handoff(c, token())              # an old token without the claim
+    handoff(c, token(portal_admin=True)); handoff(c, token())              # an old token without the claim
     assert svc.users.get_by_portal_id(501)["role"] == "employee"
 
 
@@ -367,3 +371,61 @@ def test_a_manual_role_change_clears_the_flag():
 
     UserStore(Pool(), "quixotic").update_user(uuid4(), Role.KNOWLEDGE_ADMIN)
     assert any("role=%s" in q and "role_set_by_portal=false" in q for q in seen)
+
+
+def test_only_a_boolean_true_claim_is_admin():
+    c, svc = make()
+    for v in ("true", 1, "admin", False, None):
+        handoff(c, token(portal_admin=v, jti=uuid4().hex)); assert svc.users.get_by_portal_id(501)["role"] == "employee", v
+    assert not _role_audit(svc)
+    handoff(c, token(portal_role="admin")); assert svc.users.get_by_portal_id(501)["role"] == "employee"   # the name alone is not enough
+
+
+def test_a_role_change_ends_sessions_and_api_keys_and_refreshes_the_vault(monkeypatch):
+    import backend.knowledge.vault_sync as vs
+    seen = []; monkeypatch.setattr(vs, "queue_refresh_for_user", lambda svc, uid, actor=None: seen.append((uid, actor)))
+    c, svc = make(admin_mfa_required=True)
+    sid = handoff(c, token()).cookies["qb_session"]
+    handoff(c, token(portal_admin=True))                                     # raise
+    u = svc.users.get_by_portal_id(501)
+    assert svc.sessions.rows[sid]["revoked"] and svc.ops.revoked_keys == [u["id"]] and seen == [(u["id"], None)]
+    handoff(c, token(portal_admin=False))                                    # lower
+    assert svc.ops.revoked_keys == [u["id"]] * 2 and len(seen) == 2
+
+
+def test_lowering_gives_back_the_role_the_person_had_before():
+    c, svc = make()
+    handoff(c, token()); u = svc.users.get_by_portal_id(501); u["role"] = "department_reviewer"
+    handoff(c, token(portal_admin=True)); assert u["role"] == "system_admin" and u["role_before_portal"] == "department_reviewer"
+    handoff(c, token(portal_admin=False))
+    assert u["role"] == "department_reviewer" and u["role_before_portal"] is None and u["role_set_by_portal"] is False
+
+
+def test_status_push_lowers_a_deactivated_admin_and_a_demoted_active_one():
+    c, svc = make(); handoff(c, token(portal_admin=True)); u = svc.users.get_by_portal_id(501)
+    sid = handoff(c, token(portal_admin=True)).cookies["qb_session"]
+    assert _status(c, (501, "true", "false")).status_code == 200            # demoted, still active
+    assert u["role"] == "employee" and u["account_status"] == "active" and svc.sessions.rows[sid]["revoked"]
+    handoff(c, token(portal_admin=True)); assert u["role"] == "system_admin"
+    assert _status(c, (501, "false", "true")).status_code == 200            # deactivated: lowered even though the flag says admin
+    assert u["role"] == "employee" and u["account_status"] == "deactivated"
+    assert _status(c, (501, "true")).status_code == 200 and u["role"] == "employee"   # missing portal_admin = false
+    assert _status(c, (501, "true", "true")).status_code == 200 and u["role"] == "system_admin"
+
+
+def test_the_portal_role_update_is_limited_to_the_tenant():
+    import contextlib
+    from backend.database.users import UserStore
+    seen = []
+
+    class Pool:
+        @contextlib.contextmanager
+        def connection(self):
+            def ex(self_, sql, *a):
+                seen.append(sql)
+                return type("R", (), {"fetchone": lambda s: dict(role="employee", role_set_by_portal=False, role_before_portal=None)})()
+            yield type("C", (), {"execute": ex, "transaction": contextlib.contextmanager(lambda self: (yield))})()
+
+    UserStore(Pool(), "quixotic").apply_portal_role(uuid4(), True)
+    UserStore(Pool(), "quixotic").sync_portal_profile(uuid4(), "N", None, "")
+    assert all("tenant_id" in q for q in seen if q.lstrip().startswith("UPDATE"))

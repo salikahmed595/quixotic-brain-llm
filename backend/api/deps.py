@@ -56,6 +56,22 @@ def mfa_required(user: dict, svc: Services) -> bool:
     return bool(svc.settings.admin_mfa_required) and Role(user["role"]) in MFA_ROLES
 
 
+def apply_portal_admin(svc: Services, user: dict, portal_admin: bool) -> bool:
+    """Portal Admin = Maqsad admin (owner rule). Any change ends the person's sessions and API keys, is audited, and refreshes
+    their Obsidian view. Shared by the hand-off and the status push so both behave the same."""
+    change = svc.users.apply_portal_role(user["id"], portal_admin)
+    if not change:
+        return False
+    from ..analytics import audit
+    from ..knowledge.vault_sync import queue_refresh_for_user
+    svc.sessions.revoke_user(user["id"])
+    svc.ops.revoke_user_api_keys(user["id"])
+    audit.record(svc.ops, audit.PERMISSION_CHANGE, user["id"], user["employee_id"], action="portal_role_set",
+                 actor="portal", from_role=change[0], to_role=change[1])
+    queue_refresh_for_user(svc, user["id"], None)
+    return True
+
+
 def current_session(request: Request, authorization: Optional[str] = Header(default=None),
                     svc: Services = Depends(get_services)) -> SessionInfo:
     """A live session of an Active account. MFA is NOT checked here (the MFA endpoints use this directly)."""
