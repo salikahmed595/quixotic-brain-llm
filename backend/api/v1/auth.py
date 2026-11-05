@@ -176,10 +176,12 @@ async def portal_login(request: Request, svc: Services = Depends(get_services)):
     bound = dict(bound_ip=str(claims.get("ip") or ""), bound_ua_hash=ua_hash, kind="portal")
     if as_json:
         bound = dict(kind="portal_server")                     # never leaves the Portal server, which enforces office-only itself
-    token_, csrf = svc.sessions.create(user["id"], ttl, mfa_passed=not needs_mfa, ip=ip, user_agent=ua, **bound)
+    # The Portal ran its own two-step in this Portal session: only a JSON `true` counts (owner decision 2026-11-05).
+    portal_mfa = claims.get("portal_mfa") is True
+    token_, csrf = svc.sessions.create(user["id"], ttl, mfa_passed=(not needs_mfa) or portal_mfa, ip=ip, user_agent=ua, **bound)
     svc.users.record_login(user["id"])
-    audit.record(svc.ops, audit.USER_LOGIN, user["id"], user["employee_id"], via="portal")
-    mfa = "none" if not needs_mfa else ("verify" if user.get("mfa_enabled_at") else "setup")
+    audit.record(svc.ops, audit.USER_LOGIN, user["id"], user["employee_id"], via="portal", portal_mfa=portal_mfa)
+    mfa = "none" if not needs_mfa or portal_mfa else ("verify" if user.get("mfa_enabled_at") else "setup")
     if as_json:
         return {"token": token_, "csrf_token": csrf, "mfa": mfa,
                 "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=ttl)).isoformat()}
