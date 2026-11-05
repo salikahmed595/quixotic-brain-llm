@@ -83,10 +83,12 @@ def current_session(request: Request, authorization: Optional[str] = Header(defa
         if sess:                                   # suspended / deactivated while signed in: end the session now
             svc.sessions.revoke(sess["id"])
         raise HTTPException(401, "authentication required")
-    if sess.get("bound_ip") is not None:               # Portal hand-off in a browser: office-only (docs/PRD_GAPS.md "Portal SSO")
-        ip = request.client.host if request.client else ""
+    if sess.get("bound_ip") is not None:               # Portal hand-off in a browser (docs/PRD_GAPS.md "Portal SSO")
+        # Owner decision 2026-11-05: the IP is NOT compared. The Portal already checks the office before it signs the
+        # hand-off, and the office goes out through several IPs, so an IP lock kept breaking sign-in. bound_ip is kept
+        # for the audit trail only. The exact User-Agent still has to match, so a copied cookie fails in another browser.
         ua_hash = hashlib.sha256(request.headers.get("user-agent", "").encode()).hexdigest()
-        if not (hmac.compare_digest(ip, sess["bound_ip"]) and hmac.compare_digest(ua_hash, sess["bound_ua_hash"] or "")):
+        if not hmac.compare_digest(ua_hash, sess["bound_ua_hash"] or ""):
             svc.sessions.revoke(sess["id"])
             audit.record(svc.ops, audit.FAILED_AUTHENTICATION, user["id"], user["employee_id"], reason="binding")
             raise HTTPException(401, "authentication required")

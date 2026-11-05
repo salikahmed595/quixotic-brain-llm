@@ -196,14 +196,13 @@ def test_existing_account_with_the_same_email_is_linked_and_audited():
     assert any(r[2].get("action") == "portal_linked" for r in svc.ops.audit_rows)
 
 
-def test_session_is_refused_and_revoked_from_another_ip_or_user_agent():
+def test_a_session_from_another_ip_still_works_but_another_user_agent_is_refused_and_revoked():
     c, svc = make(); sid = handoff(c, token()).cookies["qb_session"]
     far = TestClient(create_app(svc), client=("9.9.9.9", 1)); far.cookies.set("qb_session", sid)
-    assert far.get("/v1/auth/me").status_code == 401
-    assert c.get("/v1/auth/me").status_code == 401                          # revoked for everyone once it was misused
-    sid = handoff(c, token()).cookies["qb_session"]
+    assert far.get("/v1/auth/me").status_code == 200                        # owner decision 2026-11-05: the IP is not compared
+    assert c.get("/v1/auth/me").status_code == 200
     assert c.get("/v1/auth/me", headers={"user-agent": "other"}).status_code == 401
-    assert c.get("/v1/auth/me").status_code == 401 and reasons(svc)[-2:] == ["binding", "binding"]
+    assert c.get("/v1/auth/me").status_code == 401 and reasons(svc)[-1:] == ["binding"]     # revoked for everyone once misused
 
 
 def test_password_login_and_reset_are_refused_for_a_linked_user():
@@ -285,6 +284,31 @@ def test_mfa_passed_in_the_browser_unlocks_the_chat_panels_server_session():
     assert c.post("/v1/auth/mfa/verify", headers={"x-csrf-token": b2.cookies["qb_csrf"]},
                   json={"code": pyotp.TOTP(secret).now()}).status_code == 200
     assert other.get("/v1/auth/me", headers=server).status_code == 200
+
+
+def _admin(c, svc, **claims):
+    handoff(c, token()); svc.users.get_by_portal_id(501)["role"] = "system_admin"
+
+
+def test_an_admin_with_portal_mfa_true_needs_no_maqsad_two_step():
+    c, svc = make(admin_mfa_required=True); _admin(c, svc)
+    r = handoff(c, token(portal_mfa=True)); assert r.status_code == 303
+    assert c.get("/v1/chats").status_code == 200
+    assert svc.ops.audit_rows[-1][2]["portal_mfa"] is True
+
+
+def test_an_admin_without_a_true_portal_mfa_claim_still_needs_maqsad_two_step():
+    c, svc = make(admin_mfa_required=True); _admin(c, svc)
+    for v in (None, "true", 1):
+        handoff(c, token(portal_mfa=v, jti=uuid4().hex))
+        r = c.get("/v1/chats"); assert r.status_code == 401 and r.json()["detail"] == "mfa_required", v
+        assert svc.ops.audit_rows[-1][2]["portal_mfa"] is False
+
+
+def test_the_server_session_with_portal_mfa_true_can_use_chats():
+    c, svc = make(admin_mfa_required=True); _admin(c, svc)
+    tok = handoff(c, token(portal_mfa=True), json=True).json()["token"]
+    assert TestClient(create_app(svc)).get("/v1/chats", headers={"Authorization": "Bearer " + tok}).status_code == 200
 
 
 def test_an_admin_deactivation_is_never_undone_by_a_handoff():
