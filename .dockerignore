@@ -13,3 +13,5 @@ web/playwright-report/
 web/.env.visual
 UI images/
 .pytest_cache/
+quixotic-extension/node_modules/
+quixotic-extension/dist/

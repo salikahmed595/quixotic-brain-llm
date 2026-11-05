@@ -7,6 +7,7 @@ import { Loading, Overlays } from './ui';
 import type { Me } from './types';
 import { AuthPages, MfaScreen } from './pages/Auth';
 import { Ask } from './pages/Ask';
+import { Install } from './pages/Install';
 import { PAGES } from './pages/admin';
 
 export function App() {
@@ -49,7 +50,7 @@ function Shell() {
   const [drawer, setDrawer] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const perm = pagePerm(route.page);
-  const page = route.page !== 'ask' && (!PAGES[route.page] || !perm || !me.permissions.includes(perm)) ? 'ask' : route.page;
+  const page = route.page !== 'ask' && route.page !== 'install' && (!PAGES[route.page] || !perm || !me.permissions.includes(perm)) ? 'ask' : route.page;
   useEffect(() => { if (page !== route.page) history.replaceState(null, '', '#/ask'); }, [page, route.page]);
   useEffect(() => { setDrawer(false); }, [route.page, route.chat]);
   useEffect(() => { document.getElementById('main')?.scrollTo(0, 0); }, [page]);
@@ -73,7 +74,7 @@ function Shell() {
             <Icon name="menu" size={22} />
           </button>
         </header>
-        {page === 'ask' ? <Ask resetKey={resetKey} /> : <div className="pt-14 flex-1"><Page /></div>}
+        {page === 'ask' ? <Ask resetKey={resetKey} /> : <div className="pt-14 flex-1">{page === 'install' ? <Install /> : <Page />}</div>}
       </div>
     </div>
   );

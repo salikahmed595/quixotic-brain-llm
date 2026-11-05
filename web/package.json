@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node ../quixotic-extension/scripts/zip.js public/downloads/quixotic-reply-assistant.zip",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview",
-    "test:visual": "playwright test"
+    "test:visual": "playwright test",
+    "test:unit": "node --test src/install.test.ts"
   },
   "dependencies": {
     "react": "18.3.1",
