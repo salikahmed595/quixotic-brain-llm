@@ -68,6 +68,11 @@ class OpsStore:
             return c.execute("UPDATE api_keys SET status='revoked', revoked_at=now() "
                              "WHERE tenant_id=%s AND id=%s AND status='active'", (self.tenant, key_id)).rowcount > 0
 
+    def revoke_user_api_keys(self, user_id: UUID) -> int:
+        with self.pool.connection() as c:
+            return c.execute("UPDATE api_keys SET status='revoked', revoked_at=now() "
+                             "WHERE tenant_id=%s AND created_by=%s AND status='active'", (self.tenant, user_id)).rowcount
+
     # ---- query log & feedback (§21, §35) ----
     def log_query(self, *, user_id: Optional[UUID], api_key_id: Optional[UUID], department_id: Optional[UUID],
                   mode: str, original: str, normalized: str, language: str, confidence: Optional[str],

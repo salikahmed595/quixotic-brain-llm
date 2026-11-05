@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from ...analytics import audit
 from ...permissions.roles import P
-from ..deps import get_services, require
+from ..deps import apply_portal_admin, get_services, require
 from ..services import Services
 
 router = APIRouter(prefix="/v1/integrations", tags=["integrations"])
@@ -29,19 +29,30 @@ def sign(secret: str, timestamp: str, body: bytes) -> str:
     return hmac.new(secret.encode(), f"{timestamp}.".encode() + body, hashlib.sha256).hexdigest()
 
 
-async def signed(request: Request, x_quixotic_timestamp: Optional[str] = Header(default=None),
-                 x_quixotic_signature: Optional[str] = Header(default=None), svc: Services = Depends(get_services)) -> bytes:
-    secret = svc.settings.vault_hook_secret
-    if not secret:
-        raise HTTPException(404, "not found")                          # integration not configured: the endpoint does not exist
-    body = await request.body()
+def signed_by(secret_name: str):
+    """A dependency that checks the HMAC against the named setting (vault hook, Portal hook: separate secrets)."""
+    async def dep(request: Request, x_quixotic_timestamp: Optional[str] = Header(default=None),
+                  x_quixotic_signature: Optional[str] = Header(default=None), svc: Services = Depends(get_services)) -> bytes:
+        secret = getattr(svc.settings, secret_name)
+        if not secret:
+            raise HTTPException(404, "not found")                      # integration not configured: the endpoint does not exist
+        body = await request.body()
+        if not valid_signature(secret, x_quixotic_timestamp, x_quixotic_signature, body):
+            raise HTTPException(401, "bad or expired signature")
+        return body
+    return dep
+
+
+def valid_signature(secret: str, timestamp: Optional[str], signature: Optional[str], body: bytes) -> bool:
     try:
-        fresh = abs(time.time() - int(x_quixotic_timestamp or "0")) <= MAX_SKEW
+        fresh = abs(time.time() - int(timestamp or "0")) <= MAX_SKEW
     except ValueError:
         fresh = False
-    if not fresh or not x_quixotic_signature or not hmac.compare_digest(sign(secret, x_quixotic_timestamp, body), x_quixotic_signature):
-        raise HTTPException(401, "bad or expired signature")
-    return body
+    return bool(fresh and signature and hmac.compare_digest(sign(secret, timestamp, body), signature))
+
+
+signed = signed_by("vault_hook_secret")
+portal_signed = signed_by("portal_hook_secret")
 
 
 # ---- Obsidian vault push (called by the Git server hook) ----
@@ -114,3 +125,34 @@ def remove_identity(identity_id: UUID, p=Depends(require(P.MANAGE_SYSTEM)), svc:
         from ...knowledge.vault_sync import queue_view_refresh
         queue_view_refresh(svc, p.user_id, ident["external_id"], empty=True)     # unlinked: their repository keeps no notes
     audit.record(svc.ops, audit.PERMISSION_CHANGE, p.user_id, p.employee_id, action="integration_identity_removed", identity=identity_id)
+
+
+# ---- Portal: a user stopped being active there (owner decision: the Portal decides who is employed) ----
+class PortalStatus(BaseModel):
+    portal_user_id: int
+    active: bool
+    portal_admin: Any = False                  # only a JSON true counts; missing or anything else is not admin
+
+
+@router.post("/portal/status")
+def portal_status(body: PortalStatus, _: bytes = Depends(portal_signed), svc: Services = Depends(get_services)):
+    """Applies the Portal's admin flag first (a deactivated admin is lowered too; a demotion while still active also ends their
+    sessions), then active=false deactivates the account. active=true changes nothing else here: the person's next hand-off
+    reactivates it (only if the Portal deactivated it, see auth.portal_login)."""
+    user = svc.users.get_by_portal_id(body.portal_user_id)
+    if user is None:
+        return {"status": "ok"}
+    apply_portal_admin(svc, user, body.active and body.portal_admin is True)
+    if not body.active:
+        if user["account_status"] == "active":
+            svc.users.set_status(user["id"], "deactivated", None, "portal: no longer active", expect={"active"}, by_portal=True)
+        svc.sessions.revoke_user(user["id"])
+        audit.record(svc.ops, audit.ADMIN_ACTION, user["id"], user["employee_id"], action="portal_deactivated")
+    return {"status": "ok"}
+    user = svc.users.get_by_portal_id(body.portal_user_id)
+    if user:
+        if user["account_status"] == "active":
+            svc.users.set_status(user["id"], "deactivated", None, "portal: no longer active", expect={"active"}, by_portal=True)
+        svc.sessions.revoke_user(user["id"])
+        audit.record(svc.ops, audit.ADMIN_ACTION, user["id"], user["employee_id"], action="portal_deactivated")
+    return {"status": "ok"}

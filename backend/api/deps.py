@@ -5,12 +5,15 @@ Bearer header (non-browser clients). Only Active accounts pass (§5 FR-AUTH-03/0
 in this session (§5 FR-AUTH-06); cookie-authenticated writes need the session's CSRF token in `X-CSRF-Token`."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, Request
 
+from ..analytics import audit
 from ..auth.security import hash_api_key
 from ..permissions.access import Principal
 from ..permissions.roles import MFA_ROLES, P, Role, can
@@ -53,6 +56,22 @@ def mfa_required(user: dict, svc: Services) -> bool:
     return bool(svc.settings.admin_mfa_required) and Role(user["role"]) in MFA_ROLES
 
 
+def apply_portal_admin(svc: Services, user: dict, portal_admin: bool) -> bool:
+    """Portal Admin = Maqsad admin (owner rule). Any change ends the person's sessions and API keys, is audited, and refreshes
+    their Obsidian view. Shared by the hand-off and the status push so both behave the same."""
+    change = svc.users.apply_portal_role(user["id"], portal_admin)
+    if not change:
+        return False
+    from ..analytics import audit
+    from ..knowledge.vault_sync import queue_refresh_for_user
+    svc.sessions.revoke_user(user["id"])
+    svc.ops.revoke_user_api_keys(user["id"])
+    audit.record(svc.ops, audit.PERMISSION_CHANGE, user["id"], user["employee_id"], action="portal_role_set",
+                 actor="portal", from_role=change[0], to_role=change[1])
+    queue_refresh_for_user(svc, user["id"], None)
+    return True
+
+
 def current_session(request: Request, authorization: Optional[str] = Header(default=None),
                     svc: Services = Depends(get_services)) -> SessionInfo:
     """A live session of an Active account. MFA is NOT checked here (the MFA endpoints use this directly)."""
@@ -64,6 +83,15 @@ def current_session(request: Request, authorization: Optional[str] = Header(defa
         if sess:                                   # suspended / deactivated while signed in: end the session now
             svc.sessions.revoke(sess["id"])
         raise HTTPException(401, "authentication required")
+    if sess.get("bound_ip") is not None:               # Portal hand-off in a browser (docs/PRD_GAPS.md "Portal SSO")
+        # Owner decision 2026-11-05: the IP is NOT compared. The Portal already checks the office before it signs the
+        # hand-off, and the office goes out through several IPs, so an IP lock kept breaking sign-in. bound_ip is kept
+        # for the audit trail only. The exact User-Agent still has to match, so a copied cookie fails in another browser.
+        ua_hash = hashlib.sha256(request.headers.get("user-agent", "").encode()).hexdigest()
+        if not hmac.compare_digest(ua_hash, sess["bound_ua_hash"] or ""):
+            svc.sessions.revoke(sess["id"])
+            audit.record(svc.ops, audit.FAILED_AUTHENTICATION, user["id"], user["employee_id"], reason="binding")
+            raise HTTPException(401, "authentication required")
     via_cookie = bearer is None
     if via_cookie and request.method not in SAFE_METHODS:
         if request.headers.get(CSRF_HEADER) != sess["csrf_token"]:

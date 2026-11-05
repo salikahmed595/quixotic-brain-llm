@@ -5,6 +5,8 @@ import json
 from typing import Optional
 from uuid import UUID
 
+import psycopg.errors
+
 from ..permissions.access import Principal
 from ..permissions.roles import Role
 
@@ -53,6 +55,83 @@ class UserStore:
         with self.pool.connection() as c:
             return c.execute("SELECT * FROM users WHERE tenant_id=%s AND lower(email)=lower(%s)", (self.tenant, email)).fetchone()
 
+    # ---- Portal SSO (docs/PRD_GAPS.md "Portal SSO") ----
+    def get_by_portal_id(self, portal_user_id: int) -> Optional[dict]:
+        with self.pool.connection() as c:
+            return c.execute("SELECT * FROM users WHERE tenant_id=%s AND portal_user_id=%s", (self.tenant, portal_user_id)).fetchone()
+
+    def link_portal(self, user_id: UUID, portal_user_id: int) -> bool:
+        """Only an unlinked account can be linked, so a Maqsad user is never re-pointed at a different Portal user."""
+        try:
+            with self.pool.connection() as c:
+                return c.execute("UPDATE users SET portal_user_id=%s WHERE tenant_id=%s AND id=%s AND portal_user_id IS NULL",
+                                 (portal_user_id, self.tenant, user_id)).rowcount == 1
+        except psycopg.errors.UniqueViolation:           # another account already holds this Portal id: a clash, not a crash
+            return False
+
+    def create_portal_user(self, portal_user_id: int, username: str, email: str, full_name: str, password_hash: str) -> Optional[UUID]:
+        """Owner decision: Portal people get access with no approval step. Always an Employee with no departments; the Portal
+        never sends roles or departments. None if a unique value (username, email, portal id) was taken meanwhile."""
+        try:
+            with self.pool.connection() as c, c.transaction():
+                uid = c.execute(
+                    "INSERT INTO users (tenant_id, employee_id, email, full_name, password_hash, role, account_status, "
+                    "email_verified_at, portal_user_id) VALUES (%s,%s,%s,%s,%s,'employee','active',now(),%s) RETURNING id",
+                    (self.tenant, username, email, full_name, password_hash, portal_user_id)).fetchone()["id"]
+                c.execute("INSERT INTO account_status_history (user_id, from_status, to_status, note) "
+                          "VALUES (%s,NULL,'active','portal: created at first Portal sign-in')", (uid,))
+            return uid
+        except psycopg.errors.UniqueViolation:
+            return None
+
+    def clear_portal_deactivation(self, user_id: UUID) -> None:
+        with self.pool.connection() as c:
+            c.execute("UPDATE users SET deactivated_by_portal=false WHERE tenant_id=%s AND id=%s", (self.tenant, user_id))
+
+    def apply_portal_role(self, user_id: UUID, portal_admin: bool) -> Optional[tuple[str, str]]:
+        """Owner rule: Portal Admin = Maqsad admin. Returns (from_role, to_role) when the role changed, else None.
+        A Portal Admin is raised to system_admin even if a Maqsad admin had lowered them by hand (the old role is kept in
+        role_before_portal). Lowering gives that role back, and only when the Portal was the one that raised them; a role set by
+        hand (role_set_by_portal false) and founder_ceo are never touched."""
+        with self.pool.connection() as c, c.transaction():
+            u = c.execute("SELECT role, role_set_by_portal, role_before_portal FROM users WHERE tenant_id=%s AND id=%s FOR UPDATE",
+                          (self.tenant, user_id)).fetchone()
+            if u is None:
+                return None
+            if portal_admin and u["role"] not in ("system_admin", "founder_ceo"):
+                to = "system_admin"
+            elif not portal_admin and u["role_set_by_portal"] and u["role"] == "system_admin":
+                to = u["role_before_portal"] if u["role_before_portal"] in {r.value for r in Role} - {"system_admin", "founder_ceo"} else "employee"
+            else:
+                return None
+            raised = to == "system_admin"
+            c.execute("UPDATE users SET role=%s, role_set_by_portal=%s, role_before_portal=%s WHERE tenant_id=%s AND id=%s",
+                      (to, raised, u["role"] if raised else None, self.tenant, user_id))
+            return u["role"], to
+
+    def sync_portal_profile(self, user_id: UUID, full_name: str, email: Optional[str], username: str) -> None:
+        """Name always; email and username only when nobody else holds them. Never role, departments or status."""
+        with self.pool.connection() as c:
+            c.execute("UPDATE users SET full_name=%s WHERE tenant_id=%s AND id=%s", (full_name, self.tenant, user_id))
+        for column, value in (("email", email), ("employee_id", username)):      # each on its own: one clash skips only that field
+            if not value:
+                continue
+            try:
+                with self.pool.connection() as c:
+                    c.execute(f"UPDATE users SET {column}=%s WHERE id=%s AND NOT EXISTS "
+                              f"(SELECT 1 FROM users o WHERE o.tenant_id=%s AND o.id<>%s AND lower(o.{column})=lower(%s))",
+                              (value, user_id, self.tenant, user_id, value))
+            except psycopg.errors.UniqueViolation:       # a race between the check and the update
+                pass
+
+    def use_jti(self, jti: str, portal_user_id: int, expires_in_seconds: int) -> bool:
+        """True the first time a hand-off token id is seen, False on replay. Also purges ids that have expired."""
+        with self.pool.connection() as c, c.transaction():
+            c.execute("DELETE FROM portal_handoffs WHERE expires_at < now()")
+            return c.execute("INSERT INTO portal_handoffs (jti, portal_user_id, expires_at) "
+                             "VALUES (%s,%s, now() + make_interval(secs => %s)) ON CONFLICT DO NOTHING RETURNING jti",
+                             (jti, portal_user_id, expires_in_seconds)).fetchone() is not None
+
     def principal(self, user: dict) -> Principal:
         with self.pool.connection() as c:
             depts = {r["department_id"] for r in c.execute(
@@ -98,7 +177,8 @@ class UserStore:
                     can_publish: Optional[bool] = None, full_name: Optional[str] = None) -> None:
         with self.pool.connection() as c, c.transaction():
             if role is not None:
-                c.execute("UPDATE users SET role=%s WHERE tenant_id=%s AND id=%s", (role.value, self.tenant, user_id))
+                # a hand-set role is the administrator's word: the Portal's next hand-off may not take it back
+                c.execute("UPDATE users SET role=%s, role_set_by_portal=false WHERE tenant_id=%s AND id=%s", (role.value, self.tenant, user_id))
             if can_publish is not None:
                 c.execute("UPDATE users SET can_publish=%s WHERE tenant_id=%s AND id=%s", (can_publish, self.tenant, user_id))
             if full_name is not None:
@@ -109,14 +189,19 @@ class UserStore:
                     c.execute("INSERT INTO user_departments (user_id, department_id) VALUES (%s,%s)", (user_id, d))
 
     def set_status(self, user_id: UUID, to_status: str, actor: Optional[UUID], note: Optional[str] = None,
-                   expect: Optional[set] = None) -> Optional[str]:
+                   expect: Optional[set] = None, by_portal: bool = False) -> Optional[str]:
         """Change the account state and record it (FR-AUTH-07). Returns the previous state, or None when the user does not
         exist or is not in one of the `expect`ed states (so two admins cannot both decide the same request)."""
         if to_status not in ACCOUNT_STATES:
             raise ValueError(to_status)
         with self.pool.connection() as c, c.transaction():
             row = c.execute("SELECT account_status FROM users WHERE tenant_id=%s AND id=%s FOR UPDATE", (self.tenant, user_id)).fetchone()
-            if not row or (expect is not None and row["account_status"] not in expect):
+            if not row:
+                return None
+            matched = expect is None or row["account_status"] in expect
+            # The flag says "deactivated because the Portal said so": any other change, even a refused one, clears it.
+            c.execute("UPDATE users SET deactivated_by_portal=%s WHERE id=%s", (by_portal and matched and to_status == DEACTIVATED, user_id))
+            if not matched:
                 return None
             c.execute("UPDATE users SET account_status=%s WHERE id=%s", (to_status, user_id))
             c.execute("INSERT INTO account_status_history (user_id, from_status, to_status, actor_id, note) VALUES (%s,%s,%s,%s,%s)",

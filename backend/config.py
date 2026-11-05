@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     vault_contributors_dir: Optional[str] = None
     vault_remote: Optional[str] = None                # bare Git repository the CEO's Obsidian syncs with
 
+    # ---- Portal SSO (docs/PRD_GAPS.md; optional — off unless the public key is set) ----------------------------------------
+    portal_public_key: Optional[str] = None           # base64 of the raw 32-byte Ed25519 public key; unset = /v1/auth/portal is 404
+    portal_issuer: Optional[str] = None               # the Portal's base URL, must equal the token's `iss`
+    portal_hook_secret: Optional[str] = None          # >= 32 chars; HMAC for the Portal's server calls (status push, server hand-off)
+    portal_session_ttl_seconds: int = 28800           # 8 h for sessions made from a Portal hand-off
+
     # ---- ingestion (PRD §13) — PRD gives no sizes ------------------------------------
     max_upload_bytes: int                  # PRD §51 "Upload size limits" without a number
     chunk_size: int                        # PRD §13.3 "Chunk Content" without a strategy
@@ -237,7 +243,16 @@ class Settings(BaseSettings):
             raise ValueError("queue_backend=sqs needs sqs_queue_url")
         if self.mail_backend == "smtp" and not (self.smtp_host and self.smtp_port and self.mail_from):
             raise ValueError("mail_backend=smtp needs smtp_host, smtp_port and mail_from")
-        for name in ("vault_hook_secret",):
+        if self.portal_public_key:
+            if not (self.portal_issuer and self.portal_hook_secret):
+                raise ValueError("portal_public_key needs portal_issuer and portal_hook_secret")
+            import base64
+            try:
+                if len(base64.b64decode(self.portal_public_key, validate=True)) != 32:
+                    raise ValueError
+            except Exception:
+                raise ValueError("portal_public_key must be base64 of a raw 32-byte Ed25519 public key")
+        for name in ("vault_hook_secret", "portal_hook_secret"):
             v = getattr(self, name)
             if v is not None and len(v) < 32:
                 raise ValueError(f"{name} must be at least 32 characters")
